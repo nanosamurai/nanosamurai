@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+
+# Local Bedrock smoke-test scratch files
+.tmp.bedrock.*
+.tmp.compose.*
+out*.json
+.Python
+.venv/
+venv/
+ENV/
+env/
+
+# Build/artifacts
+dist/
+build/
+*.egg-info/
+
+# OS/editor
+.idea/
+.tmp/
+.pulumi-home/
+tmp.rendered.yaml
+.tmp.rendered.yaml
+.vscode/
+*.swp
+Thumbs.db
+Desktop.ini
+hs_err_pid*.log
