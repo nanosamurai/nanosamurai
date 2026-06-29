@@ -1,8 +1,10 @@
-# nanosamurai (Community Edition)
+# nanosamurai
 
-This repository is the **front door** for the nanosamurai project.
+Open-source **self-hosted** speech-to-text + workflow automation stack.
 
-Goal: a **Compose-first** evaluation path with security-first defaults.
+This repo is the **starting point**: documentation, local (Docker Compose) setup, and smoke tests.
+
+> Status: WIP. The Compose stack is currently a minimal skeleton while we complete the OSS rollout.
 
 ## Quickstart (local)
 
@@ -27,11 +29,19 @@ docker compose up -d
 ./smoke-tests/smoke.sh
 ```
 
-## What this repo is / isn’t
+## What you get
+- A Compose-driven local environment (no Kubernetes required)
+- Smoke tests to validate that the stack is up
+- Docs for running and troubleshooting
 
-- ✅ Compose-based runnable Community Edition
-- ✅ docs + smoke tests
-- ❌ no Helm charts / Kubernetes delivery IP
-- ❌ no cloud infra automation (Pulumi/Terraform)
+## Roadmap (short-term)
+- Replace the placeholder service with the full local stack
+- Add a realistic end-to-end smoke test (API call → transcription result)
+- Add an optional observability profile (Tempo/Loki/Prometheus/Grafana)
 
-For Kubernetes deployment, see the private repos `nanodeploy` and `nanoplatform`.
+## Repositories
+The nanosamurai project is split into several repositories (services + SDK + this front door). Links will be added as the rollout progresses.
+
+## Security
+- Do not commit secrets (tokens, API keys, private keys). Use `.env` locally.
+- Local defaults should bind to `127.0.0.1` unless explicitly documented.

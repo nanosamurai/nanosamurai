@@ -1,29 +1,17 @@
-# nanosamurai (front-door / community edition)
+# nanosamurai contributors guide (internal)
 
-This repository is the **front door** for the nanosamurai project.
+This file contains **contributor-only** guidance for maintaining this repository.
+It is intentionally **not part of the public-facing documentation**.
 
-## Purpose
-- Provide a **Compose-first** “Community Edition” that is runnable end-to-end on a developer machine.
-- Offer a clear, security-first evaluation path (docs + smoke tests) without exposing paid/private delivery IP.
+## Repo intent
+- Keep this repo focused on **local Docker Compose** setup, docs, and smoke tests.
+- Favor a fast “clone → run” evaluation path.
 
-## What must NOT be added here
-- Production Kubernetes delivery IP (hardened Helm charts, env overlays, upgrade choreography).
-- Infrastructure automation IP (Pulumi/Terraform foundations for AWS).
-- Real customer credentials, tokens, or private endpoints.
+## Security rules (non-negotiable)
+- Never commit secrets (tokens, API keys, private keys).
+- Prefer `127.0.0.1` binds by default; any LAN/WAN exposure must be explicit and documented.
 
-Those belong in private repos like `nanodeploy` and `nanoplatform`.
-
-## Naming
-- Use **nanosamurai** for the overall solution.
-- The voice services repo is **xamurai** (legacy name: drsynth).
-
-## Security rules
-- No secrets in git (tokens, API keys, private keys). Use `.env.example` and runtime env injection.
-- Never bind services to 0.0.0.0 unless explicitly documented; prefer `127.0.0.1` for local dev.
-- Default configs should be safe and not internet-exposed.
-
-## Repo structure (recommended)
-- `docker-compose.yml` (main entrypoint)
-- `compose/` (compose fragments / profiles)
-- `docs/` (how-to run, troubleshooting, architecture)
-- `smoke-tests/` (scripts for quick verification)
+## Structure
+- `docker-compose.yml`
+- `docs/`
+- `smoke-tests/`
