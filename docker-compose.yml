@@ -1,0 +1,15 @@
+name: nanosamurai
+
+services:
+  # Placeholder front-door compose file.
+  #
+  # This repo will eventually orchestrate the Community Edition stack using images
+  # published to GHCR (ghcr.io/nanosamurai/*).
+  #
+  # For now, we keep an intentionally minimal skeleton so the repo can grow
+  # iteratively without leaking private deployment IP.
+  hello:
+    image: alpine:3.20
+    command: ["sh", "-lc", "echo nanosamurai-compose-skeleton && sleep 3600"]
+    restart: unless-stopped
+    # Safety default: no ports exposed.

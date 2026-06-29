@@ -1,0 +1,10 @@
+[extend]
+
+[allowlist]
+description = "Project allowlist"
+paths = [
+  "^docs/",
+  "^README\\.md$",
+  "^NOTICE$",
+  "^LICENSE$",
+]
