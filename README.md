@@ -43,5 +43,5 @@ docker compose up -d
 The nanosamurai project is split into several repositories (services + SDK + this front door). Links will be added as the rollout progresses.
 
 ## Security
-- Do not commit secrets (tokens, API keys, private keys). Use `.env` locally.
+- Do not commit secrets (tokens, API keys, private keys). Use `.env` (or similar) locally.
 - Local defaults should bind to `127.0.0.1` unless explicitly documented.
