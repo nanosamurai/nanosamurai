@@ -1,9 +1,10 @@
 # Docs
 
-This directory contains documentation for the Community Edition.
+The Community Edition runbook currently lives in the repository `README.md`.
 
-Planned:
+Planned follow-ups:
+
 - architecture overview
-- local runtime guide
-- troubleshooting
-- smoke tests guide
+- troubleshooting guide
+- smoke test guide
+- image release policy
