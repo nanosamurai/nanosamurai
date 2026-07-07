@@ -1,0 +1,108 @@
+{
+  "uid": "samuraibff-http",
+  "title": "SamuraiBFF / HTTP",
+  "tags": ["samuraibff", "http"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": {"from": "now-30m", "to": "now"},
+  "templating": {
+    "list": [
+      {
+        "type": "datasource",
+        "name": "ds",
+        "label": "Prometheus",
+        "query": "prometheus",
+        "current": {"text": "Prometheus", "value": "Prometheus"}
+      },
+      {
+        "type": "query",
+        "name": "route",
+        "label": "Route",
+        "datasource": "${ds}",
+        "query": {"query": "label_values(samuraibff_http_requests_total, route)", "refId": "A"},
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": {"text": "All", "value": ".*"}
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Requests / second (by route)",
+      "gridPos": {"x": 0, "y": 0, "w": 24, "h": 8},
+      "datasource": "${ds}",
+      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (route) (rate(samuraibff_http_requests_total{route=~\"$route\"}[5m]))",
+          "legendFormat": "{{route}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "5xx error rate (%)",
+      "gridPos": {"x": 0, "y": 8, "w": 12, "h": 7},
+      "datasource": "${ds}",
+      "fieldConfig": {"defaults": {"unit": "percent", "min": 0, "max": 100}, "overrides": []},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * (sum(rate(samuraibff_http_requests_total{route=~\\\"$route\\\",status=~\\\"5..\\\"}[5m])) / sum(rate(samuraibff_http_requests_total{route=~\\\"$route\\\"}[5m])))",
+          "legendFormat": "5xx%"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "p95 latency (seconds, by route)",
+      "gridPos": {"x": 12, "y": 8, "w": 12, "h": 7},
+      "datasource": "${ds}",
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le, route) (rate(samuraibff_http_request_duration_seconds_bucket{route=~\\\"$route\\\"}[5m])))",
+          "legendFormat": "{{route}}"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "Top routes (RPS + 5xx RPS)",
+      "gridPos": {"x": 0, "y": 15, "w": 24, "h": 8},
+      "datasource": "${ds}",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (route) (rate(samuraibff_http_requests_total{route=~\\\"$route\\\"}[5m]))",
+          "legendFormat": "{{route}}",
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (route) (rate(samuraibff_http_requests_total{route=~\\\"$route\\\",status=~\\\"5..\\\"}[5m]))",
+          "legendFormat": "{{route}}",
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {"id": "merge", "options": {}},
+        {
+          "id": "organize",
+          "options": {
+            "renameByName": {
+              "Value #A": "rps",
+              "Value #B": "rps_5xx"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

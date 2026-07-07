@@ -1,0 +1,21 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["prometheus:9090"]
+
+  # samuraibff exposes Prometheus-format metrics at /internal/metrics.
+  # This endpoint must remain internal-only.
+  - job_name: samuraibff
+    metrics_path: /internal/metrics
+    static_configs:
+      - targets: ["samuraibff:8000"]
+
+  # rtservice can expose /metrics when RT_METRICS_* env vars are enabled.
+  - job_name: rtservice
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["rtservice:8008"]
