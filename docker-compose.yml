@@ -138,7 +138,7 @@ services:
     command: ["/bin/sh", "-c", "psql -h postgres -U drsynth -d nanosamurai -v ON_ERROR_STOP=1 -f /seed.sql"]
 
   samuraibff:
-    image: ${SAMURAIBFF_IMAGE:-ghcr.io/nanosamurai/samuraibff:sha-0931f51a31825df8f714768b36e216133fe388bc}
+    image: ${SAMURAIBFF_IMAGE:-ghcr.io/nanosamurai/samuraibff:sha-0743b0793929564d22ac4c0da29fa758199b982a}
     restart: unless-stopped
     ports:
       - "${COMPOSE_BIND_IP:-127.0.0.1}:8000:8000"
@@ -179,7 +179,7 @@ services:
         condition: service_completed_successfully
 
   samuraipersistor:
-    image: ${SAMURAIPERSISTOR_IMAGE:-ghcr.io/nanosamurai/samuraipersistor:sha-e789df1b6497c00daf63227df918bf9dd073f04e}
+    image: ${SAMURAIPERSISTOR_IMAGE:-ghcr.io/nanosamurai/samuraipersistor:sha-b954edcafc546ea70be09d1729ac1042d8dffb67}
     restart: unless-stopped
     ports:
       - "${COMPOSE_BIND_IP:-127.0.0.1}:8010:8010"
@@ -203,7 +203,7 @@ services:
 
   rtservice:
     profiles: ["speech"]
-    image: ${RTSERVICE_IMAGE:-ghcr.io/nanosamurai/xamurai-rtservice:sha-11dcb7f27eaf6c3ac4889e00e0a1e3f56453afe8}
+    image: ${RTSERVICE_IMAGE:-ghcr.io/nanosamurai/xamurai-rtservice:sha-8f39b40681e8e3e3d99ca2fbffdf6ed7af47ba85}
     restart: unless-stopped
     ports:
       - "${COMPOSE_BIND_IP:-127.0.0.1}:50052:50052"
@@ -235,7 +235,7 @@ services:
 
   whisperx_worker:
     profiles: ["speech"]
-    image: ${WHISPERX_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-whisperx-worker:sha-11dcb7f27eaf6c3ac4889e00e0a1e3f56453afe8}
+    image: ${WHISPERX_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-whisperx-worker:sha-8f39b40681e8e3e3d99ca2fbffdf6ed7af47ba85}
     restart: unless-stopped
     environment:
       KAFKA_BOOTSTRAP: broker:29092
@@ -263,7 +263,7 @@ services:
 
   recorder_worker:
     profiles: ["speech"]
-    image: ${RECORDER_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-recorder-worker:sha-11dcb7f27eaf6c3ac4889e00e0a1e3f56453afe8}
+    image: ${RECORDER_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-recorder-worker:sha-8f39b40681e8e3e3d99ca2fbffdf6ed7af47ba85}
     restart: unless-stopped
     environment:
       KAFKA_BOOTSTRAP: broker:29092
@@ -287,7 +287,7 @@ services:
 
   finalizer_worker:
     profiles: ["speech"]
-    image: ${FINALIZER_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-finalizer-worker:sha-11dcb7f27eaf6c3ac4889e00e0a1e3f56453afe8}
+    image: ${FINALIZER_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-finalizer-worker:sha-8f39b40681e8e3e3d99ca2fbffdf6ed7af47ba85}
     restart: unless-stopped
     environment:
       KAFKA_BOOTSTRAP: broker:29092
