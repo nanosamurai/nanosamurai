@@ -29,3 +29,5 @@ tmp.rendered.yaml
 Thumbs.db
 Desktop.ini
 hs_err_pid*.log
+
+.docker-auth/
