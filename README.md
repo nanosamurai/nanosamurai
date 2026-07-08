@@ -83,6 +83,9 @@ run.
   exposure and have firewall controls in place.
 - Do not commit `.env`, tokens, recordings, transcripts, or customer data.
 - LocalStack credentials in Compose are test-only values.
+- LocalStack is pinned to a community image tag by default. Avoid using
+  `localstack/localstack:latest` for this stack unless you intentionally want
+  the current upstream image behavior.
 
 ## Image Tags
 
