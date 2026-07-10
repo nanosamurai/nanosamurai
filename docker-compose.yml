@@ -296,6 +296,11 @@ services:
       KAFKA_GROUP_ID_FINALIZER: finalizer-worker
       HF_TOKEN: ${HF_TOKEN:-}
       HF_HOME: /data/hf_cache
+      S3_ENDPOINT: http://localstack:4566
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: test
+      S3_SECRET_KEY: test
+      S3_FORCE_PATH_STYLE: "true"
       ENROLL_BACKEND: s3_manifest
       ENROLL_S3_ENDPOINT: http://localstack:4566
       ENROLL_S3_BUCKET: ${NANOSAMURAI_ENROLLMENT_BUCKET:-nanosamurai-enrollment}
@@ -310,6 +315,8 @@ services:
     depends_on:
       kafka_init:
         condition: service_completed_successfully
+      localstack:
+        condition: service_started
 
 volumes:
   nanosamurai_pgdata:

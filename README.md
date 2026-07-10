@@ -57,6 +57,10 @@ python utilities/k8s_local_smoke_test/tier2_realtime_asr.py --base-url http://12
 The speech containers request `gpus: all`. If Docker GPU support is not
 available, remove or override those entries for CPU-only testing.
 
+Recorder and finalizer both use the recording S3 store. In Compose this points
+at LocalStack with test-only credentials so `recording-finished` events can be
+resolved by `finalizer_worker` into `transcripts.final`.
+
 ## Observability
 
 The observability stack is optional and separated into an override file:
