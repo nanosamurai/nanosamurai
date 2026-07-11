@@ -1,47 +1,100 @@
 # nanosamurai
 
-Open-source **self-hosted** speech-to-text + workflow automation stack.
+Open-source **self-hosted** speech-to-text and workflow automation stack.
 
-This repo is the **starting point**: documentation, local (Docker Compose) setup, and smoke tests.
+This is the public front-door repo for running the Community Edition locally
+with Docker Compose. Service images are pulled from `ghcr.io/nanosamurai/*`
+and pinned by SHA by default.
 
-> Status: WIP. The Compose stack is currently a minimal skeleton while we complete the OSS rollout.
-
-## Quickstart (local)
+## Quickstart
 
 Prerequisites:
-- Docker Desktop (or Docker Engine)
 
-1) Copy env file:
+- Docker Desktop or Docker Engine
+- GHCR access if the packages are still private
 
 ```bash
 cp .env.example .env
-```
-
-2) Start the stack:
-
-```bash
 docker compose up -d
 ```
 
-3) Run smoke tests:
+Open the UI at http://127.0.0.1:8000.
+
+Run the basic smoke test:
 
 ```bash
-./smoke-tests/smoke.sh
+python -m venv .venv-smoke
+. .venv-smoke/bin/activate
+python -m pip install -r utilities/k8s_local_smoke_test/requirements.txt
+python utilities/k8s_local_smoke_test/tier1_bff_connectivity.py --base-url http://127.0.0.1:8000
 ```
 
-## What you get
-- A Compose-driven local environment (no Kubernetes required)
-- Smoke tests to validate that the stack is up
-- Docs for running and troubleshooting
+Windows PowerShell:
 
-## Roadmap (short-term)
-- Replace the placeholder service with the full local stack
-- Add a realistic end-to-end smoke test (API call → transcription result)
-- Add an optional observability profile (Tempo/Loki/Prometheus/Grafana)
+```powershell
+py -m venv .venv-smoke
+.\.venv-smoke\Scripts\python -m pip install -r utilities\k8s_local_smoke_test\requirements.txt
+.\.venv-smoke\Scripts\python utilities\k8s_local_smoke_test\tier1_bff_connectivity.py --base-url http://127.0.0.1:8000
+```
 
-## Repositories
-The nanosamurai project is split into several repositories (services + SDK + this front door). Links will be added as the rollout progresses.
+## Speech Services
+
+Speech services need `HF_TOKEN` for model downloads. The token should have only
+the minimum model-read permissions required by HuggingFace/pyannote.
+
+Set `HF_TOKEN` in `.env`, then start the speech profile:
+
+```bash
+docker compose --profile speech up -d
+```
+
+Run the realtime ASR smoke test after `rtservice` finishes cold-starting:
+
+```bash
+python utilities/k8s_local_smoke_test/tier2_realtime_asr.py --base-url http://127.0.0.1:8000 --wav tests/data/test_cs.wav --lang cs
+```
+
+The speech containers request `gpus: all`. If Docker GPU support is not
+available, remove or override those entries for CPU-only testing.
+
+Recorder and finalizer both use the recording S3 store. In Compose this points
+at LocalStack with test-only credentials so `recording-finished` events can be
+resolved by `finalizer_worker` into `transcripts.final`.
+
+## Observability
+
+The observability stack is optional and separated into an override file:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.observability.yml --profile speech up -d
+```
+
+Local endpoints:
+
+- Grafana: http://127.0.0.1:3001 (`admin` / `admin`)
+- Prometheus: http://127.0.0.1:9090
+- Loki: http://127.0.0.1:3100
+- Tempo: http://127.0.0.1:3200
+
+The override downloads the OpenTelemetry Java agent into a Docker volume on
+first start. Use the base Compose file alone for an offline/no-observability
+run.
 
 ## Security
-- Do not commit secrets (tokens, API keys, private keys). Use `.env` (or similar) locally.
-- Local defaults should bind to `127.0.0.1` unless explicitly documented.
+
+- Published ports bind to `127.0.0.1` by default through `COMPOSE_BIND_IP`.
+- Do not set `COMPOSE_BIND_IP=0.0.0.0` unless you intentionally want LAN
+  exposure and have firewall controls in place.
+- Do not commit `.env`, tokens, recordings, transcripts, or customer data.
+- LocalStack credentials in Compose are test-only values.
+- LocalStack is pinned to a community image tag by default. Avoid using
+  `localstack/localstack:latest` for this stack unless you intentionally want
+  the current upstream image behavior.
+
+## Image Tags
+
+The current default is immutable SHA tags. Future release options include:
+
+- semantic version tags for stable releases
+- `edge` tags for latest successful `master`
+- signed release tags with provenance once the public release process is ready

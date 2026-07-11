@@ -1,0 +1,5 @@
+# Minimal deps for the local k8s smoke test (BFF WebSocket audio)
+requests>=2.31
+websocket-client>=1.7
+soundfile>=0.12
+numpy>=1.26

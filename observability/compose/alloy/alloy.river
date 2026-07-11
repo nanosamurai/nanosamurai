@@ -1,0 +1,69 @@
+// Grafana Alloy in Docker Compose mode.
+//
+// Purpose:
+// - tail Docker container logs
+// - label them with Compose metadata
+// - push to Loki
+//
+// Security note:
+// This config requires read access to the Docker Engine API via /var/run/docker.sock.
+
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  // Only ingest logs from Docker Compose-managed containers.
+  // This prevents accidentally shipping logs from unrelated containers (e.g. kind/k3d).
+  rule {
+    action        = "keep"
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    regex         = ".+"
+  }
+
+  // /container-name -> container-name
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+    replacement   = "$1"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    target_label  = "compose_project"
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.containers.output
+  forward_to = [loki.process.compose.receiver]
+}
+
+loki.process "compose" {
+  // Parse Docker JSON log format and extract the embedded timestamp.
+  // Without this, Alloy may fail to timestamp some log entries.
+  stage.docker {}
+
+  stage.static_labels {
+    values = {
+      cluster = "local-compose",
+    }
+  }
+
+  forward_to = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

@@ -1,0 +1,143 @@
+services:
+  samuraibff:
+    environment:
+      OTEL_TRACES_EXPORTER: ${OTEL_TRACES_EXPORTER:-otlp}
+      OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL:-grpc}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel_collector:4317}
+      OTEL_RESOURCE_ATTRIBUTES: ${OTEL_RESOURCE_ATTRIBUTES:-service.namespace=nanosamurai,deployment.environment=local}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME_BFF:-samuraibff}
+      OTEL_LOGS_EXPORTER: ${OTEL_LOGS_EXPORTER:-none}
+      OTEL_METRICS_EXPORTER: ${OTEL_METRICS_EXPORTER:-none}
+      OTEL_INSTRUMENTATION_KAFKA_ENABLED: ${OTEL_INSTRUMENTATION_KAFKA_ENABLED:-false}
+      JAVA_TOOL_OPTIONS: -javaagent:/otel/opentelemetry-javaagent.jar
+    volumes:
+      - otel_javaagent:/otel:ro
+    depends_on:
+      otel_javaagent_init:
+        condition: service_completed_successfully
+
+  samuraipersistor:
+    environment:
+      OTEL_TRACES_EXPORTER: ${OTEL_TRACES_EXPORTER:-otlp}
+      OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL:-grpc}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel_collector:4317}
+      OTEL_RESOURCE_ATTRIBUTES: ${OTEL_RESOURCE_ATTRIBUTES:-service.namespace=nanosamurai,deployment.environment=local}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME_PERSISTOR:-samuraipersistor}
+      OTEL_LOGS_EXPORTER: ${OTEL_LOGS_EXPORTER:-none}
+      OTEL_METRICS_EXPORTER: ${OTEL_METRICS_EXPORTER:-none}
+      OTEL_INSTRUMENTATION_KAFKA_ENABLED: ${OTEL_INSTRUMENTATION_KAFKA_ENABLED:-false}
+      JAVA_TOOL_OPTIONS: -javaagent:/otel/opentelemetry-javaagent.jar
+    volumes:
+      - otel_javaagent:/otel:ro
+    depends_on:
+      otel_javaagent_init:
+        condition: service_completed_successfully
+
+  otel_javaagent_init:
+    image: curlimages/curl:8.14.1
+    user: "0"
+    restart: "no"
+    command:
+      - sh
+      - -lc
+      - |
+        set -euo pipefail
+        AGENT_PATH=/otel/opentelemetry-javaagent.jar
+        if [ -s "$$AGENT_PATH" ]; then
+          exit 0
+        fi
+        curl -fsSL \
+          "https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.16.0/opentelemetry-javaagent.jar" \
+          -o "$$AGENT_PATH"
+        chmod 0644 "$$AGENT_PATH"
+    volumes:
+      - otel_javaagent:/otel
+
+  grafana:
+    image: grafana/grafana:12.4.0
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "${COMPOSE_BIND_IP:-127.0.0.1}:3001:3000"
+    volumes:
+      - ./observability/compose/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/compose/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+
+  prometheus:
+    image: quay.io/prometheus/prometheus:v3.9.1
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=12h
+    ports:
+      - "${COMPOSE_BIND_IP:-127.0.0.1}:9090:9090"
+    volumes:
+      - ./observability/compose/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - samuraibff
+
+  loki:
+    image: grafana/loki:3.6.5
+    user: "0"
+    restart: unless-stopped
+    command: ["-config.file=/etc/loki/loki-config.yaml"]
+    ports:
+      - "${COMPOSE_BIND_IP:-127.0.0.1}:3100:3100"
+    volumes:
+      - ./observability/compose/loki/loki-config.yaml:/etc/loki/loki-config.yaml:ro
+      - loki_data:/var/lib/loki
+
+  tempo:
+    image: grafana/tempo:2.9.0
+    user: "0"
+    restart: unless-stopped
+    command: ["-config.file=/etc/tempo/tempo.yaml"]
+    ports:
+      - "${COMPOSE_BIND_IP:-127.0.0.1}:3200:3200"
+    volumes:
+      - ./observability/compose/tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - tempo_data:/var/tempo/traces
+
+  otel_collector:
+    image: otel/opentelemetry-collector-k8s:0.146.1
+    restart: unless-stopped
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    ports:
+      - "${COMPOSE_BIND_IP:-127.0.0.1}:4317:4317"
+      - "${COMPOSE_BIND_IP:-127.0.0.1}:4318:4318"
+    volumes:
+      - ./observability/compose/otel/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    depends_on:
+      - tempo
+
+  alloy:
+    image: grafana/alloy:v1.13.0
+    restart: unless-stopped
+    command:
+      - run
+      - /etc/alloy/alloy.river
+      - --server.http.listen-addr=0.0.0.0:12345
+    ports:
+      - "${COMPOSE_BIND_IP:-127.0.0.1}:12345:12345"
+    volumes:
+      - ./observability/compose/alloy/alloy.river:/etc/alloy/alloy.river:ro
+      - //var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - loki
+
+volumes:
+  otel_javaagent:
+  grafana_data:
+  prometheus_data:
+  loki_data:
+  tempo_data:

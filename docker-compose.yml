@@ -1,15 +1,324 @@
 name: nanosamurai
 
 services:
-  # Placeholder front-door compose file.
-  #
-  # This repo will eventually orchestrate the Community Edition stack using images
-  # published to GHCR (ghcr.io/nanosamurai/*).
-  #
-  # For now, we keep an intentionally minimal skeleton so the repo can grow
-  # iteratively without leaking private deployment IP.
-  hello:
-    image: alpine:3.20
-    command: ["sh", "-lc", "echo nanosamurai-compose-skeleton && sleep 3600"]
+  broker:
+    image: apache/kafka:latest
     restart: unless-stopped
-    # Safety default: no ports exposed.
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://broker:29092,EXTERNAL://127.0.0.1:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@broker:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUM_PARTITIONS: 1
+    ports:
+      - "${COMPOSE_BIND_IP:-127.0.0.1}:9092:9092"
+
+  kafka_init:
+    image: apache/kafka:latest
+    depends_on:
+      - broker
+    restart: "no"
+    command:
+      - /bin/bash
+      - -lc
+      - |
+        set -euo pipefail
+        until /opt/kafka/bin/kafka-topics.sh --bootstrap-server broker:29092 --list >/dev/null 2>&1; do
+          sleep 2
+        done
+
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server broker:29092 --create --if-not-exists --topic audio.raw --partitions 1 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server broker:29092 --create --if-not-exists --topic transcripts.refined --partitions 1 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server broker:29092 --create --if-not-exists --topic transcripts.refined.consolidated --partitions 1 --replication-factor 1 --config cleanup.policy=compact
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server broker:29092 --create --if-not-exists --topic sessions.meta --partitions 1 --replication-factor 1 --config cleanup.policy=compact
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server broker:29092 --create --if-not-exists --topic recordings.finished --partitions 1 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server broker:29092 --create --if-not-exists --topic transcripts.final --partitions 1 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server broker:29092 --create --if-not-exists --topic transcripts.persistor.dlq --partitions 1 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server broker:29092 --create --if-not-exists --topic webhook.dispatch --partitions 1 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server broker:29092 --create --if-not-exists --topic webhook.delivery_outcome --partitions 1 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server broker:29092 --create --if-not-exists --topic workflow.dispatch --partitions 1 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server broker:29092 --create --if-not-exists --topic workflow.result --partitions 1 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server broker:29092 --create --if-not-exists --topic workflow.outcome --partitions 1 --replication-factor 1
+
+  localstack:
+    image: ${LOCALSTACK_IMAGE:-localstack/localstack:3.8.1}
+    restart: unless-stopped
+    ports:
+      - "${COMPOSE_BIND_IP:-127.0.0.1}:4566:4566"
+    environment:
+      SERVICES: s3,secretsmanager
+      DEFAULT_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      EAGER_SERVICE_LOADING: 1
+      PERSISTENCE: 1
+      DATA_DIR: /var/lib/localstack
+      NANOSAMURAI_ENROLLMENT_BUCKET: ${NANOSAMURAI_ENROLLMENT_BUCKET:-nanosamurai-enrollment}
+      XAMURAI_ENROLLMENT_BUCKET: ${XAMURAI_ENROLLMENT_BUCKET:-xamurai-enrollment}
+      NANOSAMURAI_RECORDINGS_BUCKET: ${NANOSAMURAI_RECORDINGS_BUCKET:-nanosamurai-recordings}
+    volumes:
+      - nanosamurai_localstack:/var/lib/localstack
+      - ./docker/localstack/init:/etc/localstack/init/ready.d:ro
+
+  postgres:
+    image: postgres:18.1-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: drsynth
+      POSTGRES_PASSWORD: drsynth
+      POSTGRES_DB: nanosamurai
+    ports:
+      - "${COMPOSE_BIND_IP:-127.0.0.1}:5432:5432"
+    volumes:
+      - nanosamurai_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U drsynth -d nanosamurai"]
+      interval: 10s
+      timeout: 30s
+      retries: 5
+
+  db_migrate:
+    image: postgres:18.1-alpine
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: drsynth
+    volumes:
+      - ./docker/postgres/migrations:/migrations:ro
+    command:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+
+        schema_exists=0
+        if psql -h postgres -U drsynth -d nanosamurai -tAc "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='tenants'" | grep -q 1; then
+          schema_exists=1
+        fi
+
+        if [ "$$schema_exists" -eq 0 ]; then
+          psql -h postgres -U drsynth -d nanosamurai -v ON_ERROR_STOP=1 -f /migrations/001-create-core-schema.up.sql
+          psql -h postgres -U drsynth -d nanosamurai -v ON_ERROR_STOP=1 -f /migrations/002-transcript-records-append-only.up.sql
+          psql -h postgres -U drsynth -d nanosamurai -v ON_ERROR_STOP=1 -f /migrations/003-sessions-started-at-nullable.up.sql
+          psql -h postgres -U drsynth -d nanosamurai -v ON_ERROR_STOP=1 -f /migrations/004-create-api-credentials.up.sql
+          psql -h postgres -U drsynth -d nanosamurai -v ON_ERROR_STOP=1 -f /migrations/005-sessions-stream-controls.up.sql
+          psql -h postgres -U drsynth -d nanosamurai -v ON_ERROR_STOP=1 -f /migrations/006-webhooks-tables.up.sql
+          psql -h postgres -U drsynth -d nanosamurai -v ON_ERROR_STOP=1 -f /migrations/007-sessions-webhook-overrides.up.sql
+          psql -h postgres -U drsynth -d nanosamurai -v ON_ERROR_STOP=1 -f /migrations/008-sessions-session-settings.up.sql
+          psql -h postgres -U drsynth -d nanosamurai -v ON_ERROR_STOP=1 -f /migrations/009-webhook-delivery-outcomes.up.sql
+        fi
+
+        psql -h postgres -U drsynth -d nanosamurai -v ON_ERROR_STOP=1 -f /migrations/010-workflows-tables.up.sql
+        psql -h postgres -U drsynth -d nanosamurai -v ON_ERROR_STOP=1 -f /migrations/011-sessions-workflow-overrides.up.sql
+        psql -h postgres -U drsynth -d nanosamurai -v ON_ERROR_STOP=1 -f /migrations/012-workflow-results.up.sql
+        psql -h postgres -U drsynth -d nanosamurai -v ON_ERROR_STOP=1 -f /migrations/013-workflow-outcomes.up.sql
+
+  db_seed:
+    image: postgres:18.1-alpine
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      db_migrate:
+        condition: service_completed_successfully
+    environment:
+      PGPASSWORD: drsynth
+    volumes:
+      - ./docker/postgres/seed.sql:/seed.sql:ro
+    command: ["/bin/sh", "-c", "psql -h postgres -U drsynth -d nanosamurai -v ON_ERROR_STOP=1 -f /seed.sql"]
+
+  samuraibff:
+    image: ${SAMURAIBFF_IMAGE:-ghcr.io/nanosamurai/samuraibff:sha-0743b0793929564d22ac4c0da29fa758199b982a}
+    restart: unless-stopped
+    ports:
+      - "${COMPOSE_BIND_IP:-127.0.0.1}:8000:8000"
+    environment:
+      SAMURAIBFF_HTTP_HOST: 0.0.0.0
+      SAMURAIBFF_HTTP_PORT: 8000
+      SAMURAIBFF_DB_JDBC_URL: jdbc:postgresql://postgres:5432/nanosamurai
+      SAMURAIBFF_DB_USERNAME: drsynth
+      SAMURAIBFF_DB_PASSWORD: drsynth
+      SAMURAIBFF_KAFKA_BOOTSTRAP_SERVERS: broker:29092
+      SAMURAIBFF_GRPC_RTSERVICE_ADDR: rtservice:50052
+      SAMURAIBFF_AUTH_REQUIRED: ${SAMURAIBFF_AUTH_REQUIRED:-false}
+      SAMURAIBFF_AUTH_GUEST_TENANT_ID: ${SAMURAIBFF_AUTH_GUEST_TENANT_ID:-00000000-0000-0000-0000-000000000000}
+      SAMURAIBFF_AUTH_ISSUER: ${SAMURAIBFF_AUTH_ISSUER:-https://auth.nanosamur.ai/realms/nanosamurai}
+      SAMURAIBFF_AUTH_AUDIENCE: ${SAMURAIBFF_AUTH_AUDIENCE:-bff-web}
+      SAMURAIBFF_AUTH_CLIENT_ID: ${SAMURAIBFF_AUTH_CLIENT_ID:-bff-web}
+      SAMURAIBFF_ORIGIN_URI: http://localhost:8000
+      SAMURAIBFF_S3_REGION: us-east-1
+      SAMURAIBFF_S3_ENDPOINT: http://localstack:4566
+      SAMURAIBFF_S3_ACCESS_KEY: test
+      SAMURAIBFF_S3_SECRET_KEY: test
+      SAMURAIBFF_S3_FORCE_PATH_STYLE: "true"
+      SAMURAIBFF_S3_ENROLLMENTS_BUCKET: ${NANOSAMURAI_ENROLLMENT_BUCKET:-nanosamurai-enrollment}
+      SAMURAIBFF_S3_ENROLLMENTS_PREFIX: enrollment
+      SAMURAIBFF_S3_RECORDINGS_BUCKET: ${NANOSAMURAI_RECORDINGS_BUCKET:-nanosamurai-recordings}
+      SAMURAIBFF_S3_RECORDINGS_PREFIX: recordings
+      SAMURAIBFF_SECRETS_BACKEND: aws-secrets-manager
+      SAMURAIBFF_SECRETS_AWS_REGION: us-east-1
+      SAMURAIBFF_SECRETS_AWS_ENDPOINT: http://localstack:4566
+      SAMURAIBFF_SECRETS_AWS_ACCESS_KEY: test
+      SAMURAIBFF_SECRETS_AWS_SECRET_KEY: test
+    depends_on:
+      kafka_init:
+        condition: service_completed_successfully
+      localstack:
+        condition: service_started
+      db_seed:
+        condition: service_completed_successfully
+
+  samuraipersistor:
+    image: ${SAMURAIPERSISTOR_IMAGE:-ghcr.io/nanosamurai/samuraipersistor:sha-b954edcafc546ea70be09d1729ac1042d8dffb67}
+    restart: unless-stopped
+    ports:
+      - "${COMPOSE_BIND_IP:-127.0.0.1}:8010:8010"
+    environment:
+      SP_HTTP_HOST: 0.0.0.0
+      SP_HTTP_PORT: 8010
+      SP_DB_JDBC_URL: jdbc:postgresql://postgres:5432/nanosamurai
+      SP_DB_USERNAME: drsynth
+      SP_DB_PASSWORD: drsynth
+      SP_KAFKA_BOOTSTRAP_SERVERS: broker:29092
+      SP_KAFKA_TOPIC_REFINED: transcripts.refined
+      SP_KAFKA_TOPIC_FINAL: transcripts.final
+      SP_KAFKA_TOPIC_WORKFLOW_RESULT: workflow.result
+      SP_KAFKA_TOPIC_WORKFLOW_OUTCOME: workflow.outcome
+      SP_KAFKA_TOPIC_DLQ: transcripts.persistor.dlq
+    depends_on:
+      kafka_init:
+        condition: service_completed_successfully
+      db_migrate:
+        condition: service_completed_successfully
+
+  rtservice:
+    profiles: ["speech"]
+    image: ${RTSERVICE_IMAGE:-ghcr.io/nanosamurai/xamurai-rtservice:sha-8f39b40681e8e3e3d99ca2fbffdf6ed7af47ba85}
+    restart: unless-stopped
+    ports:
+      - "${COMPOSE_BIND_IP:-127.0.0.1}:50052:50052"
+    environment:
+      KAFKA_BOOTSTRAP: broker:29092
+      KAFKA_TOPIC_AUDIO: audio.raw
+      RT_GRPC_PORT: 50052
+      HF_TOKEN: ${HF_TOKEN:-}
+      HF_HOME: /data/hf_cache
+      ENROLL_BACKEND: s3_manifest
+      ENROLL_S3_ENDPOINT: http://localstack:4566
+      ENROLL_S3_BUCKET: ${NANOSAMURAI_ENROLLMENT_BUCKET:-nanosamurai-enrollment}
+      ENROLL_S3_PREFIX: enrollment
+      ENROLL_S3_REGION: us-east-1
+      ENROLL_S3_ACCESS_KEY: test
+      ENROLL_S3_SECRET_KEY: test
+      ENROLL_S3_FORCE_PATH_STYLE: "true"
+      RT_METRICS_ENABLE: "true"
+      RT_METRICS_PORT: 8008
+      RT_METRICS_ADDR: 0.0.0.0
+    volumes:
+      - nanosamurai_hf_cache:/data/hf_cache
+    gpus: all
+    depends_on:
+      kafka_init:
+        condition: service_completed_successfully
+      localstack:
+        condition: service_started
+
+  whisperx_worker:
+    profiles: ["speech"]
+    image: ${WHISPERX_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-whisperx-worker:sha-8f39b40681e8e3e3d99ca2fbffdf6ed7af47ba85}
+    restart: unless-stopped
+    environment:
+      KAFKA_BOOTSTRAP: broker:29092
+      KAFKA_TOPIC_AUDIO: audio.raw
+      KAFKA_TOPIC_REFINED: transcripts.refined
+      KAFKA_GROUP_ID: whisperx-async
+      HF_TOKEN: ${HF_TOKEN:-}
+      HF_HOME: /data/hf_cache
+      WHISPERX_SLICE_SECONDS: "60.0"
+      WHISPERX_IDLE_SECONDS: "30.0"
+      ENROLL_BACKEND: s3_manifest
+      ENROLL_S3_ENDPOINT: http://localstack:4566
+      ENROLL_S3_BUCKET: ${NANOSAMURAI_ENROLLMENT_BUCKET:-nanosamurai-enrollment}
+      ENROLL_S3_PREFIX: enrollment
+      ENROLL_S3_REGION: us-east-1
+      ENROLL_S3_ACCESS_KEY: test
+      ENROLL_S3_SECRET_KEY: test
+      ENROLL_S3_FORCE_PATH_STYLE: "true"
+    volumes:
+      - nanosamurai_hf_cache:/data/hf_cache
+    gpus: all
+    depends_on:
+      kafka_init:
+        condition: service_completed_successfully
+
+  recorder_worker:
+    profiles: ["speech"]
+    image: ${RECORDER_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-recorder-worker:sha-8f39b40681e8e3e3d99ca2fbffdf6ed7af47ba85}
+    restart: unless-stopped
+    environment:
+      KAFKA_BOOTSTRAP: broker:29092
+      KAFKA_TOPIC_AUDIO: audio.raw
+      KAFKA_TOPIC_RECORDING_FINISHED: recordings.finished
+      KAFKA_GROUP_ID_RECORDER: recorder-worker
+      RECORDER_IDLE_SECONDS: "30.0"
+      RECORDING_STORAGE_BACKEND: s3
+      S3_ENDPOINT: http://localstack:4566
+      S3_BUCKET: ${NANOSAMURAI_RECORDINGS_BUCKET:-nanosamurai-recordings}
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: test
+      S3_SECRET_KEY: test
+      S3_FORCE_PATH_STYLE: "true"
+      S3_PREFIX: recordings
+    depends_on:
+      kafka_init:
+        condition: service_completed_successfully
+      localstack:
+        condition: service_started
+
+  finalizer_worker:
+    profiles: ["speech"]
+    image: ${FINALIZER_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-finalizer-worker:sha-8f39b40681e8e3e3d99ca2fbffdf6ed7af47ba85}
+    restart: unless-stopped
+    environment:
+      KAFKA_BOOTSTRAP: broker:29092
+      KAFKA_TOPIC_RECORDING_FINISHED: recordings.finished
+      KAFKA_TOPIC_TRANSCRIPTS_FINAL: transcripts.final
+      KAFKA_GROUP_ID_FINALIZER: finalizer-worker
+      HF_TOKEN: ${HF_TOKEN:-}
+      HF_HOME: /data/hf_cache
+      S3_ENDPOINT: http://localstack:4566
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: test
+      S3_SECRET_KEY: test
+      S3_FORCE_PATH_STYLE: "true"
+      ENROLL_BACKEND: s3_manifest
+      ENROLL_S3_ENDPOINT: http://localstack:4566
+      ENROLL_S3_BUCKET: ${NANOSAMURAI_ENROLLMENT_BUCKET:-nanosamurai-enrollment}
+      ENROLL_S3_PREFIX: enrollment
+      ENROLL_S3_REGION: us-east-1
+      ENROLL_S3_ACCESS_KEY: test
+      ENROLL_S3_SECRET_KEY: test
+      ENROLL_S3_FORCE_PATH_STYLE: "true"
+    volumes:
+      - nanosamurai_hf_cache:/data/hf_cache
+    gpus: all
+    depends_on:
+      kafka_init:
+        condition: service_completed_successfully
+      localstack:
+        condition: service_started
+
+volumes:
+  nanosamurai_pgdata:
+  nanosamurai_localstack:
+  nanosamurai_hf_cache:
