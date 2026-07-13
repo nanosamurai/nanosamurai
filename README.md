@@ -80,6 +80,13 @@ The override downloads the OpenTelemetry Java agent into a Docker volume on
 first start. Use the base Compose file alone for an offline/no-observability
 run.
 
+With the override enabled, traces are exported for the JVM services and the
+Python speech services (`rtservice`, `whisperx-worker`, `recorder-worker`, and
+`finalizer-worker`). Kafka trace context is propagated between services so a
+session trace can include consumer, processing, and producer spans. Prometheus
+currently scrapes SamuraiBFF and rtservice; the asynchronous Python workers do
+not yet expose dedicated Prometheus metrics endpoints.
+
 ## Security
 
 - Published ports bind to `127.0.0.1` by default through `COMPOSE_BIND_IP`.
