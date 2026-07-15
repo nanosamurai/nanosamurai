@@ -72,6 +72,7 @@ services:
         condition: service_started
 
   otel_javaagent_init:
+    container_name: nanosamurai-otel-javaagent-init
     image: curlimages/curl:8.14.1
     user: "0"
     restart: "no"
@@ -92,6 +93,7 @@ services:
       - otel_javaagent:/otel
 
   grafana:
+    container_name: nanosamurai-grafana
     image: grafana/grafana:12.4.0
     restart: unless-stopped
     environment:
@@ -110,6 +112,7 @@ services:
       - tempo
 
   prometheus:
+    container_name: nanosamurai-prometheus
     image: quay.io/prometheus/prometheus:v3.9.1
     restart: unless-stopped
     command:
@@ -125,6 +128,7 @@ services:
       - samuraibff
 
   loki:
+    container_name: nanosamurai-loki
     image: grafana/loki:3.6.5
     user: "0"
     restart: unless-stopped
@@ -136,6 +140,7 @@ services:
       - loki_data:/var/lib/loki
 
   tempo:
+    container_name: nanosamurai-tempo
     image: grafana/tempo:2.9.0
     user: "0"
     restart: unless-stopped
@@ -147,6 +152,7 @@ services:
       - tempo_data:/var/tempo/traces
 
   otel_collector:
+    container_name: nanosamurai-otel-collector
     image: otel/opentelemetry-collector-k8s:0.146.1
     restart: unless-stopped
     command: ["--config=/etc/otel-collector-config.yaml"]
@@ -159,6 +165,7 @@ services:
       - tempo
 
   alloy:
+    container_name: nanosamurai-alloy
     image: grafana/alloy:v1.13.0
     restart: unless-stopped
     command:

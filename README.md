@@ -20,6 +20,11 @@ docker compose up -d
 
 Open the UI at http://127.0.0.1:8000.
 
+Containers use deterministic `nanosamurai-*` names without Compose replica
+suffixes (for example, `nanosamurai-samuraibff`). This local stack intentionally
+supports one container per service; explicit container names are incompatible
+with `docker compose up --scale` for those services.
+
 Run the basic smoke test:
 
 ```bash
