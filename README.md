@@ -20,6 +20,11 @@ docker compose up -d
 
 Open the UI at http://127.0.0.1:8000.
 
+Containers use deterministic `nanosamurai-*` names without Compose replica
+suffixes (for example, `nanosamurai-samuraibff`). This local stack intentionally
+supports one container per service; explicit container names are incompatible
+with `docker compose up --scale` for those services.
+
 Run the basic smoke test:
 
 ```bash
@@ -79,6 +84,13 @@ Local endpoints:
 The override downloads the OpenTelemetry Java agent into a Docker volume on
 first start. Use the base Compose file alone for an offline/no-observability
 run.
+
+With the override enabled, traces are exported for the JVM services and the
+Python speech services (`rtservice`, `whisperx-worker`, `recorder-worker`, and
+`finalizer-worker`). Kafka trace context is propagated between services so a
+session trace can include consumer, processing, and producer spans. Prometheus
+currently scrapes SamuraiBFF and rtservice; the asynchronous Python workers do
+not yet expose dedicated Prometheus metrics endpoints.
 
 ## Security
 

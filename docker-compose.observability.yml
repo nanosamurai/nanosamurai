@@ -1,3 +1,9 @@
+x-python-otel-environment: &python-otel-environment
+  OTEL_TRACES_EXPORTER: ${OTEL_TRACES_EXPORTER:-otlp}
+  OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL:-grpc}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel_collector:4317}
+  OTEL_RESOURCE_ATTRIBUTES: ${OTEL_RESOURCE_ATTRIBUTES:-service.namespace=nanosamurai,deployment.environment=local}
+
 services:
   samuraibff:
     environment:
@@ -33,7 +39,40 @@ services:
       otel_javaagent_init:
         condition: service_completed_successfully
 
+  rtservice:
+    environment:
+      <<: *python-otel-environment
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME_RTSERVICE:-rtservice}
+    depends_on:
+      otel_collector:
+        condition: service_started
+
+  whisperx_worker:
+    environment:
+      <<: *python-otel-environment
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME_WHISPERX_WORKER:-whisperx-worker}
+    depends_on:
+      otel_collector:
+        condition: service_started
+
+  recorder_worker:
+    environment:
+      <<: *python-otel-environment
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME_RECORDER_WORKER:-recorder-worker}
+    depends_on:
+      otel_collector:
+        condition: service_started
+
+  finalizer_worker:
+    environment:
+      <<: *python-otel-environment
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME_FINALIZER_WORKER:-finalizer-worker}
+    depends_on:
+      otel_collector:
+        condition: service_started
+
   otel_javaagent_init:
+    container_name: nanosamurai-otel-javaagent-init
     image: curlimages/curl:8.14.1
     user: "0"
     restart: "no"
@@ -54,6 +93,7 @@ services:
       - otel_javaagent:/otel
 
   grafana:
+    container_name: nanosamurai-grafana
     image: grafana/grafana:12.4.0
     restart: unless-stopped
     environment:
@@ -72,6 +112,7 @@ services:
       - tempo
 
   prometheus:
+    container_name: nanosamurai-prometheus
     image: quay.io/prometheus/prometheus:v3.9.1
     restart: unless-stopped
     command:
@@ -87,6 +128,7 @@ services:
       - samuraibff
 
   loki:
+    container_name: nanosamurai-loki
     image: grafana/loki:3.6.5
     user: "0"
     restart: unless-stopped
@@ -98,6 +140,7 @@ services:
       - loki_data:/var/lib/loki
 
   tempo:
+    container_name: nanosamurai-tempo
     image: grafana/tempo:2.9.0
     user: "0"
     restart: unless-stopped
@@ -109,6 +152,7 @@ services:
       - tempo_data:/var/tempo/traces
 
   otel_collector:
+    container_name: nanosamurai-otel-collector
     image: otel/opentelemetry-collector-k8s:0.146.1
     restart: unless-stopped
     command: ["--config=/etc/otel-collector-config.yaml"]
@@ -121,6 +165,7 @@ services:
       - tempo
 
   alloy:
+    container_name: nanosamurai-alloy
     image: grafana/alloy:v1.13.0
     restart: unless-stopped
     command:
