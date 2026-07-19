@@ -66,6 +66,45 @@ Recorder and finalizer both use the recording S3 store. In Compose this points
 at LocalStack with test-only credentials so `recording-finished` events can be
 resolved by `finalizer_worker` into `transcripts.final`.
 
+### Advanced smoke tests
+
+Tier 3 verifies that the BFF publishes the session audio to Kafka. Tier 4
+waits for one selected asynchronous signal: `recording-finished`, `refined`,
+or `final`. Install the Kafka-specific dependencies in the smoke environment:
+
+```bash
+python -m pip install -r utilities/k8s_local_smoke_test/requirements.kafka.txt
+```
+
+Then run the checks against the localhost-only Compose endpoints:
+
+```bash
+python utilities/k8s_local_smoke_test/tier3_kafka_audio_raw.py \
+  --base-url http://127.0.0.1:8000 \
+  --kafka-bootstrap 127.0.0.1:9092 \
+  --wav tests/data/test_cs.wav --lang cs
+
+python utilities/k8s_local_smoke_test/tier4_async_pipeline.py \
+  --base-url http://127.0.0.1:8000 \
+  --kafka-bootstrap 127.0.0.1:9092 \
+  --wav tests/data/test_cs.wav --lang cs \
+  --signal recording-finished --timeout 180
+```
+
+Strict `--signal final` validation is intentionally opt-in because model cold
+starts and alignment can take several minutes. To audit W3C trace propagation
+for a session printed by Tier 3 or Tier 4:
+
+```bash
+python utilities/k8s_local_smoke_test/kafka_traceparent_audit.py \
+  --kafka-bootstrap 127.0.0.1:9092 \
+  --session-id <session-uuid>
+```
+
+The wrapper scripts accept `RUN_TIER2=true`, `RUN_TIER3=true`, and
+`RUN_TIER4=true`. Set `TIER4_SIGNAL` and `TIER4_TIMEOUT` to override the Tier 4
+defaults, or `TRACE_SESSION_ID` to run the trace audit.
+
 ## Observability
 
 The observability stack is optional and separated into an override file:

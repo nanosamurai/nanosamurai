@@ -1,0 +1,156 @@
+// proto/stream.proto
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "samuraibff.proto";
+option java_outer_classname = "StreamProto";
+
+// ~200–500 ms of PCM16 mono @16 kHz per message
+message AudioChunk {
+  string  session_id   = 1;
+  uint64  seq          = 2;   // incremental per session
+  int64   t0_ns        = 3;   // producer monotonic timestamp OR sample time
+  uint32  sample_rate  = 4;   // 16000
+  bytes   pcm16_le     = 5;   // little-endian PCM16 mono
+  string  lang         = 6;
+
+  // Base URI of the BFF instance that originated this session.
+  // Used as a "reply-to" for refined events when Kafka partitions
+  // distribute consumption across multiple BFF instances.
+  // Example: "http://bff-1.internal:8000".
+  string  bff_origin_uri = 7;
+
+  // Tenant id for routing/isolation.
+  string tenant_id = 8;
+}
+
+enum AsrType { PARTIAL = 0; FINAL = 1; }
+
+message AsrEvent {
+  string  session_id = 1;
+  double  start_s    = 2;
+  double  end_s      = 3;
+  string  text       = 4;
+  AsrType type       = 5;
+  string  lang       = 6; // optional (e.g., "cs")
+  string speaker    = 7;
+}
+
+message DiarEvent {
+  string  session_id = 1;
+  double  start_s    = 2;
+  double  end_s      = 3;
+  string  speaker    = 4;   // "SPEAKER_00" or enrolled name
+  float   confidence = 5;   // 0..1
+}
+
+message RefinedEvent {
+  string  session_id   = 1;
+  double  start_s      = 2;
+  double  end_s        = 3;
+  string  text         = 4;
+  string  speaker      = 5;              // optional/mapped
+  repeated uint64 supersedes_seq = 6;    // optional linkage to live lines
+  string  lang         = 7;
+
+  // Base URI of the BFF instance that originated this session.
+  // This value is copied from AudioChunk.bff_origin_uri by the worker.
+  string  bff_origin_uri = 8;
+
+  // Tenant id for routing/isolation.
+  // This value is copied from AudioChunk.tenant_id by the worker.
+  string tenant_id = 9;
+
+  // ----------------------------------------------------------------------
+  // Window-level refined transcript (one event per refinement window slice)
+  // ----------------------------------------------------------------------
+  //
+  // Historical note:
+  // - Refined output is intended to be emitted once per refinement window
+  //   (default 60s, configurable via x-refinement-window-sec).
+  // - This event therefore represents a mini transcript for that window and
+  //   should carry per-speaker turns as segments.
+  //
+  // For backwards compatibility, the legacy scalar fields (start_s/end_s/text)
+  // may be populated as:
+  // - start_s/end_s = window boundaries
+  // - text          = concatenation of segments[].text
+  // - speaker       = "" (speaker lives on segments[])
+
+  // Identity and timing of the refinement window.
+  // NOTE: the window boundaries are represented by start_s/end_s.
+  double window_sec     = 10;    // configured refinement window (e.g. 60.0)
+  uint32 slice_index    = 11;    // 0-based index for this window size
+  string flush_reason   = 12;    // "slice" | "idle" (idle = final shorter tail)
+
+  // The refined transcript for this window (speaker turns).
+  repeated SessionTranscriptSegment segments = 13;
+
+  // Optional metadata for dedupe/ordering.
+  uint64 created_at_ns = 14;
+  string refinement_model = 15;  // e.g. "whisperx" (future: voxstral, ...)
+}
+
+// Recording-level metadata: “recording finished, file is available”
+message RecordingFinished {
+  string session_id   = 1;
+  string recording_url = 2;  // e.g. file://..., s3://...
+  double duration_s   = 3;
+  int32  sample_rate  = 4;
+  string lang         = 5;
+
+  // optional tenant/client label for downstream routing
+  string tenant_id    = 6;
+
+  int64 created_at_ns = 7;   // when this event was created
+}
+
+message WordAlignment {
+  double start_s = 1;  // absolute word start time in seconds
+  double end_s   = 2;  // absolute word end time in seconds
+  string text    = 3;  // the word text (normalized)
+}
+
+message FinalEvent {
+  string session_id = 1;
+
+  double start_s    = 2;
+  double end_s      = 3;
+
+  string text       = 4;
+  string speaker    = 5;
+  string lang       = 6;
+
+  repeated WordAlignment words = 7;
+}
+
+service RealtimeASR {
+  rpc Stream (stream AudioChunk) returns (stream AsrEvent);
+}
+
+message SessionTranscriptSegment {
+  double start_s = 1;
+  double end_s   = 2;
+  string text    = 3;
+  string speaker = 4; // optional, "" if unknown
+
+  // Optional word-level timing (requires WhisperX alignment).
+  // When present, words are relative to the recording start (absolute within session).
+  repeated WordAlignment words = 5;
+}
+
+message SessionTranscript {
+  string session_id    = 1;
+  string recording_url = 2;
+  string lang          = 3;
+  float  duration_s    = 4;
+
+  repeated SessionTranscriptSegment segments = 5;
+  string full_text = 6;
+
+  string tenant_id     = 7;
+  uint64 created_at_ns = 8;
+}
+
+//python -m grpc_tools.protoc -I . --python_out=. --grpc_python_out=. ./proto/stream.proto
+//python -m grpc_tools.protoc -I proto --python_out=proto_pkg/src --grpc_python_out=proto_pkg/src proto/stream.proto

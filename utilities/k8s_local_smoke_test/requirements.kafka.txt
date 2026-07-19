@@ -1,0 +1,5 @@
+# Optional deps for Tier 3/4 Kafka verification.
+#
+# These are intentionally separated because confluent-kafka pulls native wheels.
+confluent-kafka>=2.5
+protobuf>=6.31.1
