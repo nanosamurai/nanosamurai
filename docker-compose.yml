@@ -100,33 +100,10 @@ services:
       PGPASSWORD: drsynth
     volumes:
       - ./docker/postgres/migrations:/migrations:ro
+      - ./docker/postgres/migrate.sh:/migrate.sh:ro
     command:
       - /bin/sh
-      - -c
-      - |
-        set -e
-
-        schema_exists=0
-        if psql -h postgres -U drsynth -d nanosamurai -tAc "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='tenants'" | grep -q 1; then
-          schema_exists=1
-        fi
-
-        if [ "$$schema_exists" -eq 0 ]; then
-          psql -h postgres -U drsynth -d nanosamurai -v ON_ERROR_STOP=1 -f /migrations/001-create-core-schema.up.sql
-          psql -h postgres -U drsynth -d nanosamurai -v ON_ERROR_STOP=1 -f /migrations/002-transcript-records-append-only.up.sql
-          psql -h postgres -U drsynth -d nanosamurai -v ON_ERROR_STOP=1 -f /migrations/003-sessions-started-at-nullable.up.sql
-          psql -h postgres -U drsynth -d nanosamurai -v ON_ERROR_STOP=1 -f /migrations/004-create-api-credentials.up.sql
-          psql -h postgres -U drsynth -d nanosamurai -v ON_ERROR_STOP=1 -f /migrations/005-sessions-stream-controls.up.sql
-          psql -h postgres -U drsynth -d nanosamurai -v ON_ERROR_STOP=1 -f /migrations/006-webhooks-tables.up.sql
-          psql -h postgres -U drsynth -d nanosamurai -v ON_ERROR_STOP=1 -f /migrations/007-sessions-webhook-overrides.up.sql
-          psql -h postgres -U drsynth -d nanosamurai -v ON_ERROR_STOP=1 -f /migrations/008-sessions-session-settings.up.sql
-          psql -h postgres -U drsynth -d nanosamurai -v ON_ERROR_STOP=1 -f /migrations/009-webhook-delivery-outcomes.up.sql
-        fi
-
-        psql -h postgres -U drsynth -d nanosamurai -v ON_ERROR_STOP=1 -f /migrations/010-workflows-tables.up.sql
-        psql -h postgres -U drsynth -d nanosamurai -v ON_ERROR_STOP=1 -f /migrations/011-sessions-workflow-overrides.up.sql
-        psql -h postgres -U drsynth -d nanosamurai -v ON_ERROR_STOP=1 -f /migrations/012-workflow-results.up.sql
-        psql -h postgres -U drsynth -d nanosamurai -v ON_ERROR_STOP=1 -f /migrations/013-workflow-outcomes.up.sql
+      - /migrate.sh
 
   db_seed:
     container_name: nanosamurai-db-seed
