@@ -76,15 +76,15 @@ services:
     image: postgres:18.1-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: drsynth
-      POSTGRES_PASSWORD: drsynth
+      POSTGRES_USER: nanosamurai
+      POSTGRES_PASSWORD: nanosamurai
       POSTGRES_DB: nanosamurai
     ports:
       - "${COMPOSE_BIND_IP:-127.0.0.1}:5432:5432"
     volumes:
       - nanosamurai_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U drsynth -d nanosamurai"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 30s
       retries: 5
@@ -97,7 +97,10 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      PGPASSWORD: drsynth
+      PGHOST: postgres
+      PGUSER: nanosamurai
+      PGPASSWORD: nanosamurai
+      PGDATABASE: nanosamurai
     volumes:
       - ./docker/postgres/migrations:/migrations:ro
       - ./docker/postgres/migrate.sh:/migrate.sh:ro
@@ -115,10 +118,13 @@ services:
       db_migrate:
         condition: service_completed_successfully
     environment:
-      PGPASSWORD: drsynth
+      PGHOST: postgres
+      PGUSER: nanosamurai
+      PGPASSWORD: nanosamurai
+      PGDATABASE: nanosamurai
     volumes:
       - ./docker/postgres/seed.sql:/seed.sql:ro
-    command: ["/bin/sh", "-c", "psql -h postgres -U drsynth -d nanosamurai -v ON_ERROR_STOP=1 -f /seed.sql"]
+    command: ["psql", "-v", "ON_ERROR_STOP=1", "-f", "/seed.sql"]
 
   samuraibff:
     container_name: nanosamurai-samuraibff
@@ -130,8 +136,8 @@ services:
       SAMURAIBFF_HTTP_HOST: 0.0.0.0
       SAMURAIBFF_HTTP_PORT: 8000
       SAMURAIBFF_DB_JDBC_URL: jdbc:postgresql://postgres:5432/nanosamurai
-      SAMURAIBFF_DB_USERNAME: drsynth
-      SAMURAIBFF_DB_PASSWORD: drsynth
+      SAMURAIBFF_DB_USERNAME: nanosamurai
+      SAMURAIBFF_DB_PASSWORD: nanosamurai
       SAMURAIBFF_KAFKA_BOOTSTRAP_SERVERS: broker:29092
       SAMURAIBFF_GRPC_RTSERVICE_ADDR: rtservice:50052
       SAMURAIBFF_AUTH_REQUIRED: ${SAMURAIBFF_AUTH_REQUIRED:-false}
@@ -172,8 +178,8 @@ services:
       SP_HTTP_HOST: 0.0.0.0
       SP_HTTP_PORT: 8010
       SP_DB_JDBC_URL: jdbc:postgresql://postgres:5432/nanosamurai
-      SP_DB_USERNAME: drsynth
-      SP_DB_PASSWORD: drsynth
+      SP_DB_USERNAME: nanosamurai
+      SP_DB_PASSWORD: nanosamurai
       SP_KAFKA_BOOTSTRAP_SERVERS: broker:29092
       SP_KAFKA_TOPIC_REFINED: transcripts.refined
       SP_KAFKA_TOPIC_FINAL: transcripts.final

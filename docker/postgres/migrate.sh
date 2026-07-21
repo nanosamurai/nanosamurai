@@ -3,7 +3,7 @@
 set -eu
 
 psql_cmd() {
-  psql -h postgres -U drsynth -d nanosamurai -v ON_ERROR_STOP=1 "$@"
+  psql -v ON_ERROR_STOP=1 "$@"
 }
 
 psql_cmd -c "
