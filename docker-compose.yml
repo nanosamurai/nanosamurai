@@ -3,7 +3,7 @@ name: nanosamurai
 services:
   broker:
     container_name: nanosamurai-broker
-    image: apache/kafka:latest
+    image: ${KAFKA_IMAGE:-apache/kafka:4.3.1}
     restart: unless-stopped
     environment:
       KAFKA_NODE_ID: 1
@@ -24,7 +24,7 @@ services:
 
   kafka_init:
     container_name: nanosamurai-kafka-init
-    image: apache/kafka:latest
+    image: ${KAFKA_IMAGE:-apache/kafka:4.3.1}
     depends_on:
       - broker
     restart: "no"
