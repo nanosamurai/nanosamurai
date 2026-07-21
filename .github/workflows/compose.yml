@@ -1,0 +1,47 @@
+name: compose
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate Compose configurations
+        run: |
+          docker compose config --quiet
+          docker compose \
+            -f docker-compose.yml \
+            -f docker-compose.observability.yml \
+            --profile speech config --quiet
+
+      - name: Reject mutable latest tags
+        run: |
+          images="$({ docker compose config --images; docker compose -f docker-compose.yml -f docker-compose.observability.yml --profile speech config --images; } | sort -u)"
+          printf '%s\n' "$images"
+          if printf '%s\n' "$images" | grep -E ':latest$'; then
+            echo "Compose and workflow images must use explicit versions."
+            exit 1
+          fi
+
+      - name: Validate shell and Python syntax
+        run: |
+          find . -type f -name '*.sh' -print0 | xargs -0 -r bash -n
+          python -m compileall -q utilities proto_gen
+
+      - name: Check smoke-test entry points
+        run: |
+          python -m pip install -r utilities/k8s_local_smoke_test/requirements.txt
+          python -m pip install -r utilities/k8s_local_smoke_test/requirements.kafka.txt
+          python utilities/k8s_local_smoke_test/tier1_bff_connectivity.py --help
+          python utilities/k8s_local_smoke_test/tier2_realtime_asr.py --help
+          python utilities/k8s_local_smoke_test/tier3_kafka_audio_raw.py --help
+          python utilities/k8s_local_smoke_test/tier4_async_pipeline.py --help
+          python utilities/k8s_local_smoke_test/kafka_traceparent_audit.py --help
