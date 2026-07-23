@@ -1,6 +1,9 @@
 # nanosamurai
 
-Open-source **self-hosted speech-to-text** (STT) stack.
+Open-source **self-hosted speech-to-text** (STT) stack. 
+
+nanosamur.ai is guarding your sensitive conversations - in your cloud, on your own infrastructure and air-gapped systems.
+It is model agnostic - it is the multi-model STT orchestration platform that supports different models used for different use cases (realtime vs semi-realtime vs batch) and provides a unified stack for highly available and robust processing with support for agentic workflows and webhooks.
 
 This is the public front-door repo for running the Community Edition locally
 with Docker Compose. Service images are pulled from `ghcr.io/nanosamurai/*`
@@ -11,7 +14,7 @@ refinement and finalization, transcript persistence, recording storage, and an
 optional local observability stack. 
 
 Proprietary workflow execution and webhook
-delivery services are not included or enabled, but the plumbing for them is there, 
+delivery services are not included or enabled by default in the Community Edition, but the plumbing for them is there, 
 so you are free to implement your own workflows / webhook services and plug them in.
 
 ## Architecture
@@ -31,7 +34,7 @@ SamuraiBFF ---- gRPC ----> realtime service (xamurai's rtservice service)
                  +--> persistor (samuraipersistor service) --> PostgreSQL
 ```
 
-Nanosamurai solution currently consists of the following services:
+Nanosamurai stack currently consists of the following services:
 - [xamurai](https://github.com/nanosamurai/xamurai) — speech services; this is a monorepo with all STT services, namely:
   - real time STT (rtservice)
   - semi-realtime STT (whisperx_worker)
