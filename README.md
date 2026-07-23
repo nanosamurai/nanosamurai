@@ -1,7 +1,6 @@
 # nanosamurai
 
-Open-source **self-hosted speech-to-text** stack for local evaluation and
-customer-controlled deployments.
+Open-source **self-hosted speech-to-text** (STT) stack.
 
 This is the public front-door repo for running the Community Edition locally
 with Docker Compose. Service images are pulled from `ghcr.io/nanosamurai/*`
@@ -9,22 +8,92 @@ and pinned by SHA by default.
 
 Community Edition includes the BFF/UI, realtime transcription, asynchronous
 refinement and finalization, transcript persistence, recording storage, and an
-optional local observability stack. Proprietary workflow execution and webhook
-delivery services are not included or enabled.
+optional local observability stack. 
+
+Proprietary workflow execution and webhook
+delivery services are not included or enabled, but the plumbing for them is there, 
+so you are free to implement your own workflows / webhook services and plug them in.
 
 ## Architecture
+
+Simplified architecture could be outlined like this:
 
 ```text
 Browser / SDK
       |
       v
-SamuraiBFF ---- gRPC ----> realtime service
+SamuraiBFF ---- gRPC ----> realtime service (xamurai's rtservice service)
       |                         |
       +------ Kafka ------------+
                  |
-                 +--> recorder --> LocalStack S3 --> finalizer
-                 +--> WhisperX refinement
-                 +--> persistor --> PostgreSQL
+                 +--> recorder (xamurai's recorder service) --> LocalStack S3 --> finalizer (xamurai's finalizer service)
+                 +--> WhisperX semi real-time refinement (xamurai's whisperx_worker service)
+                 +--> persistor (samuraipersistor service) --> PostgreSQL
+```
+
+Nanosamurai solution currently consists of the following services:
+- [xamurai](https://github.com/nanosamurai/xamurai) — speech services; this is a monorepo with all STT services, namely:
+  - real time STT (rtservice)
+  - semi-realtime STT (whisperx_worker)
+  - batch STT (finalizer_worker)
+  - recording service (recorder_worker)
+- [samuraibff](https://github.com/nanosamurai/samuraibff) — API and browser UI
+- [samuraipersistor](https://github.com/nanosamurai/samuraipersistor) — transcript persistence
+- [nanosamurai-sdk](https://github.com/nanosamurai/nanosamurai-sdk) — Python SDK and CLI
+
+
+
+```mermaid
+flowchart LR
+    subgraph Client
+        Browser["Browser UI\n(ClojureScript)"]
+        Electron["Electron app\n(Windows-first)"]
+    end
+
+    subgraph SamuraiBFF["SamuraiBFF (this repo)"]
+        HTTP[HTTP /api + /auth]
+        WSAudio[ws/audio]
+        WSEvents[ws/events]
+    end
+
+    subgraph Xamurai["xamurai (Python services)"]
+        RTService["rtservice\n(realtime ASR)"]
+        WhisperXWorker["whisperx_worker\n(slice refinement)"]
+        RecorderWorker["recorder_worker\n(session WAV)"]
+        FinalizerWorker["finalizer_worker\n(final transcript)"]
+    end
+
+    Browser -->|HTTP /api + /auth| HTTP
+    Browser -->|"WS audio\nWebSocket /ws/audio\nPCM16LE mono 16kHz"| WSAudio
+    Browser ---|"WS events\nWebSocket /ws/events\nJSON events"| WSEvents
+
+    Electron -->|HTTP /api + /auth| HTTP
+    Electron -->|"WS audio\nWebSocket /ws/audio\nPCM16LE mono 16kHz"| WSAudio
+    Electron ---|"WS events\nWebSocket /ws/events\nJSON events"| WSEvents
+
+    SamuraiBFF -->|gRPC bidirectional stream| RTService
+
+    subgraph Kafka["Kafka"]
+        KafkaBroker[(Kafka broker)]
+    end
+
+    SamuraiBFF -->|"produce protobuf AudioChunk\ntopic: audio.raw"| KafkaBroker
+    SamuraiBFF -->|"produce compacted JSON\ntopic: sessions.meta"| KafkaBroker
+
+    KafkaBroker -->|"consume protobuf RefinedEvent\ntopic: transcripts.refined"| SamuraiBFF
+    KafkaBroker -->|"consume\ntopic: audio.raw"| WhisperXWorker
+    WhisperXWorker -->|"produce protobuf RefinedEvent\ntopic: transcripts.refined"| KafkaBroker
+
+    KafkaBroker -->|"consume\ntopic: audio.raw"| RecorderWorker
+    RecorderWorker -->|"produce protobuf RecordingFinished\ntopic: recordings.finished"| KafkaBroker
+
+    KafkaBroker -->|"consume\ntopic: recordings.finished"| FinalizerWorker
+    FinalizerWorker -->|"produce protobuf SessionTranscript\ntopic: transcripts.final"| KafkaBroker
+
+    KafkaBroker -->|"consume + persist\ntopic: transcripts.refined"| Persistor["samuraipersistor\n(Postgres writer)"]
+    KafkaBroker -->|"consume + persist\ntopic: transcripts.final"| Persistor
+    Persistor -->|persist| Postgres[(Postgres)]
+    SamuraiBFF -->|query| Postgres
 ```
 
 All published host ports bind to `127.0.0.1` by default. See the
@@ -230,8 +299,8 @@ are selected and updated.
 ## Related repositories
 
 - [xamurai](https://github.com/nanosamurai/xamurai) — speech services
-- [samuraibff](https://github.com/mikub/samuraibff) — API and browser UI
-- [samuraipersistor](https://github.com/mikub/samuraipersistor) — transcript persistence
+- [samuraibff](https://github.com/nanosamurai/samuraibff) — API and browser UI
+- [samuraipersistor](https://github.com/nanosamurai/samuraipersistor) — transcript persistence
 - [nanosamurai-sdk](https://github.com/nanosamurai/nanosamurai-sdk) — Python SDK and CLI
 
 Security reports should follow [SECURITY.md](SECURITY.md). Contributions are
