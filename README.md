@@ -1,24 +1,144 @@
-# nanosamurai
+# nanosamur.ai
 
-Open-source **self-hosted** speech-to-text and workflow automation stack.
+Open-source **self-hosted speech-to-text** (STT) stack. 
+
+nanosamur.ai is guarding your sensitive conversations - in your cloud, on your own infrastructure and air-gapped systems.
+It is model agnostic - it is the multi-model STT orchestration platform that supports different models used for different use cases (realtime vs semi-realtime vs batch) and provides a unified stack for highly available and robust processing with support for agentic workflows and webhooks.
 
 This is the public front-door repo for running the Community Edition locally
 with Docker Compose. Service images are pulled from `ghcr.io/nanosamurai/*`
 and pinned by SHA by default.
+
+Community Edition includes the BFF/UI and also windows Electron app, realtime transcription, asynchronous
+refinement and finalization, transcript persistence, recording storage, and an
+optional local observability stack. It also has multi-tenancy support!
+
+Proprietary workflow execution and webhook
+delivery services are not included or enabled by default in the Community Edition, but the plumbing for them is there, 
+so you are free to implement your own workflows / webhook services and plug them in.
+
+## Architecture
+
+Simplified architecture could be outlined like this:
+
+```text
+Browser / SDK
+      |
+      v
+SamuraiBFF ---- gRPC ----> realtime service (xamurai's rtservice service)
+      |                         |
+      +------ Kafka ------------+
+                 |
+                 +--> recorder (xamurai's recorder service) --> LocalStack S3 --> finalizer (xamurai's finalizer service)
+                 +--> WhisperX semi real-time refinement (xamurai's whisperx_worker service)
+                 +--> persistor (samuraipersistor service) --> PostgreSQL
+```
+
+Nanosamurai stack currently consists of the following services:
+- [xamurai](https://github.com/nanosamurai/xamurai) — speech services; this is a monorepo with all STT services, namely:
+  - real time STT (rtservice)
+  - semi-realtime STT (whisperx_worker)
+  - batch STT (finalizer_worker)
+  - recording service (recorder_worker)
+- [samuraibff](https://github.com/nanosamurai/samuraibff) — API and browser UI
+- [samuraipersistor](https://github.com/nanosamurai/samuraipersistor) — transcript persistence
+- [nanosamurai-sdk](https://github.com/nanosamurai/nanosamurai-sdk) — Python SDK and CLI
+
+Kafka is being used for event streaming. Postgres as RDBMS. 
+For Docker Compose local setup we use LocalStack S3 for storage.
+
+```mermaid
+flowchart LR
+    subgraph Client
+        Browser["Browser UI\n(ClojureScript)"]
+        Electron["Electron app\n(Windows-first)"]
+    end
+
+    subgraph SamuraiBFF["SamuraiBFF (this repo)"]
+        HTTP[HTTP /api + /auth]
+        WSAudio[ws/audio]
+        WSEvents[ws/events]
+    end
+
+    subgraph Xamurai["xamurai (Python services)"]
+        RTService["rtservice\n(realtime ASR)"]
+        WhisperXWorker["whisperx_worker\n(slice refinement)"]
+        RecorderWorker["recorder_worker\n(session WAV)"]
+        FinalizerWorker["finalizer_worker\n(final transcript)"]
+    end
+
+    Browser -->|HTTP /api + /auth| HTTP
+    Browser -->|"WS audio\nWebSocket /ws/audio\nPCM16LE mono 16kHz"| WSAudio
+    Browser ---|"WS events\nWebSocket /ws/events\nJSON events"| WSEvents
+
+    Electron -->|HTTP /api + /auth| HTTP
+    Electron -->|"WS audio\nWebSocket /ws/audio\nPCM16LE mono 16kHz"| WSAudio
+    Electron ---|"WS events\nWebSocket /ws/events\nJSON events"| WSEvents
+
+    SamuraiBFF -->|gRPC bidirectional stream| RTService
+
+    subgraph Kafka["Kafka"]
+        KafkaBroker[(Kafka broker)]
+    end
+
+    SamuraiBFF -->|"produce protobuf AudioChunk\ntopic: audio.raw"| KafkaBroker
+    SamuraiBFF -->|"produce compacted JSON\ntopic: sessions.meta"| KafkaBroker
+
+    KafkaBroker -->|"consume protobuf RefinedEvent\ntopic: transcripts.refined"| SamuraiBFF
+    KafkaBroker -->|"consume\ntopic: audio.raw"| WhisperXWorker
+    WhisperXWorker -->|"produce protobuf RefinedEvent\ntopic: transcripts.refined"| KafkaBroker
+
+    KafkaBroker -->|"consume\ntopic: audio.raw"| RecorderWorker
+    RecorderWorker -->|"produce protobuf RecordingFinished\ntopic: recordings.finished"| KafkaBroker
+
+    KafkaBroker -->|"consume\ntopic: recordings.finished"| FinalizerWorker
+    FinalizerWorker -->|"produce protobuf SessionTranscript\ntopic: transcripts.final"| KafkaBroker
+
+    KafkaBroker -->|"consume + persist\ntopic: transcripts.refined"| Persistor["samuraipersistor\n(Postgres writer)"]
+    KafkaBroker -->|"consume + persist\ntopic: transcripts.final"| Persistor
+    Persistor -->|persist| Postgres[(Postgres)]
+    SamuraiBFF -->|query| Postgres
+```
+
+All published host ports bind to `127.0.0.1` by default. See the
+[architecture guide](docs/architecture.md) for component responsibilities and
+the Community Edition boundary.
 
 ## Quickstart
 
 Prerequisites:
 
 - Docker Desktop or Docker Engine
-- GHCR access if the packages are still private
+- Docker Compose v2
+- Enough free disk space for the selected container images and speech models
 
 ```bash
 cp .env.example .env
+docker compose pull
 docker compose up -d
 ```
 
+Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+docker compose pull
+docker compose up -d
+```
+
+If GHCR returns `denied` or `unauthorized`, first confirm that the package is
+public. Maintainers testing a package before its public-visibility flip can use
+`docker login ghcr.io` with a read-only package token; ordinary Community
+Edition users should not need a GitHub token.
+
 Open the UI at http://127.0.0.1:8000.
+
+Check startup state with:
+
+```bash
+docker compose ps --all
+docker compose logs --tail=100 samuraibff samuraipersistor
+```
 
 Containers use deterministic `nanosamurai-*` names without Compose replica
 suffixes (for example, `nanosamurai-samuraibff`). This local stack intentionally
@@ -60,7 +180,9 @@ python utilities/k8s_local_smoke_test/tier2_realtime_asr.py --base-url http://12
 ```
 
 The speech containers request `gpus: all`. If Docker GPU support is not
-available, remove or override those entries for CPU-only testing.
+available, the speech profile will not start. The base stack and Tier 1 test do
+not require a GPU. A supported NVIDIA container runtime, sufficient GPU memory,
+and substantial additional disk space are required for the full speech path.
 
 Recorder and finalizer both use the recording S3 store. In Compose this points
 at LocalStack with test-only credentials so `recording-finished` events can be
@@ -105,6 +227,9 @@ The wrapper scripts accept `RUN_TIER2=true`, `RUN_TIER3=true`, and
 `RUN_TIER4=true`. Set `TIER4_SIGNAL` and `TIER4_TIMEOUT` to override the Tier 4
 defaults, or `TRACE_SESSION_ID` to run the trace audit.
 
+See the [smoke-test guide](docs/smoke-tests.md) for test tiers, expected signals,
+and release-rehearsal commands.
+
 ## Observability
 
 The observability stack is optional and separated into an override file:
@@ -142,6 +267,28 @@ not yet expose dedicated Prometheus metrics endpoints.
   `localstack/localstack:latest` for this stack unless you intentionally want
   the current upstream image behavior.
 
+The Compose credentials are intentionally fixed development values and are
+safe only because services bind to localhost. This Compose stack is not a
+production deployment manifest.
+
+## Lifecycle and troubleshooting
+
+Stop the stack while retaining local data:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.observability.yml --profile speech down
+```
+
+To perform a genuinely clean local rehearsal, remove the Compose volumes as
+well. This permanently deletes local transcripts, recordings, and model cache:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.observability.yml --profile speech down -v
+```
+
+See [troubleshooting](docs/troubleshooting.md) for image access, port conflicts,
+GPU startup, model downloads, cold starts, and migration diagnostics.
+
 ## Image Tags
 
 The current default is immutable SHA tags. Future release options include:
@@ -149,3 +296,16 @@ The current default is immutable SHA tags. Future release options include:
 - semantic version tags for stable releases
 - `edge` tags for latest successful `master`
 - signed release tags with provenance once the public release process is ready
+
+See the [image release policy](docs/image-release-policy.md) for how defaults
+are selected and updated.
+
+## Related repositories
+
+- [xamurai](https://github.com/nanosamurai/xamurai) — speech services
+- [samuraibff](https://github.com/nanosamurai/samuraibff) — API and browser UI
+- [samuraipersistor](https://github.com/nanosamurai/samuraipersistor) — transcript persistence
+- [nanosamurai-sdk](https://github.com/nanosamurai/nanosamurai-sdk) — Python SDK and CLI
+
+Security reports should follow [SECURITY.md](SECURITY.md). Contributions are
+described in [CONTRIBUTING.md](CONTRIBUTING.md).

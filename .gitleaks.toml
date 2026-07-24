@@ -1,10 +1,35 @@
 [extend]
+useDefault = true
 
-[allowlist]
-description = "Project allowlist"
-paths = [
-  "^docs/",
-  "^README\\.md$",
-  "^NOTICE$",
-  "^LICENSE$",
-]
+[[rules]]
+id = "aws-account-id"
+description = "AWS account identifiers must not be published"
+regex = '''\b[0-9]{12}\b'''
+
+[rules.allowlist]
+stopwords = ["000000000000", "000000000001"]
+
+[[rules]]
+id = "aws-resource-arn"
+description = "AWS resource ARNs must not be published"
+regex = '''arn:aws[a-zA-Z-]*:[a-zA-Z0-9-]+:[a-z0-9-]*:[0-9]*:[^\s"']+'''
+
+[[rules]]
+id = "aws-service-endpoint"
+description = "Concrete AWS service endpoints must not be published"
+regex = '''(?i)[a-zA-Z0-9.-]+(?:\.(?:rds|kafka|eks)|\.eks)\.[a-z0-9-]+\.amazonaws\.com(?:/id/[a-zA-Z0-9_-]+)?'''
+
+[[rules]]
+id = "aws-oidc-provider"
+description = "Concrete AWS OIDC provider identifiers must not be published"
+regex = '''(?i)oidc-provider/[a-zA-Z0-9./_-]+'''
+
+[[rules]]
+id = "developer-home-path"
+description = "Developer-specific home paths must not be published"
+regex = '''(?i)(%USERPROFILE%|[A-Z]:[\\/]+Users[\\/]+[^\\/\s]+)'''
+
+[[rules]]
+id = "private-deployment-repository"
+description = "Private deployment repositories must not be linked from public content"
+regex = '''github\.com/(mikub/)?(nanodeploy|nanplatform)'''

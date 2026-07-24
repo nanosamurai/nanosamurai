@@ -1,10 +1,9 @@
-# Docs
+# Documentation
 
-The Community Edition runbook currently lives in the repository `README.md`.
+- [Architecture and Community Edition boundary](architecture.md)
+- [Smoke-test and release-rehearsal guide](smoke-tests.md)
+- [Troubleshooting](troubleshooting.md)
+- [Image release policy](image-release-policy.md)
 
-Planned follow-ups:
-
-- architecture overview
-- troubleshooting guide
-- smoke test guide
-- image release policy
+Start with the repository [README](../README.md) for the shortest supported
+installation path.
