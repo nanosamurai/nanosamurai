@@ -1,4 +1,4 @@
-# nanosamurai
+# nanosamur.ai
 
 Open-source **self-hosted speech-to-text** (STT) stack. 
 
@@ -9,9 +9,9 @@ This is the public front-door repo for running the Community Edition locally
 with Docker Compose. Service images are pulled from `ghcr.io/nanosamurai/*`
 and pinned by SHA by default.
 
-Community Edition includes the BFF/UI, realtime transcription, asynchronous
+Community Edition includes the BFF/UI and also windows Electron app, realtime transcription, asynchronous
 refinement and finalization, transcript persistence, recording storage, and an
-optional local observability stack. 
+optional local observability stack. It also has multi-tenancy support!
 
 Proprietary workflow execution and webhook
 delivery services are not included or enabled by default in the Community Edition, but the plumbing for them is there, 
@@ -44,7 +44,8 @@ Nanosamurai stack currently consists of the following services:
 - [samuraipersistor](https://github.com/nanosamurai/samuraipersistor) — transcript persistence
 - [nanosamurai-sdk](https://github.com/nanosamurai/nanosamurai-sdk) — Python SDK and CLI
 
-
+Kafka is being used for event streaming. Postgres as RDBMS. 
+For Docker Compose local setup we use LocalStack S3 for storage.
 
 ```mermaid
 flowchart LR
