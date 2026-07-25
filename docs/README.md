@@ -11,6 +11,7 @@ own them.
 - [Evaluator getting started](getting-started.md)
 - [Architecture and Community Edition boundary](architecture.md)
 - [Transcription lifecycle](transcription-lifecycle.md)
+- [APIs and extension points](apis-and-extension-points.md)
 
 ## Validate and operate
 

@@ -111,4 +111,5 @@ temporary access to completed audio when `final=true`.
   clients.
 
 See [Architecture and Community Edition boundary](architecture.md) for component
-ownership.
+ownership and [APIs and extension points](apis-and-extension-points.md) for the
+client-facing interfaces.
