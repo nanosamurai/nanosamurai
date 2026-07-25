@@ -8,6 +8,7 @@ own them.
 ## Get started
 
 - [Five-minute Docker Compose quickstart](../README.md#quickstart)
+- [Evaluator getting started](getting-started.md)
 - [Architecture and Community Edition boundary](architecture.md)
 
 ## Validate and operate
