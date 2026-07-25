@@ -93,7 +93,9 @@ NVIDIA runtime is unavailable.
    after the recording and finalizer workers complete.
 
 For deterministic validation, use the repository smoke-test audio and Tier 2-4
-scripts instead of microphone input.
+scripts instead of microphone input. See
+[Transcription lifecycle](transcription-lifecycle.md) for the meaning of each
+output.
 
 ## Add local observability
 
