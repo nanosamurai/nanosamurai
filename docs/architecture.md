@@ -16,6 +16,59 @@ source code remains in the related repositories.
    events.
 7. SamuraiPersistor stores transcript events in PostgreSQL.
 
+```mermaid
+flowchart LR
+    subgraph Client
+        Browser["Browser UI\n(ClojureScript)"]
+        Electron["Electron app\n(Windows-first)"]
+    end
+
+    subgraph SamuraiBFF["SamuraiBFF\n(API and orchestration)"]
+        HTTP[HTTP /api + /auth]
+        WSAudio[ws/audio]
+        WSEvents[ws/events]
+    end
+
+    subgraph Xamurai["Xamurai (Python services)"]
+        RTService["rtservice\n(realtime ASR)"]
+        WhisperXWorker["whisperx_worker\n(asynchronous refinement)"]
+        RecorderWorker["recorder_worker\n(session WAV)"]
+        FinalizerWorker["finalizer_worker\n(final transcript)"]
+    end
+
+    Browser -->|HTTP /api + /auth| HTTP
+    Browser -->|"WS audio\nWebSocket /ws/audio\nPCM16LE mono 16kHz"| WSAudio
+    Browser ---|"WS events\nWebSocket /ws/events\nJSON events"| WSEvents
+
+    Electron -->|HTTP /api + /auth| HTTP
+    Electron -->|"WS audio\nWebSocket /ws/audio\nPCM16LE mono 16kHz"| WSAudio
+    Electron ---|"WS events\nWebSocket /ws/events\nJSON events"| WSEvents
+
+    SamuraiBFF -->|gRPC bidirectional stream| RTService
+
+    subgraph Kafka["Kafka"]
+        KafkaBroker[(Kafka broker)]
+    end
+
+    SamuraiBFF -->|"produce protobuf AudioChunk\ntopic: audio.raw"| KafkaBroker
+    SamuraiBFF -->|"produce compacted JSON\ntopic: sessions.meta"| KafkaBroker
+
+    KafkaBroker -->|"consume protobuf RefinedEvent\ntopic: transcripts.refined"| SamuraiBFF
+    KafkaBroker -->|"consume\ntopic: audio.raw"| WhisperXWorker
+    WhisperXWorker -->|"produce protobuf RefinedEvent\ntopic: transcripts.refined"| KafkaBroker
+
+    KafkaBroker -->|"consume\ntopic: audio.raw"| RecorderWorker
+    RecorderWorker -->|"produce protobuf RecordingFinished\ntopic: recordings.finished"| KafkaBroker
+
+    KafkaBroker -->|"consume\ntopic: recordings.finished"| FinalizerWorker
+    FinalizerWorker -->|"produce protobuf SessionTranscript\ntopic: transcripts.final"| KafkaBroker
+
+    KafkaBroker -->|"consume + persist\ntopic: transcripts.refined"| Persistor["SamuraiPersistor\n(PostgreSQL writer)"]
+    KafkaBroker -->|"consume + persist\ntopic: transcripts.final"| Persistor
+    Persistor -->|persist| Postgres[(PostgreSQL)]
+    SamuraiBFF -->|query| Postgres
+```
+
 The optional OpenTelemetry Collector sends traces to Tempo and metrics to
 Prometheus. Alloy forwards container logs to Loki. Grafana is provisioned with
 local data sources and a starter BFF dashboard.
@@ -35,7 +88,7 @@ Not included or enabled:
 - workflow execution services
 - webhook delivery services
 - production Kubernetes and cloud infrastructure automation
-- managed hosting, enterprise identity integration, or operational support
+- production identity integration, managed hosting, or operational support
 
 Workflow and webhook contracts can remain visible in service source code, but
 the corresponding runtime consumers are disabled by Community Edition feature

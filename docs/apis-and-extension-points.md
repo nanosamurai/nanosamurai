@@ -149,4 +149,5 @@ flows.
 - This repository owns the supported public Compose evaluation path.
 
 See [Transcription lifecycle](transcription-lifecycle.md) for the speech data
-flow. Keep the Compose evaluator bound to localhost.
+flow and [Deployment and security boundaries](deployment-and-security.md)
+before exposing any interface beyond localhost.
