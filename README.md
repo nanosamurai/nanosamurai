@@ -1,12 +1,11 @@
-# nanosamur.ai <span style="font-size: 14px; font-weight: normal;">  guarding your sensitive conversations
-<img style="width: 100px" src="docs/nanosamurai_logo_finished_shoulders.svg"> 
-<img style="float: right; width: 35%" src="docs/main-art-large.png">
+<img src="docs/nanosamurai_logo_finished_shoulders.svg" width="100">
 
-Your voice. Your control.
+# nanosamur.ai 
+guarding your sensitive conversations</sub>
 
+<sub>Your voice. Your control.</sub>
 
 ## **Complete speech AI platform**
-
 - open source
 - production-grade, distributed architecture
 - multitenancy support
@@ -14,7 +13,6 @@ Your voice. Your control.
 nanosamur.ai guards sensitive conversations in infrastructure you control. 
 
 It is model agnostic orchestration platform that supports different models used for different use cases (realtime vs semi-realtime vs batch) and provides a unified stack for highly available and robust processing with support for agentic workflows and webhooks. 
-
 
 Batteries included: we have a browser UI, a windows Electron app, API,
 SDK, recording storage, persistence, and optional local observability.
@@ -24,6 +22,8 @@ with Docker Compose. Service images are pulled from `ghcr.io/nanosamurai/*` and
 pinned by source SHA.
 
 ## What Community Edition includes
+<img src="docs/main-art-large.png" width="35%" align="right">
+
 
 - browser UI and SamuraiBFF API
 - Windows-first Electron wrapper
@@ -39,6 +39,7 @@ pinned by source SHA.
 The public code also includes agentic-workflow and webhook contracts.
 Community Edition does not ship workflow execution or webhook delivery
 services, but you are free to implement your own workflows / webhook services and plug them in.
+<br clear="right">
 
 ## Architecture
 
