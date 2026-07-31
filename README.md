@@ -1,10 +1,22 @@
-# nanosamur.ai
+# nanosamur.ai <span style="font-size: 14px; font-weight: normal;">  guarding your sensitive conversations
+<img style="width: 100px" src="docs/nanosamurai_logo_finished_shoulders.svg"> 
+<img style="float: right; width: 35%" src="docs/main-art-large.png">
 
-Open-source **self-hosted speech-to-text** (STT) stack.
+Your voice. Your control.
+
+
+## **Complete speech AI platform**
+
+- open source
+- production-grade, distributed architecture
+- multitenancy support
 
 nanosamur.ai guards sensitive conversations in infrastructure you control. 
+
 It is model agnostic orchestration platform that supports different models used for different use cases (realtime vs semi-realtime vs batch) and provides a unified stack for highly available and robust processing with support for agentic workflows and webhooks. 
-It provides a browser UI, API,
+
+
+Batteries included: we have a browser UI, a windows Electron app, API,
 SDK, recording storage, persistence, and optional local observability.
 
 This is the public front-door repository for running Community Edition locally
