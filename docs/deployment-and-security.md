@@ -73,7 +73,9 @@ The evaluator configuration:
 
 Do not change the bind to `0.0.0.0` as a shortcut. Before any shared or remote
 deployment, enable authentication, replace credentials, add TLS, restrict
-probes and metrics, and define network policy.
+probes and metrics, and define network policy. The stack does not ship an
+identity provider; follow [Authentication and bring-your-own
+Keycloak](authentication.md) to connect an operator-owned Keycloak instance.
 
 ## Community Edition boundary
 

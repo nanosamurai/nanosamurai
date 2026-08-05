@@ -80,7 +80,11 @@ Python, CLI, and stream-control examples live in the
 The default Compose evaluator disables authentication for a quick localhost
 evaluation and does not provision M2M credentials. Use the browser or public
 smoke-test clients for that configuration; do not pretend production
-credentials exist in the evaluator stack.
+credentials exist in the evaluator stack. Authenticated deployments must bring
+their own Keycloak; see
+[Authentication and bring-your-own Keycloak](authentication.md) for browser
+client setup, required token claims, M2M provisioning, and the limitations of
+other OIDC providers.
 
 ## Agentic workflow and webhook contracts
 
