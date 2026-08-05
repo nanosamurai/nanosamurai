@@ -7,7 +7,7 @@ description = "AWS account identifiers must not be published"
 regex = '''\b[0-9]{12}\b'''
 
 [rules.allowlist]
-stopwords = ["000000000000", "000000000001"]
+stopwords = ["000000000000", "000000000001", "111111111111"]
 
 [[rules]]
 id = "aws-resource-arn"

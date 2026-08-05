@@ -136,7 +136,7 @@ For example:
 
 ```sql
 INSERT INTO tenants (id, name)
-VALUES ('11111111-1111-1111-1111-111111111111', 'Example tenant')
+VALUES ('11111111-1111-4111-8111-a1b2c3d4e5f6', 'Example tenant')
 ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name;
 ```
 
