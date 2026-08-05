@@ -187,6 +187,7 @@ endpoints, available signals, trace behavior, and current limitations.
 - [Transcription lifecycle](docs/transcription-lifecycle.md)
 - [APIs and extension points](docs/apis-and-extension-points.md)
 - [Architecture and Community Edition boundary](docs/architecture.md)
+- [Authentication and bring-your-own Keycloak](docs/authentication.md)
 - [Operations and observability](docs/operations-and-observability.md)
 - [Deployment and security boundaries](docs/deployment-and-security.md)
 - [Smoke tests and release rehearsal](docs/smoke-tests.md)
@@ -213,6 +214,9 @@ See [Deployment and security boundaries](docs/deployment-and-security.md).
   `COMPOSE_BIND_IP`.
 - The evaluator uses fixed development credentials and disables authentication
   for quick local access.
+- Authenticated deployments must supply and operate their own Keycloak. See
+  [Authentication and bring-your-own Keycloak](docs/authentication.md) for the
+  required client, claims, tenant provisioning, and configuration.
 - Do not expose this configuration to a LAN or public interface unless you intentionally want to do that.
 - Never commit `.env`, tokens, recordings, transcripts, enrollment samples, or
   customer data.

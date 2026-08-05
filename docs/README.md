@@ -15,6 +15,7 @@ own them.
 
 ## Validate and operate
 
+- [Authentication and bring-your-own Keycloak](authentication.md)
 - [Operations and observability](operations-and-observability.md)
 - [Deployment and security boundaries](deployment-and-security.md)
 - [Smoke tests and release rehearsal](smoke-tests.md)
