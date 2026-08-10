@@ -48,8 +48,13 @@ Install the published SDK:
 python -m pip install nanosamurai-sdk
 ```
 
-The SDK currently targets authenticated machine-to-machine integrations. Create
-an M2M credential in an authentication-enabled SamuraiBFF deployment, then set:
+The SDK currently targets authenticated machine-to-machine integrations. In an
+authentication-enabled SamuraiBFF deployment, create a credential from the
+browser UI's **API Credentials** page and copy the show-once client secret. The
+page creates a Keycloak OAuth client; Keycloak then issues short-lived bearer
+tokens through `client_credentials`. See
+[Create a credential in the BFF UI](authentication.md#create-a-credential-in-the-bff-ui)
+for the required Keycloak admin setup and complete flow. Then set:
 
 ```bash
 export NANOSAMURAI_API_URL=https://your-nanosamurai.example
