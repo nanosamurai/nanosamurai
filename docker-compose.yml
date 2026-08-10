@@ -128,7 +128,7 @@ services:
 
   samuraibff:
     container_name: nanosamurai-samuraibff
-    image: ${SAMURAIBFF_IMAGE:-ghcr.io/nanosamurai/samuraibff:sha-1cc460f61ff4c59a0b3ffefb40ab5cfbb9bf746e}
+    image: ${SAMURAIBFF_IMAGE:-ghcr.io/nanosamurai/samuraibff:sha-cd7d7efb596fb0253b8b0a0978d4b2fd4653ecc8}
     restart: unless-stopped
     ports:
       - "${COMPOSE_BIND_IP:-127.0.0.1}:8000:8000"
@@ -170,7 +170,7 @@ services:
 
   samuraipersistor:
     container_name: nanosamurai-samuraipersistor
-    image: ${SAMURAIPERSISTOR_IMAGE:-ghcr.io/nanosamurai/samuraipersistor:sha-d114786bb9d87f775c6566fea06e609e5b5fe2ba}
+    image: ${SAMURAIPERSISTOR_IMAGE:-ghcr.io/nanosamurai/samuraipersistor:sha-a81062859525200300c9f47c7e6e7ac082acede3}
     restart: unless-stopped
     ports:
       - "${COMPOSE_BIND_IP:-127.0.0.1}:8010:8010"
@@ -195,7 +195,7 @@ services:
   rtservice:
     container_name: nanosamurai-rtservice
     profiles: ["speech"]
-    image: ${RTSERVICE_IMAGE:-ghcr.io/nanosamurai/xamurai-rtservice:sha-52cd301dafafc3ae4a4ad2c6363a4d15f319e922}
+    image: ${RTSERVICE_IMAGE:-ghcr.io/nanosamurai/xamurai-rtservice:sha-d4fb1f56b19520c6db1f88e9d37a9c013f3c0c27}
     restart: unless-stopped
     ports:
       - "${COMPOSE_BIND_IP:-127.0.0.1}:50052:50052"
@@ -228,7 +228,7 @@ services:
   whisperx_worker:
     container_name: nanosamurai-whisperx-worker
     profiles: ["speech"]
-    image: ${WHISPERX_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-whisperx-worker:sha-52cd301dafafc3ae4a4ad2c6363a4d15f319e922}
+    image: ${WHISPERX_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-whisperx-worker:sha-d4fb1f56b19520c6db1f88e9d37a9c013f3c0c27}
     restart: unless-stopped
     environment:
       KAFKA_BOOTSTRAP: broker:29092
@@ -257,7 +257,7 @@ services:
   recorder_worker:
     container_name: nanosamurai-recorder-worker
     profiles: ["speech"]
-    image: ${RECORDER_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-recorder-worker:sha-52cd301dafafc3ae4a4ad2c6363a4d15f319e922}
+    image: ${RECORDER_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-recorder-worker:sha-d4fb1f56b19520c6db1f88e9d37a9c013f3c0c27}
     restart: unless-stopped
     environment:
       KAFKA_BOOTSTRAP: broker:29092
@@ -282,7 +282,7 @@ services:
   finalizer_worker:
     container_name: nanosamurai-finalizer-worker
     profiles: ["speech"]
-    image: ${FINALIZER_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-finalizer-worker:sha-52cd301dafafc3ae4a4ad2c6363a4d15f319e922}
+    image: ${FINALIZER_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-finalizer-worker:sha-d4fb1f56b19520c6db1f88e9d37a9c013f3c0c27}
     restart: unless-stopped
     environment:
       KAFKA_BOOTSTRAP: broker:29092
