@@ -21,15 +21,13 @@ This is the public front-door repository for running Community Edition locally
 with Docker Compose. Service images are pulled from `ghcr.io/nanosamurai/*` and
 pinned by source SHA.
 
-## See it in action
+## Demo - See it in action
 
 <a href="https://nanosamur.ai/#demo">
   <img src="docs/demo-poster.jpg" alt="nanosamur.ai final transcript and workflow results" width="100%">
 </a>
 
-[Watch the 10-minute end-to-end demo](https://nanosamur.ai/#demo) to see live
-and refined transcription, speaker-aware results, workflow output, stored
-playback, the final transcript, and an end-to-end trace in Grafana and Tempo.
+[Watch nanosamur.ai](https://nanosamur.ai/#demo) turn a live conversation into speaker-aware transcripts, workflow results, a searchable final record, and a fully traced session. 
 
 ## What Community Edition includes
 <img src="docs/main-art-large.png" width="35%" align="right">
