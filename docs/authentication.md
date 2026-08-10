@@ -234,10 +234,31 @@ POST   /api/api-credentials/{id}/rotate
 DELETE /api/api-credentials/{id}
 ```
 
-Create a confidential Keycloak service client, commonly `bff-admin`, with
-service accounts enabled and the least realm-management permissions needed to
-view and manage clients. The tested setup grants `view-clients` and
-`manage-clients`. Configure:
+### Configure the Keycloak admin client
+
+In the same realm as `bff-web`, create a separate confidential OpenID Connect
+client, commonly named `bff-admin`. This client is SamuraiBFF's machine identity
+for the Keycloak Admin API; it is not the browser client and must never be
+exposed to browser users.
+
+In the Keycloak Admin Console:
+
+1. Go to **Clients**, choose **Create client**, select **OpenID Connect**, and
+   set the client ID to `bff-admin`.
+2. Turn **Client authentication** on.
+3. Turn **Service accounts roles** on. Standard flow and Direct Access Grants
+   are not required for this client.
+4. Save the client and copy its secret from the **Credentials** tab into the
+   deployment's secret store.
+5. Open **Service account roles**, choose **Assign role**, expose client roles,
+   and assign `realm-management` roles `view-clients` and `manage-clients`.
+
+Those are the permissions used by the tested setup. They allow SamuraiBFF to
+create and find clients, generate and rotate secrets, configure protocol
+mappers, and disable clients. Do not grant broad realm-administration roles.
+
+Pass the admin client to SamuraiBFF through the Compose override described
+above:
 
 ```dotenv
 SAMURAIBFF_KEYCLOAK_ADMIN_ISSUER=https://keycloak.example.com/realms/nanosamurai
@@ -246,19 +267,113 @@ SAMURAIBFF_KEYCLOAK_ADMIN_CLIENT_ID=bff-admin
 SAMURAIBFF_KEYCLOAK_ADMIN_CLIENT_SECRET=<secret-from-your-secret-store>
 ```
 
-SamuraiBFF uses the admin client's `client_credentials` token to create a
-confidential Keycloak client with a service account, generate or rotate its
-secret, add a hard-coded `tenant_id` mapper, and add the configured BFF audience
-to the token. The generated secret is returned only on creation or rotation;
-PostgreSQL stores the Keycloak client ID and audit metadata, not the secret.
+Restart SamuraiBFF after changing these values. A correctly configured startup
+logs `Keycloak admin client initialized`; missing values log that the admin
+client is disabled.
 
-Protocol-mapper creation is best effort in the current implementation. After
-creating a credential, mint a token and verify its `tenant_id` and `aud` claims
-before distributing the credential. If the admin configuration is absent, the
-server still starts: list operations remain database-backed, while create and
-rotate return `503 keycloak-admin-unavailable`. Revocation without an admin
-client cannot disable the corresponding client in Keycloak, so do not treat a
-database-only revocation as sufficient credential containment.
+### Create a credential in the BFF UI
+
+The API Credentials page requires an authenticated deployment and a signed-in
+human user whose access token contains a valid `tenant_id` matching a database
+tenant.
+
+1. Sign in to the Nanosamurai browser UI.
+2. Choose **API Credentials** in the sidebar, or open
+   `https://nanosamurai.example.com/api-credentials`.
+3. Enter a descriptive name such as `reporting-sdk` and choose **Create**.
+4. Copy both the displayed `client_id` and `client_secret` immediately and
+   store them in a secret manager. Closing the dialog permanently removes the
+   secret from the UI; if it is lost, rotate it.
+
+SamuraiBFF uses `bff-admin` to create a new confidential Keycloak client with a
+service account. It adds a hard-coded `tenant_id` claim for the signed-in
+user's tenant and an audience mapper for `SAMURAIBFF_AUTH_AUDIENCE`. The new
+client is therefore tenant-bound even though its token is obtained without a
+human user.
+
+The generated secret is returned only on creation or rotation. PostgreSQL
+stores the Keycloak client ID and audit metadata, not the secret. Currently,
+API credential management is tenant-scoped but not role-scoped: every
+authenticated user in a tenant can list, create, rotate, and revoke that
+tenant's credentials. Account for that boundary before granting users access
+to a tenant.
+
+### Exchange the credential for an API access token
+
+The API Credentials page creates an OAuth client ID and secret; it does not
+mint a long-lived Nanosamurai API key. Keycloak issues the actual short-lived
+bearer access token through its token endpoint. Never send the client secret to
+a SamuraiBFF `/api/*` endpoint.
+
+Using Bash:
+
+```bash
+export NANOSAMURAI_ISSUER=https://keycloak.example.com/realms/nanosamurai
+export NANOSAMURAI_CLIENT_ID='<client-id-copied-from-the-ui>'
+export NANOSAMURAI_CLIENT_SECRET='<client-secret-copied-from-the-ui>'
+
+curl --fail-with-body --request POST \
+  "${NANOSAMURAI_ISSUER}/protocol/openid-connect/token" \
+  --header "Content-Type: application/x-www-form-urlencoded" \
+  --data-urlencode "grant_type=client_credentials" \
+  --data-urlencode "client_id=${NANOSAMURAI_CLIENT_ID}" \
+  --data-urlencode "client_secret=${NANOSAMURAI_CLIENT_SECRET}"
+```
+
+The JSON response contains `access_token`, `expires_in`, and the token type.
+Use the access token, not the client secret, to call SamuraiBFF:
+
+```bash
+export NANOSAMURAI_ACCESS_TOKEN='<access-token-from-keycloak>'
+
+curl --fail-with-body \
+  --header "Authorization: Bearer ${NANOSAMURAI_ACCESS_TOKEN}" \
+  https://nanosamurai.example.com/api/me
+```
+
+Windows PowerShell:
+
+```powershell
+$env:NANOSAMURAI_ISSUER = "https://keycloak.example.com/realms/nanosamurai"
+$env:NANOSAMURAI_CLIENT_ID = "<client-id-copied-from-the-ui>"
+$env:NANOSAMURAI_CLIENT_SECRET = "<client-secret-copied-from-the-ui>"
+
+$tokenResponse = Invoke-RestMethod -Method Post `
+  -Uri "$env:NANOSAMURAI_ISSUER/protocol/openid-connect/token" `
+  -ContentType "application/x-www-form-urlencoded" `
+  -Body @{
+    grant_type = "client_credentials"
+    client_id = $env:NANOSAMURAI_CLIENT_ID
+    client_secret = $env:NANOSAMURAI_CLIENT_SECRET
+  }
+
+Invoke-RestMethod -Uri "https://nanosamurai.example.com/api/me" `
+  -Headers @{Authorization = "Bearer $($tokenResponse.access_token)"}
+```
+
+The [Python SDK and CLI](apis-and-extension-points.md#python-sdk-and-cli)
+perform discovery, obtain and cache the access token, and refresh it when
+needed after receiving the same issuer, client ID, and client secret.
+
+Inspect a newly issued token locally before distributing the credential. It
+must contain the correct UUID `tenant_id`, the BFF audience in `aud`, and an
+RS256 signature accepted by SamuraiBFF. Protocol-mapper creation is best effort
+in the current implementation, so successful credential creation alone does
+not prove the resulting token is usable.
+
+### Rotate, revoke, and troubleshoot credentials
+
+**Rotate** generates and displays a new secret; the old secret stops working.
+Update consumers immediately. **Revoke** attempts to disable the Keycloak
+client and marks the database record revoked.
+
+If the admin configuration is absent, the server still starts: list operations
+remain database-backed, while create and rotate return
+`503 keycloak-admin-unavailable`. Revocation without a working admin client can
+still mark the database row revoked without disabling the corresponding client
+in Keycloak, so verify the client is disabled there during credential
+containment. A `502 keycloak-admin-error` during creation normally indicates an
+incorrect issuer, realm, secret, or missing client-management permissions.
 
 ## Validate an authenticated deployment
 
