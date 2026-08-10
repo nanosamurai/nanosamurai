@@ -42,11 +42,15 @@ for lifecycle, close codes, event shapes, and ordering semantics.
 
 ## Python SDK and CLI
 
-Install the published SDK:
+Until a reviewed release is published to PyPI, install the SDK from the
+audited Git commit pinned below:
 
 ```bash
-python -m pip install nanosamurai-sdk
+python -m pip install "git+https://github.com/nanosamurai/nanosamurai-sdk.git@ec5797be2364837e7c7e9dd17644fde60fa7c61a"
 ```
+
+Pin deployments to a reviewed commit or release tag rather than a mutable
+branch. Do not install similarly named packages from PyPI.
 
 The SDK currently targets authenticated machine-to-machine integrations. In an
 authentication-enabled SamuraiBFF deployment, create a credential from the
