@@ -20,11 +20,11 @@ jobs:
           docker compose \
             -f docker-compose.yml \
             -f docker-compose.observability.yml \
-            --profile speech config --quiet
+            config --quiet
 
       - name: Reject mutable latest tags
         run: |
-          images="$({ docker compose config --images; docker compose -f docker-compose.yml -f docker-compose.observability.yml --profile speech config --images; } | sort -u)"
+          images="$({ docker compose config --images; docker compose -f docker-compose.yml -f docker-compose.observability.yml config --images; } | sort -u)"
           printf '%s\n' "$images"
           if printf '%s\n' "$images" | grep -E ':latest$'; then
             echo "Compose and workflow images must use explicit versions."

@@ -131,7 +131,7 @@ Prerequisites:
 - Docker Desktop or Docker Engine
 - Docker Compose v2
 - free disk space for the selected images and speech models
-- an NVIDIA container runtime and suitable GPU for the speech profile
+- an NVIDIA container runtime and suitable GPU
 - a least-privilege `HF_TOKEN` for required gated models
 
 Create the local environment file:
@@ -146,7 +146,7 @@ Windows PowerShell:
 Copy-Item .env.example .env
 ```
 
-Start the base stack:
+Set `HF_TOKEN` in `.env`, then start the complete evaluator stack:
 
 ```bash
 docker compose pull
@@ -154,21 +154,15 @@ docker compose up -d
 docker compose ps --all
 ```
 
-Open <http://127.0.0.1:8000>. The base stack starts the UI/API and supporting
-services but does not transcribe audio.
-
-Set `HF_TOKEN` in `.env`, then start the GPU speech workers:
-
-```bash
-docker compose --profile speech up -d
-```
-
 Open <http://127.0.0.1:8000/live>, select **Microphone**, and choose
 **Record now**. Realtime results appear first; refined and final results arrive
 asynchronously.
 
-Model downloads and cold initialization can take several minutes. The supplied
-speech profile requests `gpus: all`. See
+Model downloads and cold initialization can take several minutes. The speech
+services request `gpus: all`; the default stack requires an NVIDIA GPU available
+to Docker.
+
+See
 [Evaluator getting started](docs/getting-started.md) for success checks,
 Windows/Linux instructions, the tested hardware disclosure, observability, and
 safe reset commands.
@@ -178,7 +172,7 @@ safe reset commands.
 Start the local observability services with:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.observability.yml --profile speech up -d
+docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d
 ```
 
 The stack provisions Grafana with Prometheus, Loki, and Tempo data sources.

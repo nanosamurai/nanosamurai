@@ -7,19 +7,19 @@ diagnosable; they are not a substitute for production operations.
 
 ## Start the observability stack
 
-Run the speech services with the observability override:
+Run the default stack with the observability override:
 
 ```bash
 docker compose \
   -f docker-compose.yml \
   -f docker-compose.observability.yml \
-  --profile speech up -d
+  up -d
 ```
 
 Windows PowerShell can use the same command on one line:
 
 ```powershell
-docker compose -f docker-compose.yml -f docker-compose.observability.yml --profile speech up -d
+docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d
 ```
 
 Local endpoints:

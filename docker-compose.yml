@@ -185,7 +185,6 @@ services:
         condition: service_completed_successfully
 
   rtservice:
-    profiles: ["speech"]
     image: ${RTSERVICE_IMAGE:-ghcr.io/nanosamurai/xamurai-rtservice:sha-d4fb1f56b19520c6db1f88e9d37a9c013f3c0c27}
     restart: unless-stopped
     ports:
@@ -217,7 +216,6 @@ services:
         condition: service_started
 
   whisperx_worker:
-    profiles: ["speech"]
     image: ${WHISPERX_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-whisperx-worker:sha-d4fb1f56b19520c6db1f88e9d37a9c013f3c0c27}
     restart: unless-stopped
     environment:
@@ -245,7 +243,6 @@ services:
         condition: service_completed_successfully
 
   recorder_worker:
-    profiles: ["speech"]
     image: ${RECORDER_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-recorder-worker:sha-d4fb1f56b19520c6db1f88e9d37a9c013f3c0c27}
     restart: unless-stopped
     environment:
@@ -269,7 +266,6 @@ services:
         condition: service_started
 
   finalizer_worker:
-    profiles: ["speech"]
     image: ${FINALIZER_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-finalizer-worker:sha-d4fb1f56b19520c6db1f88e9d37a9c013f3c0c27}
     restart: unless-stopped
     environment:
