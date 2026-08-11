@@ -2,7 +2,6 @@ name: nanosamurai
 
 services:
   broker:
-    container_name: nanosamurai-broker
     image: ${KAFKA_IMAGE:-apache/kafka:4.3.1}
     restart: unless-stopped
     environment:
@@ -23,7 +22,6 @@ services:
       - "${COMPOSE_BIND_IP:-127.0.0.1}:9092:9092"
 
   kafka_init:
-    container_name: nanosamurai-kafka-init
     image: ${KAFKA_IMAGE:-apache/kafka:4.3.1}
     depends_on:
       - broker
@@ -51,7 +49,6 @@ services:
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server broker:29092 --create --if-not-exists --topic workflow.outcome --partitions 1 --replication-factor 1
 
   localstack:
-    container_name: nanosamurai-localstack
     image: ${LOCALSTACK_IMAGE:-localstack/localstack:3.8.1}
     restart: unless-stopped
     ports:
@@ -72,7 +69,6 @@ services:
       - ./docker/localstack/init:/etc/localstack/init/ready.d:ro
 
   postgres:
-    container_name: nanosamurai-postgres
     image: postgres:18.1-alpine
     restart: unless-stopped
     environment:
@@ -90,7 +86,6 @@ services:
       retries: 5
 
   db_migrate:
-    container_name: nanosamurai-db-migrate
     image: postgres:18.1-alpine
     restart: "no"
     depends_on:
@@ -109,7 +104,6 @@ services:
       - /migrate.sh
 
   db_seed:
-    container_name: nanosamurai-db-seed
     image: postgres:18.1-alpine
     restart: "no"
     depends_on:
@@ -127,7 +121,6 @@ services:
     command: ["psql", "-v", "ON_ERROR_STOP=1", "-f", "/seed.sql"]
 
   samuraibff:
-    container_name: nanosamurai-samuraibff
     image: ${SAMURAIBFF_IMAGE:-ghcr.io/nanosamurai/samuraibff:sha-cd7d7efb596fb0253b8b0a0978d4b2fd4653ecc8}
     restart: unless-stopped
     ports:
@@ -169,7 +162,6 @@ services:
         condition: service_completed_successfully
 
   samuraipersistor:
-    container_name: nanosamurai-samuraipersistor
     image: ${SAMURAIPERSISTOR_IMAGE:-ghcr.io/nanosamurai/samuraipersistor:sha-a81062859525200300c9f47c7e6e7ac082acede3}
     restart: unless-stopped
     ports:
@@ -193,7 +185,6 @@ services:
         condition: service_completed_successfully
 
   rtservice:
-    container_name: nanosamurai-rtservice
     profiles: ["speech"]
     image: ${RTSERVICE_IMAGE:-ghcr.io/nanosamurai/xamurai-rtservice:sha-d4fb1f56b19520c6db1f88e9d37a9c013f3c0c27}
     restart: unless-stopped
@@ -226,7 +217,6 @@ services:
         condition: service_started
 
   whisperx_worker:
-    container_name: nanosamurai-whisperx-worker
     profiles: ["speech"]
     image: ${WHISPERX_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-whisperx-worker:sha-d4fb1f56b19520c6db1f88e9d37a9c013f3c0c27}
     restart: unless-stopped
@@ -255,7 +245,6 @@ services:
         condition: service_completed_successfully
 
   recorder_worker:
-    container_name: nanosamurai-recorder-worker
     profiles: ["speech"]
     image: ${RECORDER_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-recorder-worker:sha-d4fb1f56b19520c6db1f88e9d37a9c013f3c0c27}
     restart: unless-stopped
@@ -280,7 +269,6 @@ services:
         condition: service_started
 
   finalizer_worker:
-    container_name: nanosamurai-finalizer-worker
     profiles: ["speech"]
     image: ${FINALIZER_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-finalizer-worker:sha-d4fb1f56b19520c6db1f88e9d37a9c013f3c0c27}
     restart: unless-stopped
