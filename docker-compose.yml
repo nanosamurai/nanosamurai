@@ -121,7 +121,7 @@ services:
     command: ["psql", "-v", "ON_ERROR_STOP=1", "-f", "/seed.sql"]
 
   samuraibff:
-    image: ${SAMURAIBFF_IMAGE:-ghcr.io/nanosamurai/samuraibff:sha-cd7d7efb596fb0253b8b0a0978d4b2fd4653ecc8}
+    image: ${SAMURAIBFF_IMAGE:-ghcr.io/nanosamurai/samuraibff:sha-9b3e615491772e9aa6bbf3aee6f359058a8ebfba}
     restart: unless-stopped
     ports:
       - "${COMPOSE_BIND_IP:-127.0.0.1}:8000:8000"
