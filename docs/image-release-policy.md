@@ -8,7 +8,7 @@ Before updating a default pin:
 
 1. Confirm CI and the image-publication workflow succeeded for the source SHA.
 2. Pull the exact tag from GHCR.
-3. Validate the base Compose model and the speech/observability override.
+3. Validate the default Compose model and the observability override.
 4. Run the applicable smoke-test tiers.
 5. Verify the package can be pulled anonymously before announcing the release.
 6. Update the rollout record with the tested SHAs and known limitations.

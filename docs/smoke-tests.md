@@ -3,12 +3,12 @@
 The tests are cumulative: each higher tier requires the services exercised by
 the lower tiers.
 
-| Tier | What it verifies | Required profile |
-| --- | --- | --- |
-| 1 | BFF HTTP connectivity | base |
-| 2 | WebSocket and realtime ASR | speech |
-| 3 | Session audio reaches Kafka | speech |
-| 4 | Recording, refined, or final async signal | speech |
+| Tier | What it verifies |
+| --- | --- |
+| 1 | BFF HTTP connectivity |
+| 2 | WebSocket and realtime ASR |
+| 3 | Session audio reaches Kafka |
+| 4 | Recording, refined, or final async signal |
 
 ## Install the test environment
 
@@ -24,17 +24,16 @@ On Windows PowerShell, use `py -m venv .venv-smoke` and invoke
 
 ## Release rehearsal
 
-1. Copy `.env.example` to `.env` and set a least-privilege `HF_TOKEN` for the
-   speech profile.
+1. Copy `.env.example` to `.env` and set a least-privilege `HF_TOKEN`.
 2. Run `docker compose config --quiet`.
 3. Run `docker compose pull` and then `docker compose up -d`.
-4. Run Tier 1.
-5. Start `docker compose --profile speech up -d` and wait for model startup.
-6. Run Tier 2, Tier 3, Tier 4 `recording-finished`, and Tier 4 `refined`.
-7. Run strict Tier 4 `final` when validating the full finalizer contract.
-8. Repeat `docker compose up -d` without deleting volumes and verify the
+4. Wait for the speech services and their models to finish starting.
+5. Run Tier 1, Tier 2, Tier 3, Tier 4 `recording-finished`, and Tier 4
+   `refined`.
+6. Run strict Tier 4 `final` when validating the full finalizer contract.
+7. Repeat `docker compose up -d` without deleting volumes and verify the
    migration and seed jobs complete successfully.
-9. Start the observability override and repeat Tier 3/4 while checking Tempo,
+8. Start the observability override and repeat Tier 3/4 while checking Tempo,
    Prometheus, Loki, and Grafana.
 
 Use `smoke-tests/smoke.sh` or `smoke-tests/smoke.ps1` to orchestrate the tiers.

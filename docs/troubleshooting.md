@@ -16,8 +16,9 @@ conflicting local process. Keep `COMPOSE_BIND_IP=127.0.0.1`; changing it to
 ## Speech containers cannot access a GPU
 
 First confirm that an NVIDIA CUDA test container can run with `--gpus all`.
-The base stack can still be evaluated with Tier 1, but the supplied speech
-profile requires a working NVIDIA container runtime.
+The default stack requires a working NVIDIA container runtime. Individual
+non-speech services can be started explicitly for infrastructure diagnostics,
+but that is not a functional speech evaluation.
 
 ## Hugging Face model startup fails
 

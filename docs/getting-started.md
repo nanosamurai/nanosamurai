@@ -9,12 +9,11 @@ a production deployment manifest.
 
 | Path | What starts | GPU required |
 | --- | --- | --- |
-| Base stack | UI/API, Kafka, PostgreSQL, LocalStack, migrations, and persistence | No |
-| Speech profile | Base stack plus realtime, refinement, recording, and finalization workers | Yes |
-| Observability override | Optional Grafana, Prometheus, Tempo, Loki, Alloy, and OpenTelemetry Collector | No additional GPU |
+| Default stack | UI/API, infrastructure, persistence, realtime transcription, refinement, recording, and finalization | Yes |
+| Observability override | Default stack plus Grafana, Prometheus, Tempo, Loki, Alloy, and OpenTelemetry Collector | No additional GPU |
 
-The base stack is useful for checking service startup and the HTTP surface, but
-it cannot transcribe audio. Use the speech profile for an end-to-end evaluation.
+The default stack is the complete end-to-end speech product. It does not
+silently fall back to a UI/API-only deployment when GPU access is unavailable.
 
 ## Prerequisites
 
@@ -32,7 +31,7 @@ rehearsal passed on an NVIDIA GeForce RTX 5090 Laptop GPU with 24 GB of GPU
 memory. Treat that as a tested configuration, not a minimum requirement.
 Model downloads and first initialization can take several minutes.
 
-## Start the base stack
+## Start the default stack
 
 Clone the public front-door repository, then create the local environment file:
 
@@ -50,35 +49,26 @@ Set-Location nanosamurai
 Copy-Item .env.example .env
 ```
 
-Pull the pinned images and start the base services:
+Set `HF_TOKEN` in `.env`. The token should have only the model-read permissions
+needed for the selected models.
+
+Confirm that Docker can access the intended NVIDIA GPU, then pull and start the
+complete evaluator stack:
 
 ```bash
 docker compose pull
 docker compose up -d
 docker compose ps --all
-```
-
-Open <http://127.0.0.1:8000>. Run the Tier 1 connectivity check described in
-[Smoke tests and release rehearsal](smoke-tests.md) before starting the GPU
-workers.
-
-## Start speech processing
-
-Set `HF_TOKEN` in `.env`. The token should have only the model-read permissions
-needed for the selected models.
-
-Confirm that Docker can access the intended NVIDIA GPU, then start the speech
-profile:
-
-```bash
-docker compose --profile speech up -d
-docker compose ps --all
 docker compose logs --tail=100 rtservice whisperx_worker recorder_worker finalizer_worker
 ```
 
 Wait for model initialization to finish before treating an early timeout as a
-failure. The speech containers request `gpus: all`; they will not start when the
-NVIDIA runtime is unavailable.
+failure. The speech containers request `gpus: all`; they will not start when
+the NVIDIA runtime is unavailable.
+
+Run the Tier 1 connectivity check described in
+[Smoke tests and release rehearsal](smoke-tests.md), then continue with the
+browser transcription below.
 
 ## Make the first browser transcription
 
@@ -102,7 +92,7 @@ output.
 Start the evaluator stack with the observability override:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.observability.yml --profile speech up -d
+docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d
 ```
 
 Local endpoints:
@@ -121,13 +111,13 @@ reused for a production deployment.
 Stop the services while preserving volumes:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.observability.yml --profile speech down
+docker compose -f docker-compose.yml -f docker-compose.observability.yml down
 ```
 
 To remove the evaluator data and model cache as well:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.observability.yml --profile speech down -v
+docker compose -f docker-compose.yml -f docker-compose.observability.yml down -v
 ```
 
 The `-v` form permanently deletes local transcripts, recordings, database

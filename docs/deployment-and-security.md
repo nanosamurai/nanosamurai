@@ -13,7 +13,6 @@ The supported Community Edition quickstart is:
 cp .env.example .env
 docker compose pull
 docker compose up -d
-docker compose --profile speech up -d
 ```
 
 All default service images are pinned to immutable source-SHA tags. Supporting
@@ -125,7 +124,7 @@ without supplying the external services does not create a working integration.
 
 - No minimum hardware guarantee has been established; the July 2026 release
   rehearsal used a 24 GB RTX 5090 Laptop GPU.
-- Full speech processing requires an NVIDIA runtime in the supplied profile.
+- The default stack requires an NVIDIA runtime for speech processing.
 - Model cold starts and final alignment may take several minutes.
 - Async Python workers do not yet provide dedicated Prometheus metrics.
 - The realtime gRPC trace is not yet joined to the deterministic session/Kafka
