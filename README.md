@@ -136,6 +136,9 @@ provider, such as AWS S3, Ceph RADOS Gateway, or MinIO.
 
 See the [architecture guide](docs/architecture.md) for the request flow and
 Community Edition boundary, including the object-storage replacement boundary.
+API consumers should start with
+[APIs and extension points](docs/apis-and-extension-points.md) for the generated
+OpenAPI contract, Swagger UI, and BFF-owned protocol documentation.
 
 ## Quickstart
 
