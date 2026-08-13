@@ -169,6 +169,8 @@ safe reset commands.
 
 ## Optional observability
 
+<img src="docs/tempo.png"/>
+
 Start the local observability services with:
 
 ```bash
