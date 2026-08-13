@@ -10,7 +10,8 @@ source code remains in the related repositories.
 1. A browser or SDK creates and streams a session through SamuraiBFF.
 2. SamuraiBFF sends realtime audio to the Xamurai gRPC service.
 3. Audio and session events are published to Kafka with W3C trace context.
-4. The recorder writes completed session audio to LocalStack S3.
+4. The recorder writes completed session audio to S3-compatible object
+   storage; the evaluator supplies LocalStack for this role.
 5. WhisperX produces asynchronously refined transcript events.
 6. The finalizer reads completed recordings and produces final transcript
    events.
@@ -50,6 +51,11 @@ flowchart LR
         KafkaBroker[(Kafka broker)]
     end
 
+    subgraph Storage["Storage"]
+        ObjectStore[("S3-compatible object storage\n(Ceph etc., LocalStack in the local setup)")]
+        Postgres[(PostgreSQL)]
+    end
+
     SamuraiBFF -->|"produce protobuf AudioChunk\ntopic: audio.raw"| KafkaBroker
     SamuraiBFF -->|"produce compacted JSON\ntopic: sessions.meta"| KafkaBroker
 
@@ -63,15 +69,59 @@ flowchart LR
     KafkaBroker -->|"consume\ntopic: recordings.finished"| FinalizerWorker
     FinalizerWorker -->|"produce protobuf SessionTranscript\ntopic: transcripts.final"| KafkaBroker
 
+    RecorderWorker -->|"write session WAV"| ObjectStore
+    FinalizerWorker -->|"read recording and speaker enrollments"| ObjectStore
+    SamuraiBFF -->|"serve recordings; read/write speaker enrollments"| ObjectStore
+    RTService -->|"read speaker enrollments"| ObjectStore
+    WhisperXWorker -->|"read speaker enrollments"| ObjectStore
+
     KafkaBroker -->|"consume + persist\ntopic: transcripts.refined"| Persistor["SamuraiPersistor\n(PostgreSQL writer)"]
     KafkaBroker -->|"consume + persist\ntopic: transcripts.final"| Persistor
-    Persistor -->|persist| Postgres[(PostgreSQL)]
+    Persistor -->|persist| Postgres
     SamuraiBFF -->|query| Postgres
 ```
 
 The optional OpenTelemetry Collector sends traces to Tempo and metrics to
 Prometheus. Alloy forwards container logs to Loki. Grafana is provisioned with
 local data sources and a starter BFF dashboard.
+
+## Replaceable object storage
+
+Object storage is a configured service boundary, not a requirement to deploy
+LocalStack. The supplied Compose file uses LocalStack because it provides a
+small, reproducible localhost evaluator. The application services communicate
+through the S3 API and can instead target AWS S3 or an S3-compatible
+implementation such as Ceph RADOS Gateway or MinIO.
+
+The base Compose file is the tested public path and hardcodes its LocalStack
+endpoint, development credentials, region, and path-style addressing in the
+service containers. Only the bucket names are parameterized there. To use an
+external object store, supply a Compose override or equivalent deployment
+configuration and provision the buckets outside this repository. Keep these
+configuration groups consistent across every consumer:
+
+| Responsibility | Consumers | Configuration |
+| --- | --- | --- |
+| Recordings and speaker-enrollment API access | SamuraiBFF | `SAMURAIBFF_S3_*`, including the recordings and enrollments bucket and prefix settings |
+| Recording writes | recorder worker | `RECORDING_STORAGE_BACKEND=s3`, `S3_ENDPOINT`, `S3_BUCKET`, `S3_REGION`, credentials, `S3_FORCE_PATH_STYLE`, and `S3_PREFIX` |
+| Recording reads | finalizer worker | `S3_ENDPOINT`, `S3_REGION`, credentials, and `S3_FORCE_PATH_STYLE`; the bucket and key come from the recording's `s3://` URL |
+| Speaker-enrollment reads | realtime, WhisperX, and finalizer workers | `ENROLL_BACKEND=s3_manifest` and `ENROLL_S3_*`, including bucket and prefix |
+
+Use the endpoint and addressing style required by the selected provider. Use
+provider credentials only when needed; outside the evaluator, prefer the
+provider's workload-identity or default credential chain where the owning
+service supports it. Recording and enrollment bucket names and prefixes must
+match between writers and readers.
+
+LocalStack also exposes a Secrets Manager endpoint, and the evaluator configures
+SamuraiBFF's webhook secret-store adapter to use it. The initialization script
+does not create any secrets, and the webhook APIs that would write them are
+disabled in default Community Edition mode. This role is therefore normally
+idle in the supplied evaluator. Ceph RADOS Gateway, MinIO, or another
+S3-compatible store replaces only object storage; it does not provide an AWS
+Secrets Manager API. See [Production secret management](deployment-and-security.md#production-secret-management)
+before enabling webhook integrations or deploying outside the evaluator. This
+repository does not provide or claim a tested Ceph deployment.
 
 ## Community Edition scope
 

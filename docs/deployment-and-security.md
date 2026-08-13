@@ -67,14 +67,51 @@ The evaluator configuration:
 
 - uses fixed development credentials
 - disables browser/API authentication for quick local access
-- runs LocalStack rather than production object storage
+- uses LocalStack for S3-compatible object storage and exposes its Secrets
+  Manager endpoint to SamuraiBFF's normally idle webhook secret-store adapter
 - exposes local diagnostic services
 
 Do not change the bind to `0.0.0.0` as a shortcut. Before any shared or remote
 deployment, enable authentication, replace credentials, add TLS, restrict
-probes and metrics, and define network policy. The stack does not ship an
-identity provider; follow [Authentication and bring-your-own
-Keycloak](authentication.md) to connect an operator-owned Keycloak instance.
+probes and metrics, select and secure production storage and secrets backends,
+and define network policy. Object storage can target an S3-compatible provider;
+see [Replaceable object storage](architecture.md#replaceable-object-storage).
+The stack does not ship an identity provider; follow [Authentication and
+bring-your-own Keycloak](authentication.md) to connect an operator-owned
+Keycloak instance.
+
+## Production secret management
+
+There are two distinct kinds of secrets in this architecture:
+
+1. Deployment secrets, such as database passwords, Hugging Face tokens,
+   object-storage credentials, and the optional Keycloak admin client secret,
+   are passed to containers as configuration. The SamuraiBFF secret-store
+   adapter does not manage them.
+2. Tenant webhook credentials are accepted as write-only API inputs when the
+   webhook feature is enabled. These are HMAC signing secrets, API keys, and
+   OAuth client secrets. SamuraiBFF stores their values in its configured
+   secret backend and stores only opaque references in PostgreSQL.
+
+The default Community Edition stack disables the webhook APIs, and its
+LocalStack initialization creates buckets only. A fresh evaluator therefore
+does not pre-populate or normally write any Secrets Manager entries. LocalStack
+is development infrastructure and must not be used to protect production
+secrets.
+
+For production, inject deployment secrets from an operator-managed facility,
+such as a cloud secrets manager or Kubernetes Secrets integrated with an
+external-secrets operator or CSI driver. Avoid fixed credentials and prefer
+workload identity, least-privilege access, encryption, audit logging, rotation,
+and a defined recovery policy.
+
+For tenant webhook credentials, SamuraiBFF currently has a functional AWS
+Secrets Manager backend. Its `k8s-secrets` backend is only a stub: it generates
+references but does not create, update, or delete Kubernetes Secret objects.
+Do not select that backend in production until a Kubernetes API integration or
+external controller has been implemented and the webhook delivery service can
+resolve the resulting references. Enabling Community Edition feature flags by
+itself does not supply that delivery service or complete the secret lifecycle.
 
 ## Community Edition boundary
 
