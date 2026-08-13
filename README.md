@@ -1,6 +1,6 @@
 <img src="docs/nanosamurai_logo_finished_shoulders.svg" width="100">
 
-# nanosamur.ai 
+# [nanosamur.ai](https://nanosamur.ai)
 guarding your sensitive conversations</sub>
 
 <sub>Your voice. Your control.</sub>
