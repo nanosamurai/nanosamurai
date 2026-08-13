@@ -51,7 +51,11 @@ public wire behavior is described by:
 
 When recording is enabled, the recorder worker consumes the same `audio.raw`
 stream and writes the completed session audio to the configured recording
-store. The evaluator stack uses LocalStack S3.
+store. The evaluator stack supplies LocalStack as its S3-compatible
+implementation; LocalStack is not required by the application architecture.
+See [Replaceable object storage](architecture.md#replaceable-object-storage) for
+the consumers and configuration that must move together when selecting another
+provider.
 
 After the recorder publishes `recordings.finished`, the finalizer worker
 processes the completed recording and publishes `SessionTranscript` on

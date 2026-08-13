@@ -5,6 +5,8 @@ Prometheus metrics, OpenTelemetry traces, and an optional local observability
 environment. These tools are intended to make evaluation and development
 diagnosable; they are not a substitute for production operations.
 
+<img src="tempo.png"/>
+
 ## Start the observability stack
 
 Run the default stack with the observability override:

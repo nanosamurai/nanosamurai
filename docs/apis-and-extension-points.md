@@ -9,15 +9,21 @@ duplicating the complete contracts.
 When the evaluator stack is running:
 
 - Swagger UI: <http://127.0.0.1:8000/docs>
-- OpenAPI JSON: <http://127.0.0.1:8000/openapi.json>
+- Canonical OpenAPI JSON: <http://127.0.0.1:8000/openapi.json>
 - REST API base: <http://127.0.0.1:8000/api>
 
+SamuraiBFF generates `GET /openapi.json` from its route and schema definitions
+at runtime. It is the canonical machine-readable REST contract for the running
+image; the BFF repository does not currently commit a static OpenAPI document.
 The customer-facing OpenAPI surface includes browser authentication and
 tenant-scoped `/api/*` routes. It intentionally excludes internal callbacks,
 WebSockets, SPA routes, and operational probes.
 
-The authoritative route overview is
+For a repository-owned overview that can be read without starting the service,
+see the
 [SamuraiBFF API documentation](https://github.com/nanosamurai/samuraibff/blob/master/docs/api.md).
+Detailed endpoint schemas and responses should be read from the generated
+OpenAPI contract rather than duplicated here.
 
 ## Realtime WebSockets
 
@@ -36,7 +42,7 @@ GET /ws/audio?session_id=<uuid>&lang=<code>&sample_rate=16000
 - A session must belong to the authenticated tenant when authentication is
   enabled.
 
-See the complete
+WebSockets are intentionally outside OpenAPI. See the complete
 [SamuraiBFF WebSocket contract](https://github.com/nanosamurai/samuraibff/blob/master/docs/ws-contract.md)
 for lifecycle, close codes, event shapes, and ordering semantics.
 

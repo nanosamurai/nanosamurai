@@ -85,6 +85,11 @@ flowchart LR
         KafkaBroker[(Kafka broker)]
     end
 
+    subgraph Storage["Storage"]
+        ObjectStore[("S3-compatible object storage\n(Ceph etc., LocalStack in the local setup)")]
+        Postgres[(PostgreSQL)]
+    end
+
     SamuraiBFF -->|"produce protobuf AudioChunk\ntopic: audio.raw"| KafkaBroker
     SamuraiBFF -->|"produce compacted JSON\ntopic: sessions.meta"| KafkaBroker
 
@@ -98,9 +103,15 @@ flowchart LR
     KafkaBroker -->|"consume\ntopic: recordings.finished"| FinalizerWorker
     FinalizerWorker -->|"produce protobuf SessionTranscript\ntopic: transcripts.final"| KafkaBroker
 
+    RecorderWorker -->|"write session WAV"| ObjectStore
+    FinalizerWorker -->|"read recording and speaker enrollments"| ObjectStore
+    SamuraiBFF -->|"serve recordings; read/write speaker enrollments"| ObjectStore
+    RTService -->|"read speaker enrollments"| ObjectStore
+    WhisperXWorker -->|"read speaker enrollments"| ObjectStore
+
     KafkaBroker -->|"consume + persist\ntopic: transcripts.refined"| Persistor["SamuraiPersistor\n(PostgreSQL writer)"]
     KafkaBroker -->|"consume + persist\ntopic: transcripts.final"| Persistor
-    Persistor -->|persist| Postgres[(PostgreSQL)]
+    Persistor -->|persist| Postgres
     SamuraiBFF -->|query| Postgres
 ```
 
@@ -119,10 +130,15 @@ The stack consists of:
   SDK and CLI
 
 Kafka carries audio and transcript events. PostgreSQL stores session and
-transcript data. The local setup uses LocalStack S3 for recordings.
+transcript data. The evaluator uses LocalStack for S3-compatible recording and
+speaker-enrollment storage; deployments can configure another S3-compatible
+provider, such as AWS S3, Ceph RADOS Gateway, or MinIO.
 
 See the [architecture guide](docs/architecture.md) for the request flow and
-Community Edition boundary.
+Community Edition boundary, including the object-storage replacement boundary.
+API consumers should start with
+[APIs and extension points](docs/apis-and-extension-points.md) for the generated
+OpenAPI contract, Swagger UI, and BFF-owned protocol documentation.
 
 ## Quickstart
 
@@ -168,6 +184,8 @@ Windows/Linux instructions, the tested hardware disclosure, observability, and
 safe reset commands.
 
 ## Optional observability
+
+<img src="docs/tempo.png"/>
 
 Start the local observability services with:
 
