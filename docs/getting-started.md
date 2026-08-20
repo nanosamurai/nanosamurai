@@ -87,6 +87,10 @@ scripts instead of microphone input. See
 [Transcription lifecycle](transcription-lifecycle.md) for the meaning of each
 output.
 
+The evaluator sets `RT_EMIT_EVERY_SEC=1.5`, so realtime PARTIAL hypotheses are
+attempted at a compute-safe 1.5-second cadence. You can override the value in
+`.env`, but lower cadences increase GPU work and should be load-tested.
+
 ## Add local observability
 
 Start the evaluator stack with the observability override:
