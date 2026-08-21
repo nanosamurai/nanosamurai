@@ -19,3 +19,9 @@ scrape_configs:
     metrics_path: /metrics
     static_configs:
       - targets: ["rtservice:8008"]
+
+  # NVIDIA DCGM exporter stays internal to the Compose network.
+  - job_name: dcgm-exporter
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["dcgm_exporter:9400"]

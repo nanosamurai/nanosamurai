@@ -123,6 +123,17 @@ services:
       - prometheus_data:/prometheus
     depends_on:
       - samuraibff
+      - dcgm_exporter
+
+  dcgm_exporter:
+    image: ${DCGM_EXPORTER_IMAGE:-nvidia/dcgm-exporter:4.5.2-4.8.1-ubuntu22.04}
+    restart: unless-stopped
+    # Embedded DCGM hostengine needs SYS_ADMIN to read host GPU fields. Keep
+    # the metrics endpoint on the Compose network; Prometheus is its only
+    # consumer and no host port is published.
+    cap_add:
+      - SYS_ADMIN
+    gpus: all
 
   loki:
     image: grafana/loki:3.6.5

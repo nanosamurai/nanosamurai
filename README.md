@@ -194,6 +194,8 @@ docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d
 ```
 
 The stack provisions Grafana with Prometheus, Loki, and Tempo data sources.
+Prometheus also scrapes NVIDIA GPU utilization, framebuffer memory, temperature,
+and power metrics from the bundled DCGM exporter.
 Kafka carries W3C trace context so asynchronous session work can be correlated
 across SamuraiBFF, the Python workers, SamuraiPersistor, Kafka, and PostgreSQL.
 
