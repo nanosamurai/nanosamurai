@@ -1,0 +1,31 @@
+services:
+  rtservice:
+    environment:
+      RT_PROVIDER_PROFILE: qwen3-asr-0.6b-vllm-r1
+      RT_PROVIDER_ENDPOINT: qwen-provider:50061
+      RT_PROVIDER_REQUEST_TIMEOUT_SECONDS: "60"
+      HF_TOKEN: ""
+    gpus: !reset []
+    depends_on:
+      qwen-provider:
+        condition: service_healthy
+
+  qwen-provider:
+    image: ${QWEN_PROVIDER_IMAGE:?Set QWEN_PROVIDER_IMAGE to an immutable xamurai-qwen-provider image}
+    restart: unless-stopped
+    environment:
+      QWEN_PROVIDER_PORT: "50061"
+      QWEN_GPU_MEMORY_UTILIZATION: "${QWEN_GPU_MEMORY_UTILIZATION:-0.65}"
+      QWEN_STREAM_CHUNK_SECONDS: "${QWEN_STREAM_CHUNK_SECONDS:-2.0}"
+      QWEN_MAX_AUDIO_SECONDS: "${QWEN_MAX_AUDIO_SECONDS:-300}"
+      HF_HOME: /data/huggingface
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      DO_NOT_TRACK: "1"
+      VLLM_NO_USAGE_STATS: "1"
+    volumes:
+      - nanosamurai_qwen_hf_cache:/data/huggingface
+    gpus: all
+    shm_size: 4gb
+
+volumes:
+  nanosamurai_qwen_hf_cache:

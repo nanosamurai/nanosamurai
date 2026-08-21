@@ -10,6 +10,7 @@ a production deployment manifest.
 | Path | What starts | GPU required |
 | --- | --- | --- |
 | Default stack | UI/API, infrastructure, persistence, realtime transcription, refinement, recording, and finalization | Yes |
+| Qwen native-streaming override | Default stack with realtime ASR routed through an isolated Qwen3-ASR 0.6B vLLM provider | Yes |
 | Observability override | Default stack plus Grafana, Prometheus, Tempo, Loki, Alloy, and OpenTelemetry Collector | No additional GPU |
 
 The default stack is the complete end-to-end speech product. It does not
@@ -69,6 +70,34 @@ the NVIDIA runtime is unavailable.
 Run the Tier 1 connectivity check described in
 [Smoke tests and release rehearsal](smoke-tests.md), then continue with the
 browser transcription below.
+
+## Evaluate Qwen native streaming
+
+The opt-in Qwen override keeps the BFF-facing `rtservice` API unchanged. It
+runs Qwen3-ASR in a separate GPU container and connects to it only over the
+internal Compose network; the provider publishes no host port. Set
+`QWEN_PROVIDER_IMAGE` to an immutable image tag or digest, then start the stack:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.qwen.yml pull
+docker compose -f docker-compose.yml -f docker-compose.qwen.yml up -d
+docker compose -f docker-compose.yml -f docker-compose.qwen.yml ps --all
+```
+
+For local xamurai development, build the provider and rtservice images in that
+repository, set their image names only in your uncommitted `.env`, and use the
+same command. The Qwen model is pinned by its provider profile and downloads to
+the separate `nanosamurai_qwen_hf_cache` volume on first start. The provider
+requires CUDA, supports one native stream in this validation profile, emits
+cumulative replacement-safe hypotheses, and intentionally does not claim word
+or segment timestamps. A provider failure ends the affected live session; it
+does not silently switch models.
+
+The first two-second model chunk determines the earliest normal partial. Lower
+`QWEN_STREAM_CHUNK_SECONDS` only as an experiment because it increases repeated
+vLLM work. `QWEN_GPU_MEMORY_UTILIZATION` is bounded by the provider and defaults
+to `0.65`. No Hugging Face token is passed to the Qwen gateway or provider for
+the public model.
 
 ## Make the first browser transcription
 
