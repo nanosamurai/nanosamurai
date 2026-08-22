@@ -33,6 +33,11 @@ def main() -> int:
     # to reliably trigger at least one ASR event even when FINAL emission is window-based.
     ap.add_argument("--stream-seconds", type=float, default=12.0)
     ap.add_argument("--asr-timeout", type=float, default=45.0)
+    ap.add_argument(
+        "--require-final",
+        action="store_true",
+        help="wait for a terminal ASR event instead of accepting the first partial",
+    )
     args = ap.parse_args()
 
     base_url = args.base_url.rstrip("/")
@@ -67,6 +72,7 @@ def main() -> int:
 
     try:
         print(f"[tier2] streaming {args.stream_seconds:.1f}s audio")
+        stream_started = time.monotonic()
         _lib.stream_audio(audio_ws, pcm, frame_ms=20, max_seconds=args.stream_seconds)
 
         # Help servers flush buffered audio / finalize a window.
@@ -75,17 +81,42 @@ def main() -> int:
         except Exception:
             pass
 
-        print("[tier2] waiting for asr event...")
+        expected = "final asr event" if args.require_final else "asr event"
+        print(f"[tier2] waiting for {expected}...")
 
-        ev = _lib.wait_for_json_event_type(q, event_type="asr", timeout_s=args.asr_timeout)
+        deadline = time.monotonic() + args.asr_timeout
+        first_event_elapsed = None
+        ev = None
+        while time.monotonic() < deadline:
+            candidate = _lib.wait_for_json_event_type(
+                q,
+                event_type="asr",
+                timeout_s=max(0.1, deadline - time.monotonic()),
+            )
+            if not candidate:
+                break
+            if first_event_elapsed is None:
+                first_event_elapsed = time.monotonic() - stream_started
+                print(
+                    "[tier2] first asr event "
+                    f"elapsed={first_event_elapsed:.2f}s final={bool(candidate.get('final'))}"
+                )
+            if not args.require_final or candidate.get("final") is True:
+                ev = candidate
+                break
+
         if not ev:
             print(
-                "[tier2] FAIL: did not receive type=asr event. "
+                f"[tier2] FAIL: did not receive {expected}. "
                 "Likely causes: rtservice still warming up, too little audio streamed, or WS rejected."
             )
             return 1
 
-        print(f"[tier2] PASS: got asr event keys={list(ev.keys())}")
+        elapsed = time.monotonic() - stream_started
+        print(
+            f"[tier2] PASS: got asr event elapsed={elapsed:.2f}s "
+            f"final={bool(ev.get('final'))} keys={list(ev.keys())}"
+        )
         return 0
 
     finally:

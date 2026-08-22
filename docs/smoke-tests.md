@@ -10,6 +10,10 @@ the lower tiers.
 | 3 | Session audio reaches Kafka |
 | 4 | Recording, refined, or final async signal |
 
+Tier 2 accepts the first realtime partial by default. Pass `--require-final`
+when validating a native-streaming provider to prove that closing the audio
+WebSocket flushes a terminal event through BFF and rtservice.
+
 ## Install the test environment
 
 ```bash

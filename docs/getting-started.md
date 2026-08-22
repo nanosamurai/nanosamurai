@@ -99,6 +99,17 @@ vLLM work. `QWEN_GPU_MEMORY_UTILIZATION` is bounded by the provider and defaults
 to `0.65`. No Hugging Face token is passed to the Qwen gateway or provider for
 the public model.
 
+Validate both native partial delivery and request-EOF flushing through the BFF
+with Tier 2's terminal-event mode:
+
+```bash
+python utilities/k8s_local_smoke_test/tier2_realtime_asr.py \
+  --lang Czech --stream-seconds 12 --asr-timeout 90 --require-final
+```
+
+The smoke test reports event keys and latency only; it does not print the
+transcript.
+
 ## Make the first browser transcription
 
 1. Open <http://127.0.0.1:8000/live>.
