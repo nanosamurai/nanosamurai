@@ -8,7 +8,8 @@ source code remains in the related repositories.
 ## Request and event flow
 
 1. A browser or SDK creates and streams a session through SamuraiBFF.
-2. SamuraiBFF sends realtime audio to the Xamurai gRPC service.
+2. SamuraiBFF fans realtime audio out to each configured peer Xamurai gRPC
+   service using the common `RealtimeASR` API.
 3. Audio and session events are published to Kafka with W3C trace context.
 4. The recorder writes completed session audio to S3-compatible object
    storage; the evaluator supplies LocalStack for this role.
@@ -31,7 +32,8 @@ flowchart LR
     end
 
     subgraph Xamurai["Xamurai (Python services)"]
-        RTService["rtservice\n(realtime ASR)"]
+        RTService["rtservice\n(Faster-Whisper RealtimeASR)"]
+        QwenRT["qwen-rtservice\n(Qwen RealtimeASR)"]
         WhisperXWorker["whisperx_worker\n(asynchronous refinement)"]
         RecorderWorker["recorder_worker\n(session WAV)"]
         FinalizerWorker["finalizer_worker\n(final transcript)"]
@@ -45,7 +47,8 @@ flowchart LR
     Electron -->|"WS audio\nWebSocket /ws/audio\nPCM16LE mono 16kHz"| WSAudio
     Electron ---|"WS events\nWebSocket /ws/events\nJSON events"| WSEvents
 
-    SamuraiBFF -->|gRPC bidirectional stream| RTService
+    SamuraiBFF -->|"gRPC track\nfaster-whisper"| RTService
+    SamuraiBFF -.->|"optional gRPC track\nqwen"| QwenRT
 
     subgraph Kafka["Kafka"]
         KafkaBroker[(Kafka broker)]
@@ -84,6 +87,12 @@ flowchart LR
 The optional OpenTelemetry Collector sends traces to Tempo and metrics to
 Prometheus. Alloy forwards container logs to Loki. Grafana is provisioned with
 local data sources and a starter BFF dashboard.
+
+The BFF publishes each accepted chunk to Kafka once, irrespective of how many
+realtime tracks are configured. Each realtime track has an independent bounded
+queue and stream, so one failed or lagging peer does not stop the others. The
+base stack registers only Faster-Whisper; `docker-compose.qwen.yml` adds Qwen
+as a second internal peer.
 
 ## Replaceable object storage
 

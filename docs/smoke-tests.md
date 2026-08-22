@@ -12,7 +12,9 @@ the lower tiers.
 
 Tier 2 accepts the first realtime partial by default. Pass `--require-final`
 when validating a native-streaming provider to prove that closing the audio
-WebSocket flushes a terminal event through BFF and rtservice.
+WebSocket flushes a terminal event through BFF. Pass
+`--require-tracks faster-whisper,qwen` with the Qwen override to require a
+matching event from both peer services.
 
 ## Install the test environment
 

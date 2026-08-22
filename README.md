@@ -65,7 +65,8 @@ flowchart LR
     end
 
     subgraph Xamurai["Xamurai (Python services)"]
-        RTService["rtservice\n(realtime ASR)"]
+        RTService["rtservice\n(Faster-Whisper RealtimeASR)"]
+        QwenRT["qwen-rtservice\n(Qwen RealtimeASR)"]
         WhisperXWorker["whisperx_worker\n(asynchronous refinement)"]
         RecorderWorker["recorder_worker\n(session WAV)"]
         FinalizerWorker["finalizer_worker\n(final transcript)"]
@@ -79,7 +80,8 @@ flowchart LR
     Electron -->|"WS audio\nWebSocket /ws/audio\nPCM16LE mono 16kHz"| WSAudio
     Electron ---|"WS events\nWebSocket /ws/events\nJSON events"| WSEvents
 
-    SamuraiBFF -->|gRPC bidirectional stream| RTService
+    SamuraiBFF -->|"gRPC track\nfaster-whisper"| RTService
+    SamuraiBFF -.->|"optional gRPC track\nqwen"| QwenRT
 
     subgraph Kafka["Kafka"]
         KafkaBroker[(Kafka broker)]
