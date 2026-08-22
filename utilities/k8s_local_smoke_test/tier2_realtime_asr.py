@@ -1,11 +1,11 @@
-"""Tier 2 smoke test: realtime audio -> rtservice -> ASR events.
+"""Tier 2 smoke test: realtime audio -> configured ASR tracks -> events.
 
 PASS criteria:
 - Tier 1 passes (session + WS events)
 - Send audio to /ws/audio
 - Receive at least one JSON event with type=asr on /ws/events
 
-This proves audio flowed through BFF -> rtservice gRPC and ASR produced output.
+This proves audio flowed through BFF -> realtime gRPC service(s) and ASR produced output.
 """
 
 from __future__ import annotations
@@ -38,7 +38,13 @@ def main() -> int:
         action="store_true",
         help="wait for a terminal ASR event instead of accepting the first partial",
     )
+    ap.add_argument(
+        "--require-tracks",
+        default="",
+        help="comma-separated track IDs that must each emit a matching ASR event",
+    )
     args = ap.parse_args()
+    required_tracks = {track.strip() for track in args.require_tracks.split(",") if track.strip()}
 
     base_url = args.base_url.rstrip("/")
     ws_base = _lib.http_to_ws(base_url)
@@ -81,11 +87,17 @@ def main() -> int:
         except Exception:
             pass
 
-        expected = "final asr event" if args.require_final else "asr event"
+        event_kind = "final asr event" if args.require_final else "asr event"
+        expected = (
+            f"{event_kind} from tracks {sorted(required_tracks)}"
+            if required_tracks
+            else event_kind
+        )
         print(f"[tier2] waiting for {expected}...")
 
         deadline = time.monotonic() + args.asr_timeout
         first_event_elapsed = None
+        matched_tracks: set[str] = set()
         ev = None
         while time.monotonic() < deadline:
             candidate = _lib.wait_for_json_event_type(
@@ -101,13 +113,22 @@ def main() -> int:
                     "[tier2] first asr event "
                     f"elapsed={first_event_elapsed:.2f}s final={bool(candidate.get('final'))}"
                 )
-            if not args.require_final or candidate.get("final") is True:
+            terminal_match = not args.require_final or candidate.get("final") is True
+            candidate_track = candidate.get("track")
+            if required_tracks and terminal_match and candidate_track in required_tracks:
+                matched_tracks.add(candidate_track)
+                print(f"[tier2] matched track={candidate_track} final={bool(candidate.get('final'))}")
+            if required_tracks and matched_tracks == required_tracks:
+                ev = candidate
+                break
+            if not required_tracks and terminal_match:
                 ev = candidate
                 break
 
         if not ev:
             print(
-                f"[tier2] FAIL: did not receive {expected}. "
+                f"[tier2] FAIL: did not receive {expected}; "
+                f"missing_tracks={sorted(required_tracks - matched_tracks)}. "
                 "Likely causes: rtservice still warming up, too little audio streamed, or WS rejected."
             )
             return 1
@@ -115,7 +136,7 @@ def main() -> int:
         elapsed = time.monotonic() - stream_started
         print(
             f"[tier2] PASS: got asr event elapsed={elapsed:.2f}s "
-            f"final={bool(ev.get('final'))} keys={list(ev.keys())}"
+            f"final={bool(ev.get('final'))} tracks={sorted(matched_tracks)} keys={list(ev.keys())}"
         )
         return 0
 

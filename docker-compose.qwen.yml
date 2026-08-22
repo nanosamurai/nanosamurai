@@ -1,20 +1,16 @@
 services:
-  rtservice:
+  samuraibff:
     environment:
-      RT_PROVIDER_PROFILE: qwen3-asr-0.6b-vllm-r1
-      RT_PROVIDER_ENDPOINT: qwen-provider:50061
-      RT_PROVIDER_REQUEST_TIMEOUT_SECONDS: "60"
-      HF_TOKEN: ""
-    gpus: !reset []
+      SAMURAIBFF_GRPC_REALTIME_TRACKS: faster-whisper=rtservice:50052,qwen=qwen-rtservice:50052
     depends_on:
-      qwen-provider:
+      qwen-rtservice:
         condition: service_healthy
 
-  qwen-provider:
-    image: ${QWEN_PROVIDER_IMAGE:?Set QWEN_PROVIDER_IMAGE to an immutable xamurai-qwen-provider image}
+  qwen-rtservice:
+    image: ${QWEN_RTSERVICE_IMAGE:?Set QWEN_RTSERVICE_IMAGE to an immutable xamurai-qwen-rtservice image}
     restart: unless-stopped
     environment:
-      QWEN_PROVIDER_PORT: "50061"
+      QWEN_RTSERVICE_PORT: "50052"
       QWEN_GPU_MEMORY_UTILIZATION: "${QWEN_GPU_MEMORY_UTILIZATION:-0.65}"
       QWEN_STREAM_CHUNK_SECONDS: "${QWEN_STREAM_CHUNK_SECONDS:-2.0}"
       QWEN_MAX_AUDIO_SECONDS: "${QWEN_MAX_AUDIO_SECONDS:-300}"
