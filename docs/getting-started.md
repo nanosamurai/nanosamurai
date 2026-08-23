@@ -117,10 +117,13 @@ transcript.
 1. Open <http://127.0.0.1:8000/live>.
 2. Choose a language or leave language detection on its default.
 3. Select **Microphone** as the input.
-4. Select the desired realtime, refined, and final outputs.
+4. Open **Session settings**, select the desired realtime tracks, and choose the
+   realtime, refined, and final outputs. With the Qwen override, select Faster,
+   Qwen, or both; both are selected by default.
 5. Choose **Record now**, grant microphone permission, and speak.
-6. Stop the recording when finished.
-7. Watch realtime hypotheses while recording. Refined events arrive
+6. Compare simultaneous realtime tracks in their labelled side-by-side panels.
+7. Stop the recording when finished.
+8. Watch realtime hypotheses while recording. Refined events arrive
    asynchronously; the final transcript appears later in the recording detail
    after the recording and finalizer workers complete.
 

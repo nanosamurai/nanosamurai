@@ -92,7 +92,9 @@ The BFF publishes each accepted chunk to Kafka once, irrespective of how many
 realtime tracks are configured. Each realtime track has an independent bounded
 queue and stream, so one failed or lagging peer does not stop the others. The
 base stack registers only Faster-Whisper; `docker-compose.qwen.yml` adds Qwen
-as a second internal peer.
+as a second internal peer. The live UI receives the configured stable track IDs
+and lets each session select a non-empty subset. Omission selects all tracks for
+compatibility; simultaneous tracks are labelled and rendered side by side.
 
 ## Replaceable object storage
 
