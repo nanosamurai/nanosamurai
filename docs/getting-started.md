@@ -90,15 +90,20 @@ repository, set their image names only in your uncommitted `.env`, and use the
 same command. The Qwen model is pinned by its service profile and downloads to
 the separate `nanosamurai_qwen_hf_cache` volume on first start. The service
 requires CUDA, supports one native stream in this validation profile, emits
-cumulative replacement-safe hypotheses, and intentionally does not claim word
-or segment timestamps. A Qwen failure ends only its track; Faster-Whisper may
-continue.
+bounded partials and contiguous epoch-final segments, and intentionally does
+not claim word or segment timestamps. Its public stream has no duration cutoff;
+the service finalizes and reopens native Qwen state every 120 seconds by
+default, carrying a bounded transcript-context tail without replaying audio. A
+Qwen failure ends only its track; Faster-Whisper may continue.
 
 The first two-second model chunk determines the earliest normal partial. Lower
 `QWEN_STREAM_CHUNK_SECONDS` only as an experiment because it increases repeated
-vLLM work. `QWEN_GPU_MEMORY_UTILIZATION` is bounded by the service and defaults
-to `0.65`. No Hugging Face token is passed to the Qwen service for
-the public model.
+vLLM work. `QWEN_MAX_MODEL_LEN=4096` is aligned with the default 120-second
+epoch and `QWEN_KV_CACHE_MIB=512` sets an explicit cache allocation instead of
+reserving a percentage of all VRAM. The service rejects context/cache settings
+that cannot hold the configured epoch. Model and vLLM/Torch compilation caches
+persist in the separate Qwen volume across container recreation. No Hugging
+Face token is passed to the Qwen service for the public model.
 
 Validate both native partial delivery and request-EOF flushing through the BFF
 with Tier 2's terminal-event mode:
@@ -110,7 +115,15 @@ python utilities/k8s_local_smoke_test/tier2_realtime_asr.py \
 ```
 
 The smoke test reports event keys and latency only; it does not print the
-transcript.
+transcript. It explicitly marks its temporary session finished during cleanup,
+including after a failed ASR assertion.
+
+To exercise Qwen alone without triggering Kafka refinement/finalization work,
+use `--realtime-tracks qwen --require-tracks qwen --realtime-only`. This is the
+preferred provider-development smoke when the other GPU models are already
+running. With a short test epoch, add `--require-final --require-final-count 2`
+to prove the public stream stays open across an internal epoch final and still
+flushes the last epoch at EOF.
 
 ## Make the first browser transcription
 

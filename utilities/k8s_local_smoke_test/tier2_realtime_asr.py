@@ -21,6 +21,8 @@ import queue
 import time
 import urllib.parse
 
+import requests
+
 from utilities.k8s_local_smoke_test import _lib
 
 
@@ -39,11 +41,31 @@ def main() -> int:
         help="wait for a terminal ASR event instead of accepting the first partial",
     )
     ap.add_argument(
+        "--require-final-count",
+        type=int,
+        default=1,
+        help="number of final events required per selected required track",
+    )
+    ap.add_argument(
         "--require-tracks",
         default="",
         help="comma-separated track IDs that must each emit a matching ASR event",
     )
+    ap.add_argument(
+        "--realtime-tracks",
+        default="",
+        help="comma-separated realtime track selection passed to /ws/audio",
+    )
+    ap.add_argument(
+        "--realtime-only",
+        action="store_true",
+        help="disable refined/final Kafka work for a provider-only smoke",
+    )
     args = ap.parse_args()
+    if args.require_final_count < 1:
+        ap.error("--require-final-count must be at least 1")
+    if args.require_final_count > 1 and not args.require_final:
+        ap.error("--require-final-count greater than 1 requires --require-final")
     required_tracks = {track.strip() for track in args.require_tracks.split(",") if track.strip()}
 
     base_url = args.base_url.rstrip("/")
@@ -64,10 +86,16 @@ def main() -> int:
 
     q: queue.Queue[str] = queue.Queue()
     events_url = f"{ws_base}/ws/events?session_id={urllib.parse.quote(session_id)}"
-    audio_url = (
-        f"{ws_base}/ws/audio?session_id={urllib.parse.quote(session_id)}"
-        f"&lang={urllib.parse.quote(args.lang)}&sample_rate={pcm.sample_rate}"
-    )
+    audio_query = {
+        "session_id": session_id,
+        "lang": args.lang,
+        "sample_rate": pcm.sample_rate,
+    }
+    if args.realtime_tracks:
+        audio_query["realtime_tracks"] = args.realtime_tracks
+    if args.realtime_only:
+        audio_query.update({"refined": "false", "final": "false"})
+    audio_url = f"{ws_base}/ws/audio?{urllib.parse.urlencode(audio_query)}"
 
     print(f"[tier2] connecting events ws: {events_url}")
     events_app = _lib.start_events_ws(events_url, q)
@@ -87,7 +115,11 @@ def main() -> int:
         except Exception:
             pass
 
-        event_kind = "final asr event" if args.require_final else "asr event"
+        event_kind = (
+            f"{args.require_final_count} final asr events"
+            if args.require_final and args.require_final_count > 1
+            else "final asr event" if args.require_final else "asr event"
+        )
         expected = (
             f"{event_kind} from tracks {sorted(required_tracks)}"
             if required_tracks
@@ -98,6 +130,8 @@ def main() -> int:
         deadline = time.monotonic() + args.asr_timeout
         first_event_elapsed = None
         matched_tracks: set[str] = set()
+        final_counts: dict[str, int] = {}
+        matching_event_count = 0
         ev = None
         while time.monotonic() < deadline:
             candidate = _lib.wait_for_json_event_type(
@@ -116,12 +150,19 @@ def main() -> int:
             terminal_match = not args.require_final or candidate.get("final") is True
             candidate_track = candidate.get("track")
             if required_tracks and terminal_match and candidate_track in required_tracks:
-                matched_tracks.add(candidate_track)
-                print(f"[tier2] matched track={candidate_track} final={bool(candidate.get('final'))}")
+                final_counts[candidate_track] = final_counts.get(candidate_track, 0) + 1
+                if final_counts[candidate_track] >= args.require_final_count:
+                    matched_tracks.add(candidate_track)
+                print(
+                    f"[tier2] matched track={candidate_track} final={bool(candidate.get('final'))} "
+                    f"count={final_counts[candidate_track]}"
+                )
+            elif not required_tracks and terminal_match:
+                matching_event_count += 1
             if required_tracks and matched_tracks == required_tracks:
                 ev = candidate
                 break
-            if not required_tracks and terminal_match:
+            if not required_tracks and matching_event_count >= args.require_final_count:
                 ev = candidate
                 break
 
@@ -149,6 +190,15 @@ def main() -> int:
             events_app.close()
         except Exception:
             pass
+        try:
+            response = requests.post(
+                f"{base_url}/api/sessions/{urllib.parse.quote(session_id)}/finish",
+                timeout=10,
+            )
+            response.raise_for_status()
+            print(f"[tier2] finished session_id={session_id}")
+        except requests.RequestException as exc:
+            print(f"[tier2] WARN: could not finish test session_id={session_id}: {exc}")
 
 
 if __name__ == "__main__":
