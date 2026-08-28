@@ -7,7 +7,7 @@ services:
         condition: service_healthy
 
   qwen-rtservice:
-    image: ${QWEN_RTSERVICE_IMAGE:?Set QWEN_RTSERVICE_IMAGE to an immutable xamurai-qwen-rtservice image}
+    image: ${QWEN_RTSERVICE_IMAGE:-ghcr.io/nanosamurai/xamurai-qwen-rtservice:sha-f280868fa3ffa16a81828dc8f81598cbf16204a1}
     restart: unless-stopped
     environment:
       QWEN_RTSERVICE_PORT: "50052"

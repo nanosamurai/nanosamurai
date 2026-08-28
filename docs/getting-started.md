@@ -76,8 +76,9 @@ browser transcription below.
 The opt-in Qwen override keeps the default Faster-Whisper `rtservice` and adds
 Qwen3-ASR as a second peer implementing the same `RealtimeASR` API. The BFF
 fans one browser audio stream out to both tracks. Qwen is reachable only over
-the internal Compose network and publishes no host port. Set
-`QWEN_RTSERVICE_IMAGE` to an immutable image tag or digest, then start the stack:
+the internal Compose network and publishes no host port. Its checked-in Compose
+default is pinned to the validated immutable Xamurai release, so start the stack
+without selecting an image manually:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.qwen.yml pull
@@ -85,10 +86,12 @@ docker compose -f docker-compose.yml -f docker-compose.qwen.yml up -d
 docker compose -f docker-compose.yml -f docker-compose.qwen.yml ps --all
 ```
 
-For local xamurai development, build the Qwen and Faster realtime images in that
-repository, set their image names only in your uncommitted `.env`, and use the
-same command. The Qwen model is pinned by its service profile and downloads to
-the separate `nanosamurai_qwen_hf_cache` volume on first start. The service
+For local Xamurai development, build the Qwen and Faster realtime images in that
+repository and set `QWEN_RTSERVICE_IMAGE` and `RTSERVICE_IMAGE` only in your
+uncommitted `.env`. Image environment variables are optional development,
+release-evaluation, and rollback overrides; the checked-in Compose pins are the
+normal evaluator path. The Qwen model is pinned by its service profile and
+downloads to the separate `nanosamurai_qwen_hf_cache` volume on first start. The service
 requires CUDA, supports one native stream in this validation profile, emits
 bounded partials and contiguous epoch-final segments, and intentionally does
 not claim word or segment timestamps. Its public stream has no duration cutoff;
