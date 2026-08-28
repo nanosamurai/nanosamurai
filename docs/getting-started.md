@@ -10,6 +10,7 @@ a production deployment manifest.
 | Path | What starts | GPU required |
 | --- | --- | --- |
 | Default stack | UI/API, infrastructure, persistence, realtime transcription, refinement, recording, and finalization | Yes |
+| Dual realtime override | Default stack with Faster-Whisper and Qwen3-ASR 0.6B/vLLM evaluated as peer realtime tracks | Yes |
 | Observability override | Default stack plus Grafana, Prometheus, Tempo, Loki, Alloy, and OpenTelemetry Collector | No additional GPU |
 
 The default stack is the complete end-to-end speech product. It does not
@@ -70,15 +71,75 @@ Run the Tier 1 connectivity check described in
 [Smoke tests and release rehearsal](smoke-tests.md), then continue with the
 browser transcription below.
 
+## Evaluate Qwen native streaming
+
+The opt-in Qwen override keeps the default Faster-Whisper `rtservice` and adds
+Qwen3-ASR as a second peer implementing the same `RealtimeASR` API. The BFF
+fans one browser audio stream out to both tracks. Qwen is reachable only over
+the internal Compose network and publishes no host port. Its checked-in Compose
+default is pinned to the validated immutable Xamurai release, so start the stack
+without selecting an image manually:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.qwen.yml pull
+docker compose -f docker-compose.yml -f docker-compose.qwen.yml up -d
+docker compose -f docker-compose.yml -f docker-compose.qwen.yml ps --all
+```
+
+For local Xamurai development, build the Qwen and Faster realtime images in that
+repository and set `QWEN_RTSERVICE_IMAGE` and `RTSERVICE_IMAGE` only in your
+uncommitted `.env`. Image environment variables are optional development,
+release-evaluation, and rollback overrides; the checked-in Compose pins are the
+normal evaluator path. The Qwen model is pinned by its service profile and
+downloads to the separate `nanosamurai_qwen_hf_cache` volume on first start. The service
+requires CUDA, supports one native stream in this validation profile, emits
+bounded partials and contiguous epoch-final segments, and intentionally does
+not claim word or segment timestamps. Its public stream has no duration cutoff;
+the service finalizes and reopens native Qwen state every 120 seconds by
+default, carrying a bounded transcript-context tail without replaying audio. A
+Qwen failure ends only its track; Faster-Whisper may continue.
+
+The first two-second model chunk determines the earliest normal partial. Lower
+`QWEN_STREAM_CHUNK_SECONDS` only as an experiment because it increases repeated
+vLLM work. `QWEN_MAX_MODEL_LEN=4096` is aligned with the default 120-second
+epoch and `QWEN_KV_CACHE_MIB=512` sets an explicit cache allocation instead of
+reserving a percentage of all VRAM. The service rejects context/cache settings
+that cannot hold the configured epoch. Model and vLLM/Torch compilation caches
+persist in the separate Qwen volume across container recreation. No Hugging
+Face token is passed to the Qwen service for the public model.
+
+Validate both native partial delivery and request-EOF flushing through the BFF
+with Tier 2's terminal-event mode:
+
+```bash
+python utilities/k8s_local_smoke_test/tier2_realtime_asr.py \
+  --lang cs --stream-seconds 12 --asr-timeout 90 --require-final \
+  --require-tracks faster-whisper,qwen
+```
+
+The smoke test reports event keys and latency only; it does not print the
+transcript. It explicitly marks its temporary session finished during cleanup,
+including after a failed ASR assertion.
+
+To exercise Qwen alone without triggering Kafka refinement/finalization work,
+use `--realtime-tracks qwen --require-tracks qwen --realtime-only`. This is the
+preferred provider-development smoke when the other GPU models are already
+running. With a short test epoch, add `--require-final --require-final-count 2`
+to prove the public stream stays open across an internal epoch final and still
+flushes the last epoch at EOF.
+
 ## Make the first browser transcription
 
 1. Open <http://127.0.0.1:8000/live>.
 2. Choose a language or leave language detection on its default.
 3. Select **Microphone** as the input.
-4. Select the desired realtime, refined, and final outputs.
+4. Open **Session settings**, select the desired realtime tracks, and choose the
+   realtime, refined, and final outputs. With the Qwen override, select Faster,
+   Qwen, or both; both are selected by default.
 5. Choose **Record now**, grant microphone permission, and speak.
-6. Stop the recording when finished.
-7. Watch realtime hypotheses while recording. Refined events arrive
+6. Compare simultaneous realtime tracks in their labelled side-by-side panels.
+7. Stop the recording when finished.
+8. Watch realtime hypotheses while recording. Refined events arrive
    asynchronously; the final transcript appears later in the recording detail
    after the recording and finalizer workers complete.
 

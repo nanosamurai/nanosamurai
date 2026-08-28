@@ -121,7 +121,7 @@ services:
     command: ["psql", "-v", "ON_ERROR_STOP=1", "-f", "/seed.sql"]
 
   samuraibff:
-    image: ${SAMURAIBFF_IMAGE:-ghcr.io/nanosamurai/samuraibff:sha-54878aeb7e9cc332563b769a3f1e6cddeb5843df}
+    image: ${SAMURAIBFF_IMAGE:-ghcr.io/nanosamurai/samuraibff:sha-9506c6194f023586e8788916d48d6f444d8d039a}
     restart: unless-stopped
     ports:
       - "${COMPOSE_BIND_IP:-127.0.0.1}:8000:8000"
@@ -132,7 +132,7 @@ services:
       SAMURAIBFF_DB_USERNAME: nanosamurai
       SAMURAIBFF_DB_PASSWORD: nanosamurai
       SAMURAIBFF_KAFKA_BOOTSTRAP_SERVERS: broker:29092
-      SAMURAIBFF_GRPC_RTSERVICE_ADDR: rtservice:50052
+      SAMURAIBFF_GRPC_REALTIME_TRACKS: faster-whisper=rtservice:50052
       SAMURAIBFF_AUTH_REQUIRED: ${SAMURAIBFF_AUTH_REQUIRED:-false}
       SAMURAIBFF_AUTH_GUEST_TENANT_ID: ${SAMURAIBFF_AUTH_GUEST_TENANT_ID:-00000000-0000-0000-0000-000000000000}
       SAMURAIBFF_AUTH_ISSUER: ${SAMURAIBFF_AUTH_ISSUER:-https://auth.nanosamur.ai/realms/nanosamurai}
@@ -185,7 +185,7 @@ services:
         condition: service_completed_successfully
 
   rtservice:
-    image: ${RTSERVICE_IMAGE:-ghcr.io/nanosamurai/xamurai-rtservice:sha-d4fb1f56b19520c6db1f88e9d37a9c013f3c0c27}
+    image: ${RTSERVICE_IMAGE:-ghcr.io/nanosamurai/xamurai-rtservice:sha-f280868fa3ffa16a81828dc8f81598cbf16204a1}
     restart: unless-stopped
     ports:
       - "${COMPOSE_BIND_IP:-127.0.0.1}:50052:50052"
@@ -217,7 +217,7 @@ services:
         condition: service_started
 
   whisperx_worker:
-    image: ${WHISPERX_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-whisperx-worker:sha-d4fb1f56b19520c6db1f88e9d37a9c013f3c0c27}
+    image: ${WHISPERX_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-whisperx-worker:sha-f280868fa3ffa16a81828dc8f81598cbf16204a1}
     restart: unless-stopped
     environment:
       KAFKA_BOOTSTRAP: broker:29092
@@ -244,7 +244,7 @@ services:
         condition: service_completed_successfully
 
   recorder_worker:
-    image: ${RECORDER_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-recorder-worker:sha-d4fb1f56b19520c6db1f88e9d37a9c013f3c0c27}
+    image: ${RECORDER_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-recorder-worker:sha-f280868fa3ffa16a81828dc8f81598cbf16204a1}
     restart: unless-stopped
     environment:
       KAFKA_BOOTSTRAP: broker:29092
@@ -267,7 +267,7 @@ services:
         condition: service_started
 
   finalizer_worker:
-    image: ${FINALIZER_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-finalizer-worker:sha-d4fb1f56b19520c6db1f88e9d37a9c013f3c0c27}
+    image: ${FINALIZER_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-finalizer-worker:sha-f280868fa3ffa16a81828dc8f81598cbf16204a1}
     restart: unless-stopped
     environment:
       KAFKA_BOOTSTRAP: broker:29092

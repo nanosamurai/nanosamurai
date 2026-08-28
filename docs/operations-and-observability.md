@@ -43,7 +43,7 @@ SamuraiBFF exposes:
 - `GET /health` for process liveness
 - `GET /ready` for critical dependency readiness
 
-Readiness checks PostgreSQL, Kafka, and the realtime gRPC service. SamuraiBFF
+Readiness checks PostgreSQL, Kafka, and every configured realtime gRPC service. SamuraiBFF
 starts gracefully when a dependency is unavailable and reports degraded
 readiness while retrying the affected integration.
 

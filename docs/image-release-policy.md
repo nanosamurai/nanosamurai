@@ -2,7 +2,10 @@
 
 The Compose defaults use immutable `sha-<full-git-sha>` tags for all nanosamurai
 service images. A pin identifies both the service source revision and the image
-that passed its publication workflow.
+that passed its publication workflow. These checked-in pins are the primary
+image-selection mechanism for the evaluator. Image environment variables are
+optional overrides for local development, evaluation of another immutable
+release, or rollback; users do not need to set them for the normal quickstart.
 
 Before updating a default pin:
 
