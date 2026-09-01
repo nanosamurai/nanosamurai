@@ -93,20 +93,26 @@ release-evaluation, and rollback overrides; the checked-in Compose pins are the
 normal evaluator path. The Qwen model is pinned by its service profile and
 downloads to the separate `nanosamurai_qwen_hf_cache` volume on first start. The service
 requires CUDA, supports one native stream in this validation profile, emits
-bounded partials and contiguous epoch-final segments, and intentionally does
-not claim word or segment timestamps. Its public stream has no duration cutoff;
-the service finalizes and reopens native Qwen state every 120 seconds by
-default, carrying a bounded transcript-context tail without replaying audio. A
-Qwen failure ends only its track; Faster-Whisper may continue.
+bounded partials, and forced-aligns and pyannote-diarizes completed epochs for
+the aligner's advertised languages. It advertises segment timestamps and
+speaker labels for those languages but intentionally does not claim word
+timestamps. Unsupported languages or failed enrichment preserve a coarse
+speakerless final. Its public stream has no duration cutoff; the service
+finalizes and reopens native Qwen state every 60 seconds by default, carrying a
+bounded transcript-context tail without replaying audio. Anonymous Qwen speaker
+labels are epoch-scoped and do not claim cross-epoch identity. A Qwen failure
+ends only its track; Faster-Whisper may continue.
 
 The first two-second model chunk determines the earliest normal partial. Lower
 `QWEN_STREAM_CHUNK_SECONDS` only as an experiment because it increases repeated
-vLLM work. `QWEN_MAX_MODEL_LEN=4096` is aligned with the default 120-second
+vLLM work. `QWEN_MAX_MODEL_LEN=4096` is aligned with the default 60-second
 epoch and `QWEN_KV_CACHE_MIB=512` sets an explicit cache allocation instead of
 reserving a percentage of all VRAM. The service rejects context/cache settings
 that cannot hold the configured epoch. Model and vLLM/Torch compilation caches
-persist in the separate Qwen volume across container recreation. No Hugging
-Face token is passed to the Qwen service for the public model.
+persist in the separate Qwen volume across container recreation. Compose passes
+the configured least-privilege `HF_TOKEN` only to the opt-in Qwen service so it
+can read the fixed gated pyannote pipeline; the Qwen ASR and aligner models are
+public and pinned by immutable revision and weight digest.
 
 Validate both native partial delivery and request-EOF flushing through the BFF
 with Tier 2's terminal-event mode:
@@ -127,6 +133,26 @@ preferred provider-development smoke when the other GPU models are already
 running. With a short test epoch, add `--require-final --require-final-count 2`
 to prove the public stream stays open across an internal epoch final and still
 flushes the last epoch at EOF.
+
+For an approved English speech fixture, require the enriched path explicitly:
+
+```bash
+python utilities/k8s_local_smoke_test/tier2_realtime_asr.py \
+  --wav <consented-english-speech.wav> --lang en --stream-seconds 12 \
+  --asr-timeout 180 --realtime-tracks qwen --require-tracks qwen \
+  --realtime-only --require-final --require-speaker-labels
+```
+
+For a consented multi-speaker fixture, add `--require-distinct-speakers 2`.
+For a fixture longer than the configured epoch, add
+`--require-speaker-epochs 2`; this asserts that labelled finals arrive from two
+separate bounded Qwen states rather than merely counting multiple turns inside
+one epoch.
+
+Do not use the repository's Czech fixture for that assertion: Czech transcription
+is supported, but the pinned forced aligner does not advertise Czech, so the
+expected result is the documented coarse speakerless fallback. Assert that path
+with `--require-final --require-speakerless-finals`.
 
 ## Make the first browser transcription
 

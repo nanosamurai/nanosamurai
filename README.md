@@ -12,7 +12,9 @@ guarding your sensitive conversations</sub>
 
 nanosamur.ai guards sensitive conversations in infrastructure you control. 
 
-It is model agnostic orchestration platform that supports different models used for different use cases (realtime vs semi-realtime vs batch) and provides a unified stack for highly available and robust processing with support for agentic workflows and webhooks. 
+It is a model-agnostic orchestration platform that supports different models for
+realtime, refined, and batch processing and provides a unified stack for robust
+speech processing, agentic workflows, and webhooks.
 
 Batteries included: we have a browser UI, a windows Electron app, API,
 SDK, recording storage, persistence, and optional local observability.
@@ -35,7 +37,8 @@ pinned by source SHA.
 
 - browser UI and SamuraiBFF API
 - Windows-first Electron wrapper
-- realtime transcription with replaceable partial hypotheses
+- one or more independently selectable realtime transcription models
+- parallel, track-labelled realtime results from the same audio stream
 - asynchronous speaker-aware refinement
 - multi-tenancy support
 - recording storage and full-session final transcripts
@@ -48,6 +51,7 @@ The public code also includes agentic-workflow and webhook contracts.
 Community Edition does not ship workflow execution or webhook delivery
 services, but you are free to implement your own workflows / webhook services and plug them in.
 <br clear="right">
+
 
 ## Architecture
 
@@ -65,11 +69,11 @@ flowchart LR
     end
 
     subgraph Xamurai["Xamurai (Python services)"]
-        RTService["rtservice\n(Faster-Whisper RealtimeASR)"]
-        QwenRT["qwen-rtservice\n(Qwen RealtimeASR)"]
-        WhisperXWorker["whisperx_worker\n(asynchronous refinement)"]
+        RTService["rtservice\n(Faster-Whisper + pyannote)"]
+        QwenRT["qwen-rtservice\n(Qwen3-ASR + ForcedAligner + pyannote)"]
+        WhisperXWorker["whisperx_worker\n(WhisperX + pyannote refinement)"]
         RecorderWorker["recorder_worker\n(session WAV)"]
-        FinalizerWorker["finalizer_worker\n(final transcript)"]
+        FinalizerWorker["finalizer_worker\n(WhisperX + pyannote final transcript)"]
     end
 
     Browser -->|HTTP /api + /auth| HTTP
@@ -80,8 +84,8 @@ flowchart LR
     Electron -->|"WS audio\nWebSocket /ws/audio\nPCM16LE mono 16kHz"| WSAudio
     Electron ---|"WS events\nWebSocket /ws/events\nJSON events"| WSEvents
 
-    SamuraiBFF -->|"gRPC track\nfaster-whisper"| RTService
-    SamuraiBFF -.->|"optional gRPC track\nqwen"| QwenRT
+    SamuraiBFF -->|"configured gRPC track\nfaster-whisper"| RTService
+    SamuraiBFF -->|"configured gRPC track\nqwen"| QwenRT
 
     subgraph Kafka["Kafka"]
         KafkaBroker[(Kafka broker)]
@@ -141,6 +145,62 @@ Community Edition boundary, including the object-storage replacement boundary.
 API consumers should start with
 [APIs and extension points](docs/apis-and-extension-points.md) for the generated
 OpenAPI contract, Swagger UI, and BFF-owned protocol documentation.
+
+## Multiple models, one audio stream
+
+nanosamur.ai's aim is to provide a model-agnostic platform and to (as we progress) support more and more models (for all types of transcription modes). 
+You can run multiple realtime speech models as peer providers behind
+one API. SamuraiBFF accepts the audio once, fans it out to the models selected
+for that session, and returns each result as a separate labelled track. The
+models do not silently overwrite or blend one another.
+
+This provides practical business and operational benefits:
+
+- compare accuracy and latency on exactly the same conversation;
+- introduce or evaluate a new model without replacing the established path;
+- choose the best available provider set for a language, workload, or cost and
+  latency target; and
+- keep a slow or unavailable provider from blocking healthy realtime tracks.
+
+```mermaid
+flowchart LR
+    Client["Browser, Electron, or SDK"] -->|"one audio stream"| BFF["SamuraiBFF\nsession track selection and fan-out"]
+    BFF -->|"selected track"| Faster["Faster Whisper realtime\nFaster-Whisper + pyannote"]
+    BFF -->|"selected track"| Qwen["Qwen realtime\nQwen3-ASR + ForcedAligner + pyannote"]
+    Faster -->|"labelled ASR events"| Results["Independent realtime results"]
+    Qwen -->|"labelled ASR events"| Results
+    Results --> Client
+    BFF -->|"publish audio once"| Async["Kafka refinement, recording, and finalization"]
+```
+
+The supplied base Compose stack starts the Faster-Whisper track. Add Qwen as a
+second peer with the checked-in override:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.qwen.yml pull
+docker compose -f docker-compose.yml -f docker-compose.qwen.yml up -d
+```
+
+Both tracks are then available in the session settings, where an operator can
+run Faster-Whisper, Qwen, or both. Concurrent models consume GPU memory and
+compute independently, so capacity should be validated on the target hardware.
+See [Evaluator getting started](docs/getting-started.md#evaluate-qwen-native-streaming)
+for readiness checks and the tested profile.
+
+### Model pipelines in the supplied stack
+
+| Xamurai service | Stage | Default model pipeline | Result |
+| --- | --- | --- | --- |
+| `rtservice` | Realtime | `Systran/faster-whisper-medium` with `pyannote/speaker-diarization-3.1`; optional Silero VAD and enrolled-speaker mapping | Replaceable partials and timed, speaker-labelled finals |
+| `qwen-rtservice` | Realtime | `Qwen/Qwen3-ASR-0.6B`, `Qwen/Qwen3-ForcedAligner-0.6B`, and `pyannote/speaker-diarization-3.1` | Native-streaming partials and aligned, speaker-labelled epoch finals where alignment is supported; speakerless fallback otherwise |
+| `whisperx_worker` | Asynchronous refinement | WhisperX `medium` by default, language-specific alignment, and pyannote diarization | Refined speaker-aware transcript windows |
+| `finalizer_worker` | Completed recording | The shared WhisperX alignment and pyannote pipeline | Canonical full-session transcript |
+| `recorder_worker` | Recording | No inference model | Session WAV and recording-completion event |
+
+These are the profiles supplied by the project, not model IDs accepted from an
+untrusted client. Xamurai owns the detailed service contract and implementation;
+see its [realtime provider guide](https://github.com/nanosamurai/xamurai/blob/master/docs/modular-asr-providers.md).
+
 
 ## Quickstart
 

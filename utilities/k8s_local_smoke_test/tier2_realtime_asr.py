@@ -47,6 +47,28 @@ def main() -> int:
         help="number of final events required per selected required track",
     )
     ap.add_argument(
+        "--require-speaker-labels",
+        action="store_true",
+        help="count only final events carrying a non-empty speaker label",
+    )
+    ap.add_argument(
+        "--require-distinct-speakers",
+        type=int,
+        default=0,
+        help="number of distinct non-empty speaker labels required per selected track",
+    )
+    ap.add_argument(
+        "--require-speaker-epochs",
+        type=int,
+        default=0,
+        help="number of distinct EPOCH_* speaker-label scopes required per selected track",
+    )
+    ap.add_argument(
+        "--require-speakerless-finals",
+        action="store_true",
+        help="count only final events with no speaker label",
+    )
+    ap.add_argument(
         "--require-tracks",
         default="",
         help="comma-separated track IDs that must each emit a matching ASR event",
@@ -66,6 +88,20 @@ def main() -> int:
         ap.error("--require-final-count must be at least 1")
     if args.require_final_count > 1 and not args.require_final:
         ap.error("--require-final-count greater than 1 requires --require-final")
+    if args.require_speaker_labels and not args.require_final:
+        ap.error("--require-speaker-labels requires --require-final")
+    if args.require_distinct_speakers < 0:
+        ap.error("--require-distinct-speakers cannot be negative")
+    if args.require_distinct_speakers and not args.require_speaker_labels:
+        ap.error("--require-distinct-speakers requires --require-speaker-labels")
+    if args.require_speaker_epochs < 0:
+        ap.error("--require-speaker-epochs cannot be negative")
+    if args.require_speaker_epochs and not args.require_speaker_labels:
+        ap.error("--require-speaker-epochs requires --require-speaker-labels")
+    if args.require_speakerless_finals and not args.require_final:
+        ap.error("--require-speakerless-finals requires --require-final")
+    if args.require_speaker_labels and args.require_speakerless_finals:
+        ap.error("speaker-labelled and speakerless final requirements are mutually exclusive")
     required_tracks = {track.strip() for track in args.require_tracks.split(",") if track.strip()}
 
     base_url = args.base_url.rstrip("/")
@@ -131,7 +167,11 @@ def main() -> int:
         first_event_elapsed = None
         matched_tracks: set[str] = set()
         final_counts: dict[str, int] = {}
+        distinct_speakers: dict[str, set[str]] = {}
+        speaker_epochs: dict[str, set[str]] = {}
         matching_event_count = 0
+        matching_speakers: set[str] = set()
+        matching_epochs: set[str] = set()
         ev = None
         while time.monotonic() < deadline:
             candidate = _lib.wait_for_json_event_type(
@@ -148,21 +188,53 @@ def main() -> int:
                     f"elapsed={first_event_elapsed:.2f}s final={bool(candidate.get('final'))}"
                 )
             terminal_match = not args.require_final or candidate.get("final") is True
+            if args.require_speaker_labels:
+                terminal_match = terminal_match and bool(
+                    str(candidate.get("speaker") or "").strip()
+                )
+            if args.require_speakerless_finals:
+                terminal_match = terminal_match and not bool(
+                    str(candidate.get("speaker") or "").strip()
+                )
             candidate_track = candidate.get("track")
+            speaker_label = str(candidate.get("speaker") or "").strip()
+            speaker_epoch = speaker_label.partition("/")[0]
+            if not speaker_epoch.startswith("EPOCH_"):
+                speaker_epoch = ""
             if required_tracks and terminal_match and candidate_track in required_tracks:
                 final_counts[candidate_track] = final_counts.get(candidate_track, 0) + 1
-                if final_counts[candidate_track] >= args.require_final_count:
+                distinct_speakers.setdefault(candidate_track, set()).add(speaker_label)
+                distinct_speakers[candidate_track].discard("")
+                speaker_epochs.setdefault(candidate_track, set()).add(speaker_epoch)
+                speaker_epochs[candidate_track].discard("")
+                if (
+                    final_counts[candidate_track] >= args.require_final_count
+                    and len(distinct_speakers[candidate_track])
+                    >= args.require_distinct_speakers
+                    and len(speaker_epochs[candidate_track]) >= args.require_speaker_epochs
+                ):
                     matched_tracks.add(candidate_track)
                 print(
                     f"[tier2] matched track={candidate_track} final={bool(candidate.get('final'))} "
-                    f"count={final_counts[candidate_track]}"
+                    f"count={final_counts[candidate_track]} "
+                    f"distinct_speakers={len(distinct_speakers[candidate_track])} "
+                    f"speaker_epochs={len(speaker_epochs[candidate_track])}"
                 )
             elif not required_tracks and terminal_match:
                 matching_event_count += 1
+                matching_speakers.add(speaker_label)
+                matching_speakers.discard("")
+                matching_epochs.add(speaker_epoch)
+                matching_epochs.discard("")
             if required_tracks and matched_tracks == required_tracks:
                 ev = candidate
                 break
-            if not required_tracks and matching_event_count >= args.require_final_count:
+            if (
+                not required_tracks
+                and matching_event_count >= args.require_final_count
+                and len(matching_speakers) >= args.require_distinct_speakers
+                and len(matching_epochs) >= args.require_speaker_epochs
+            ):
                 ev = candidate
                 break
 
