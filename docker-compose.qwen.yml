@@ -7,7 +7,7 @@ services:
         condition: service_healthy
 
   qwen-rtservice:
-    image: ${QWEN_RTSERVICE_IMAGE:-ghcr.io/nanosamurai/xamurai-qwen-rtservice:sha-f280868fa3ffa16a81828dc8f81598cbf16204a1}
+    image: ${QWEN_RTSERVICE_IMAGE:-ghcr.io/nanosamurai/xamurai-qwen-rtservice:sha-1de1f7de1c05b4f5d01da9e9792bdea542a51f86}
     restart: unless-stopped
     environment:
       QWEN_RTSERVICE_PORT: "50052"
