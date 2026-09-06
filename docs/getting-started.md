@@ -11,6 +11,7 @@ a production deployment manifest.
 | --- | --- | --- |
 | Default stack | UI/API, infrastructure, persistence, realtime transcription, refinement, recording, and finalization | Yes |
 | Dual realtime override | Default stack with Faster-Whisper and Qwen3-ASR 0.6B/vLLM evaluated as peer realtime tracks | Yes |
+| Nemotron replica validation | Pinned Nemotron/NeMo-Speech.cpp service behind one DNS name, two replicas by default | Yes |
 | Observability override | Default stack plus Grafana, Prometheus, Tempo, Loki, Alloy, and OpenTelemetry Collector | No additional GPU |
 
 The default stack is the complete end-to-end speech product. It does not
@@ -153,6 +154,72 @@ Do not use the repository's Czech fixture for that assertion: Czech transcriptio
 is supported, but the pinned forced aligner does not advertise Czech, so the
 expected result is the documented coarse speakerless fallback. Assert that path
 with `--require-final --require-speakerless-finals`.
+
+## Validate Nemotron replicas
+
+The opt-in Nemotron override is the focused Phase 2b validation path. It runs
+the fixed `nvidia/nemotron-3.5-asr-streaming-0.6b` Q8 profile through the pinned
+NeMo-Speech.cpp C ABI. Each container owns one recognizer and admits one stream
+by default; every accepted stream owns independent native cache state. Compose
+starts two containers behind the stable `nemotron-rtservice` DNS name. The
+service and probe publish no host ports.
+
+Build the image from the adjacent Xamurai checkout:
+
+```powershell
+Set-Location ../xamurai
+docker build -f nemotron_rtservice/Dockerfile `
+  -t xamurai-nemotron-rtservice:local .
+Set-Location ../nanosamurai
+```
+
+Start only the two provider replicas while developing:
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.nemotron.yml `
+  up -d --no-deps nemotron-rtservice
+docker compose -f docker-compose.yml -f docker-compose.nemotron.yml `
+  ps nemotron-rtservice
+```
+
+Cold start includes downloading and hashing the pinned 742 MB GGUF artifact in
+each process before readiness; the shared cache volume avoids duplicate network
+downloads. Wait until both containers are healthy, then run the internal probe:
+
+```powershell
+docker compose --profile nemotron-validation `
+  -f docker-compose.yml -f docker-compose.nemotron.yml `
+  run --rm --no-deps nemotron-probe
+```
+
+Success prints `replica_check=ok distinct_instances=2` and
+`audio_check=ok`. The probe holds two admission handshakes concurrently to
+prove DNS round-robin reached two process identities, then streams the checked-in
+Czech fixture and requires a non-empty final. It reports only counts and status,
+never transcript text.
+
+For the browser/full-stack path, SamuraiBFF must include the
+`enable-realtime-replica-routing` baseline. Until that work is published, build
+the local BFF checkout from the `validate-nemotron-realtime` branch and set
+`SAMURAIBFF_IMAGE` in the uncommitted `.env`; then start the normal combined
+Compose files. The BFF registers `nemotron-rtservice:50052`, resolves all task
+addresses, uses gRPC `round_robin`, and retries only a pre-admission
+`REPLICA_FULL` response.
+
+`NEMOTRON_RTSERVICE_REPLICAS` controls process replicas and
+`NEMOTRON_RT_SERVING_MAX_SESSIONS` controls bounded streams per process. Keep
+the default one stream per replica for the routing proof. Values above one
+enable NeMo-Speech.cpp microbatching inside that process and require a separate
+latency and memory qualification. `NEMOTRON_RNNT_RIGHT_CONTEXT=1` selects the
+roughly 160 ms trained right-context mode. The service accepts only PCM16 mono
+at 16 kHz and a fixed allowlisted language code; clients cannot choose model
+paths or revisions.
+
+Remove the validation containers without deleting the model cache:
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.nemotron.yml down
+```
 
 ## Make the first browser transcription
 

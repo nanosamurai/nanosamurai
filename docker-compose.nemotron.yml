@@ -1,0 +1,42 @@
+services:
+  samuraibff:
+    environment:
+      SAMURAIBFF_GRPC_REALTIME_TRACKS: faster-whisper=rtservice:50052,nemotron=nemotron-rtservice:50052
+    depends_on:
+      nemotron-rtservice:
+        condition: service_healthy
+
+  nemotron-rtservice:
+    image: ${NEMOTRON_RTSERVICE_IMAGE:-xamurai-nemotron-rtservice:local}
+    restart: unless-stopped
+    environment:
+      NEMOTRON_RTSERVICE_PORT: "50052"
+      NEMOTRON_GPU: "${NEMOTRON_GPU:-0}"
+      NEMOTRON_RNNT_RIGHT_CONTEXT: "${NEMOTRON_RNNT_RIGHT_CONTEXT:-1}"
+      RT_SERVING_MAX_SESSIONS: "${NEMOTRON_RT_SERVING_MAX_SESSIONS:-1}"
+      HF_HOME: /data/huggingface
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      DO_NOT_TRACK: "1"
+    volumes:
+      - nanosamurai_nemotron_hf_cache:/data/huggingface
+    gpus: all
+    deploy:
+      replicas: ${NEMOTRON_RTSERVICE_REPLICAS:-2}
+      endpoint_mode: dnsrr
+
+  nemotron-probe:
+    image: ${NEMOTRON_RTSERVICE_IMAGE:-xamurai-nemotron-rtservice:local}
+    profiles: ["nemotron-validation"]
+    restart: "no"
+    entrypoint: ["python", "-m", "nemotron_rtservice.probe"]
+    command:
+      - --replicas
+      - "${NEMOTRON_RTSERVICE_REPLICAS:-2}"
+      - --wav
+      - /fixtures/test_cs.wav
+    volumes:
+      - ./tests/data/test_cs.wav:/fixtures/test_cs.wav:ro
+
+volumes:
+  nanosamurai_nemotron_hf_cache:
+
