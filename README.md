@@ -71,6 +71,7 @@ flowchart LR
     subgraph Xamurai["Xamurai (Python services)"]
         RTService["rtservice\n(Faster-Whisper + pyannote)"]
         QwenRT["qwen-rtservice\n(Qwen3-ASR + ForcedAligner + pyannote)"]
+        NemotronRT["nemotron-rtservice\n(Nemotron streaming + NeMo-Speech.cpp)"]
         WhisperXWorker["whisperx_worker\n(WhisperX + pyannote refinement)"]
         RecorderWorker["recorder_worker\n(session WAV)"]
         FinalizerWorker["finalizer_worker\n(WhisperX + pyannote final transcript)"]
@@ -86,6 +87,7 @@ flowchart LR
 
     SamuraiBFF -->|"configured gRPC track\nfaster-whisper"| RTService
     SamuraiBFF -->|"configured gRPC track\nqwen"| QwenRT
+    SamuraiBFF -->|"configured gRPC track\nnemotron"| NemotronRT
 
     subgraph Kafka["Kafka"]
         KafkaBroker[(Kafka broker)]
@@ -187,12 +189,30 @@ compute independently, so capacity should be validated on the target hardware.
 See [Evaluator getting started](docs/getting-started.md#evaluate-qwen-native-streaming)
 for readiness checks and the tested profile.
 
+The Phase 2b validation path adds the pinned Nemotron streaming profile as two
+network-internal replicas. Build the current Xamurai image, then use the
+checked-in override and its non-transcript-printing probe:
+
+```bash
+docker build -f ../xamurai/nemotron_rtservice/Dockerfile \
+  -t xamurai-nemotron-rtservice:local ../xamurai
+docker compose -f docker-compose.yml -f docker-compose.nemotron.yml \
+  up -d --no-deps nemotron-rtservice
+docker compose --profile nemotron-validation \
+  -f docker-compose.yml -f docker-compose.nemotron.yml \
+  run --rm --no-deps nemotron-probe
+```
+
+See [Evaluator getting started](docs/getting-started.md#validate-nemotron-replicas)
+for the full-stack BFF requirement and exact success checks.
+
 ### Model pipelines in the supplied stack
 
 | Xamurai service | Stage | Default model pipeline | Result |
 | --- | --- | --- | --- |
 | `rtservice` | Realtime | `Systran/faster-whisper-medium` with `pyannote/speaker-diarization-3.1`; optional Silero VAD and enrolled-speaker mapping | Replaceable partials and timed, speaker-labelled finals |
 | `qwen-rtservice` | Realtime | `Qwen/Qwen3-ASR-0.6B`, `Qwen/Qwen3-ForcedAligner-0.6B`, and `pyannote/speaker-diarization-3.1` | Native-streaming partials and aligned, speaker-labelled epoch finals where alignment is supported; speakerless fallback otherwise |
+| `nemotron-rtservice` | Realtime | `nvidia/nemotron-3.5-asr-streaming-0.6b` Q8 GGUF through NeMo-Speech.cpp | Cache-aware native-streaming partials and EOF finals; no timestamps or speaker labels |
 | `whisperx_worker` | Asynchronous refinement | WhisperX `medium` by default, language-specific alignment, and pyannote diarization | Refined speaker-aware transcript windows |
 | `finalizer_worker` | Completed recording | The shared WhisperX alignment and pyannote pipeline | Canonical full-session transcript |
 | `recorder_worker` | Recording | No inference model | Session WAV and recording-completion event |
