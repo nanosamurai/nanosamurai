@@ -212,7 +212,7 @@ for the full-stack BFF requirement and exact success checks.
 | --- | --- | --- | --- |
 | `rtservice` | Realtime | `Systran/faster-whisper-medium` with `pyannote/speaker-diarization-3.1`; optional Silero VAD and enrolled-speaker mapping | Replaceable partials and timed, speaker-labelled finals |
 | `qwen-rtservice` | Realtime | `Qwen/Qwen3-ASR-0.6B`, `Qwen/Qwen3-ForcedAligner-0.6B`, and `pyannote/speaker-diarization-3.1` | Native-streaming partials and aligned, speaker-labelled epoch finals where alignment is supported; speakerless fallback otherwise |
-| `nemotron-rtservice` | Realtime | `nvidia/nemotron-3.5-asr-streaming-0.6b` Q8 GGUF through NeMo-Speech.cpp | Cache-aware native-streaming partials and EOF finals; no timestamps or speaker labels |
+| `nemotron-rtservice` | Realtime | `nvidia/nemotron-3.5-asr-streaming-0.6b` Q8 GGUF through NeMo-Speech.cpp | Native partials/finals; optional Sortformer speaker turns and S3 enrolled names |
 | `whisperx_worker` | Asynchronous refinement | WhisperX `medium` by default, language-specific alignment, and pyannote diarization | Refined speaker-aware transcript windows |
 | `finalizer_worker` | Completed recording | The shared WhisperX alignment and pyannote pipeline | Canonical full-session transcript |
 | `recorder_worker` | Recording | No inference model | Session WAV and recording-completion event |
