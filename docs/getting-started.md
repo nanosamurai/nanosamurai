@@ -244,6 +244,19 @@ source, using `rtservice/Dockerfile`, `nemotron_rtservice/Dockerfile`,
 `finalizer_worker/Dockerfile` in Xamurai, and `Dockerfile` in the BFF and
 persistor repositories. Tag each image with the name in the override.
 
+The 2026-09-08 local refresh rebuilt the BFF, persistor and Nemotron images.
+Faster and the async workers reused their existing dependency images with all
+application source and protobuf modules replaced from the current commit.
+Those incremental images also record `org.opencontainers.image.base.digest`;
+their packaged Python source was checked byte-for-byte against the build
+snapshot. Dependency reuse does not replace validation of the new source.
+
+The refreshed stack passed a 20-second BFF WebSocket smoke requiring
+speaker-labelled finals from both Faster Whisper and Nemotron, a concurrent
+two-replica Nemotron probe, and a recording/S3/Kafka finalization smoke that
+returned a three-segment final transcript. Qwen was stopped and all published
+ports were bound to localhost.
+
 ### Add optional Sortformer and enrolled names
 
 Build the Xamurai image from `codex/add-optional-sortformer`, which is based on
