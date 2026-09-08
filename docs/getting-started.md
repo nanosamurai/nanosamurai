@@ -221,6 +221,44 @@ Remove the validation containers without deleting the model cache:
 docker compose -f docker-compose.yml -f docker-compose.nemotron.yml down
 ```
 
+### Add optional Sortformer and enrolled names
+
+Build the Xamurai image from `codex/add-optional-sortformer`, which is based on
+the unmerged `validate-nemotron-realtime` work. In the uncommitted `.env`, set
+`NEMOTRON_DIARIZATION=true`. Add `NEMOTRON_ENROLL_BACKEND=s3_manifest` to match
+the existing tenant enrollment WAV samples in LocalStack. Neither speaker
+model is loaded in the default ASR-only mode; anonymous diarization also works
+with enrollment disabled. No Hugging Face token is needed for these models.
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.nemotron.yml `
+  up -d --no-deps localstack
+docker compose -f docker-compose.yml -f docker-compose.nemotron.yml `
+  up -d --no-deps --scale nemotron-rtservice=2 nemotron-rtservice
+docker compose --profile nemotron-validation `
+  -f docker-compose.yml -f docker-compose.nemotron.yml `
+  run --rm --no-deps nemotron-probe --replicas 2 --wav /fixtures/test_cs.wav `
+  --require-speakers --concurrent-audio
+```
+
+For a consented fixture whose speaker has been enrolled under the guest tenant,
+also pass `--tenant-id 00000000-0000-0000-0000-000000000000 --require-enrolled`.
+The probe uses only container DNS and prints counts, not names or transcripts.
+Use held-out audio to assess matching quality; reusing enrollment audio is only
+a wiring check.
+
+Sortformer supports up to four speakers in one continuous stream. The S3
+gallery can contain more people: each detected speaker is matched against the
+tenant's usable gallery, capped at 256 records for resource safety. Unknown,
+short or ambiguous matches stay anonymous. Expected meetings with more than
+four speakers should use the existing pyannote-based service. The default
+cosine threshold (`NEMOTRON_ENROLL_SIM_THRESHOLD=0.65`) and runner-up margin
+(`NEMOTRON_ENROLL_MATCH_MARGIN=0.1`) require local quality calibration.
+
+Speaker processing uses the same two replicas and admission mechanism; there
+is no additional service, scheduler or Kubernetes dependency. Details and
+model attribution live in Xamurai's `docs/nemotron-sortformer.md`.
+
 ## Make the first browser transcription
 
 1. Open <http://127.0.0.1:8000/live>.
