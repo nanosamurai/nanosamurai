@@ -259,6 +259,13 @@ Speaker processing uses the same two replicas and admission mechanism; there
 is no additional service, scheduler or Kubernetes dependency. Details and
 model attribution live in Xamurai's `docs/nemotron-sortformer.md`.
 
+The 2026-09-08 local GPU qualification passed with two Sortformer/enrollment
+replicas, concurrent real fixture audio, tenant-isolated held-out enrollment
+matching, and speaker-labelled finals through the localhost BFF WebSocket.
+The same image also passed with speaker processing disabled. This verifies the
+integration on an RTX 5090 Laptop GPU with the single-speaker fixture; it does
+not establish accuracy for multi-speaker meetings or capacity on other GPUs.
+
 ## Make the first browser transcription
 
 1. Open <http://127.0.0.1:8000/live>.
