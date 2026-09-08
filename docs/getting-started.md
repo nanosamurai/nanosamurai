@@ -257,6 +257,13 @@ two-replica Nemotron probe, and a recording/S3/Kafka finalization smoke that
 returned a three-segment final transcript. Qwen was stopped and all published
 ports were bound to localhost.
 
+The local E2E preset defaults `NEMOTRON_ENROLL_SIM_THRESHOLD` to `0.55`, keeping
+the `0.10` runner-up margin. This local calibration accommodates shorter turns;
+the general Nemotron override still defaults to `0.65`. Set the variable
+explicitly to choose another raw-cosine cutoff. The Sortformer `r2` profiles
+retain valid speaker labels when native word lookahead extends past a final's
+audio boundary, clipping the emitted timestamps to the audio actually consumed.
+
 ### Add optional Sortformer and enrolled names
 
 Build the Xamurai image from `codex/add-optional-sortformer`, which is based on
