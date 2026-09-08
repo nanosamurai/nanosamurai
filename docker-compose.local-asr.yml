@@ -11,6 +11,8 @@ services:
     environment:
       NEMOTRON_DIARIZATION: 'true'
       ENROLL_BACKEND: s3_manifest
+      # Local short-turn calibration; general service defaults stay conservative.
+      ENROLL_SIM_THRESHOLD: "${NEMOTRON_ENROLL_SIM_THRESHOLD:-0.55}"
   nemotron-probe:
     image: xamurai-nemotron-rtservice:local-e2e
   whisperx_worker:
