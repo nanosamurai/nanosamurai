@@ -221,6 +221,29 @@ Remove the validation containers without deleting the model cache:
 docker compose -f docker-compose.yml -f docker-compose.nemotron.yml down
 ```
 
+### Run the source-built local E2E stack
+
+`docker-compose.local-asr.yml` selects the locally built `local-e2e` images
+for the BFF, persistor and Xamurai workers. Use it after the Nemotron override
+to run Faster Whisper and two Nemotron replicas, with Sortformer and enrolled
+speaker matching enabled. Qwen is not included in these Compose files.
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.nemotron.yml `
+  -f docker-compose.local-asr.yml up -d
+```
+
+Keep the existing `HF_TOKEN` available to Compose for Faster Whisper's gated
+pyannote models. Published ports default to `127.0.0.1`; open
+`http://127.0.0.1:8000/live` to test both realtime tracks. The recorder,
+refinement, finalization and persistence services run alongside them.
+Each local image records its source commit in the
+`org.opencontainers.image.revision` label. Build from the current checked-in
+source, using `rtservice/Dockerfile`, `nemotron_rtservice/Dockerfile`,
+`whisperx_worker/Dockerfile`, `recorder_worker/Dockerfile` and
+`finalizer_worker/Dockerfile` in Xamurai, and `Dockerfile` in the BFF and
+persistor repositories. Tag each image with the name in the override.
+
 ### Add optional Sortformer and enrolled names
 
 Build the Xamurai image from `codex/add-optional-sortformer`, which is based on
