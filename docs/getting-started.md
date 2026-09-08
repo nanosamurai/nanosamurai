@@ -263,6 +263,10 @@ the general Nemotron override still defaults to `0.65`. Set the variable
 explicitly to choose another raw-cosine cutoff. The Sortformer `r2` profiles
 retain valid speaker labels when native word lookahead extends past a final's
 audio boundary, clipping the emitted timestamps to the audio actually consumed.
+Both deployed replicas passed concurrent replays of a reported 109-second,
+two-speaker recording with every final correctly named. The dual-track BFF
+WebSocket smoke also passed after the refresh. New sessions advertise
+`nemotron-3.5-asr-streaming-0.6b-sortformer-enrolled-q8-r2`.
 
 ### Add optional Sortformer and enrolled names
 
