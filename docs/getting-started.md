@@ -11,6 +11,7 @@ a production deployment manifest.
 | --- | --- | --- |
 | Default stack | UI/API, infrastructure, persistence, realtime transcription, refinement, recording, and finalization | Yes |
 | Dual realtime override | Default stack with Faster-Whisper and Qwen3-ASR 0.6B/vLLM evaluated as peer realtime tracks | Yes |
+| Nemotron replica validation | Pinned Nemotron/NeMo-Speech.cpp service behind one DNS name, two replicas by default | Yes |
 | Observability override | Default stack plus Grafana, Prometheus, Tempo, Loki, Alloy, and OpenTelemetry Collector | No additional GPU |
 
 The default stack is the complete end-to-end speech product. It does not
@@ -153,6 +154,123 @@ Do not use the repository's Czech fixture for that assertion: Czech transcriptio
 is supported, but the pinned forced aligner does not advertise Czech, so the
 expected result is the documented coarse speakerless fallback. Assert that path
 with `--require-final --require-speakerless-finals`.
+
+## Validate Nemotron replicas
+
+Nemotron is an experimental source-build recipe, separate from the released
+quickstart. No published Nemotron image pin is selected; the base stack and
+Qwen override retain their existing release pins. Local image overrides and
+enrollment calibration belong in an ignored `.env` or explicitly selected
+`docker-compose.local-asr.yml` and must not be committed.
+
+The opt-in Nemotron override is the focused Phase 2b validation path. It runs
+the fixed `nvidia/nemotron-3.5-asr-streaming-0.6b` Q8 profile through the pinned
+NeMo-Speech.cpp C ABI. Each container owns one recognizer and admits one stream
+by default; every accepted stream owns independent native cache state. Compose
+starts two containers behind the stable `nemotron-rtservice` DNS name. The
+service and probe publish no host ports.
+
+Build the image from the adjacent Xamurai checkout:
+
+```powershell
+Set-Location ../xamurai
+docker build -f nemotron_rtservice/Dockerfile `
+  -t xamurai-nemotron-rtservice:local .
+Set-Location ../nanosamurai
+```
+
+Start only the two provider replicas while developing:
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.nemotron.yml `
+  up -d --no-deps nemotron-rtservice
+docker compose -f docker-compose.yml -f docker-compose.nemotron.yml `
+  ps nemotron-rtservice
+```
+
+Cold start includes downloading and hashing the pinned 742 MB GGUF artifact in
+each process before readiness; the shared cache volume avoids duplicate network
+downloads. Wait until both containers are healthy, then run the internal probe:
+
+```powershell
+docker compose --profile nemotron-validation `
+  -f docker-compose.yml -f docker-compose.nemotron.yml `
+  run --rm --no-deps nemotron-probe
+```
+
+Success prints `replica_check=ok distinct_instances=2` and
+`audio_check=ok`. The probe holds two admission handshakes concurrently to
+prove DNS round-robin reached two process identities, then streams the checked-in
+Czech fixture and requires a non-empty final. It reports only counts and status,
+never transcript text.
+
+For the browser/full-stack path, the existing pinned SamuraiBFF image predates
+the required realtime replica routing. Build a compatible BFF source revision
+that includes that routing and set `SAMURAIBFF_IMAGE` only in the ignored
+`.env` or an explicitly selected local override. Keep the published default pin
+unchanged. The BFF registers `nemotron-rtservice:50052`, resolves all task
+addresses, uses gRPC `round_robin`, and retries only a pre-admission
+`REPLICA_FULL` response.
+
+`NEMOTRON_RTSERVICE_REPLICAS` controls process replicas and
+`NEMOTRON_RT_SERVING_MAX_SESSIONS` controls bounded streams per process. Keep
+the default one stream per replica for the routing proof. Values above one
+enable NeMo-Speech.cpp microbatching inside that process and require a separate
+latency and memory qualification. `NEMOTRON_RNNT_RIGHT_CONTEXT=1` selects the
+roughly 160 ms trained right-context mode. The service accepts only PCM16 mono
+at 16 kHz and a fixed allowlisted language code; clients cannot choose model
+paths or revisions.
+
+Remove the validation containers without deleting the model cache:
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.nemotron.yml down
+```
+
+### Add optional Sortformer and enrolled names
+
+Build a Xamurai revision that includes optional Sortformer and enrolled-speaker
+matching. In the ignored `.env`, set
+`NEMOTRON_DIARIZATION=true`. Add `NEMOTRON_ENROLL_BACKEND=s3_manifest` to match
+the existing tenant enrollment WAV samples in LocalStack. Neither speaker
+model is loaded in the default ASR-only mode; anonymous diarization also works
+with enrollment disabled. No Hugging Face token is needed for these models.
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.nemotron.yml `
+  up -d --no-deps localstack
+docker compose -f docker-compose.yml -f docker-compose.nemotron.yml `
+  up -d --no-deps --scale nemotron-rtservice=2 nemotron-rtservice
+docker compose --profile nemotron-validation `
+  -f docker-compose.yml -f docker-compose.nemotron.yml `
+  run --rm --no-deps nemotron-probe --replicas 2 --wav /fixtures/test_cs.wav `
+  --require-speakers --concurrent-audio
+```
+
+For a consented fixture whose speaker has been enrolled under the guest tenant,
+also pass `--tenant-id 00000000-0000-0000-0000-000000000000 --require-enrolled`.
+The probe uses only container DNS and prints counts, not names or transcripts.
+Use held-out audio to assess matching quality; reusing enrollment audio is only
+a wiring check.
+
+Sortformer supports up to four speakers in one continuous stream. The S3
+gallery can contain more people: each detected speaker is matched against the
+tenant's usable gallery, capped at 256 records for resource safety. Unknown,
+short or ambiguous matches stay anonymous. Expected meetings with more than
+four speakers should use the existing pyannote-based service. The default
+cosine threshold (`NEMOTRON_ENROLL_SIM_THRESHOLD=0.65`) and runner-up margin
+(`NEMOTRON_ENROLL_MATCH_MARGIN=0.1`) require local quality calibration.
+
+Speaker processing uses the same two replicas and admission mechanism; there
+is no additional service, scheduler or Kubernetes dependency. Details and
+model attribution live in Xamurai's `docs/nemotron-sortformer.md`.
+
+The 2026-09-08 local GPU qualification passed with two Sortformer/enrollment
+replicas, concurrent real fixture audio, tenant-isolated held-out enrollment
+matching, and speaker-labelled finals through the localhost BFF WebSocket.
+The same image also passed with speaker processing disabled. This verifies the
+integration on an RTX 5090 Laptop GPU with the single-speaker fixture; it does
+not establish accuracy for multi-speaker meetings or capacity on other GPUs.
 
 ## Make the first browser transcription
 
