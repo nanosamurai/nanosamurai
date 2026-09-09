@@ -7,6 +7,14 @@ image-selection mechanism for the evaluator. Image environment variables are
 optional overrides for local development, evaluation of another immutable
 release, or rollback; users do not need to set them for the normal quickstart.
 
+Keep local source-build image selections and enrollment calibration in the
+ignored `.env` or `docker-compose.local-asr.yml`, selected explicitly with `-f`.
+Do not commit these machine-local overrides or promote newly built images into
+the default pins as part of provider development. The base stack and optional
+Qwen override retain their existing release pins. Nemotron currently has only
+an opt-in source-build recipe, with no selected published-image pin; promoting
+it requires a separate release change after the checks below.
+
 Before updating a default pin:
 
 1. Confirm CI and the image-publication workflow succeeded for the source SHA.
