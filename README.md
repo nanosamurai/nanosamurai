@@ -189,9 +189,11 @@ compute independently, so capacity should be validated on the target hardware.
 See [Evaluator getting started](docs/getting-started.md#evaluate-qwen-native-streaming)
 for readiness checks and the tested profile.
 
-The Phase 2b validation path adds the pinned Nemotron streaming profile as two
-network-internal replicas. Build the current Xamurai image, then use the
-checked-in override and its non-transcript-printing probe:
+An experimental source-build recipe adds the fixed Nemotron streaming profile
+as two network-internal replicas. It is separate from the pinned quickstart;
+no published Nemotron image pin is selected, and the existing base/Qwen image
+pins stay unchanged. Build a compatible Xamurai image, then use the opt-in
+override and its non-transcript-printing probe:
 
 ```bash
 docker build -f ../xamurai/nemotron_rtservice/Dockerfile \
