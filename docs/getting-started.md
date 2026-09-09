@@ -157,6 +157,12 @@ with `--require-final --require-speakerless-finals`.
 
 ## Validate Nemotron replicas
 
+Nemotron is an experimental source-build recipe, separate from the released
+quickstart. No published Nemotron image pin is selected; the base stack and
+Qwen override retain their existing release pins. Local image overrides and
+enrollment calibration belong in an ignored `.env` or explicitly selected
+`docker-compose.local-asr.yml` and must not be committed.
+
 The opt-in Nemotron override is the focused Phase 2b validation path. It runs
 the fixed `nvidia/nemotron-3.5-asr-streaming-0.6b` Q8 profile through the pinned
 NeMo-Speech.cpp C ABI. Each container owns one recognizer and admits one stream
@@ -167,10 +173,10 @@ service and probe publish no host ports.
 Build the image from the adjacent Xamurai checkout:
 
 ```powershell
-Set-Location C:\Users\miros\PycharmProjects\xamurai
+Set-Location ../xamurai
 docker build -f nemotron_rtservice/Dockerfile `
   -t xamurai-nemotron-rtservice:local .
-Set-Location C:\Users\miros\PycharmProjects\nanosamurai
+Set-Location ../nanosamurai
 ```
 
 Start only the two provider replicas while developing:
@@ -198,11 +204,11 @@ prove DNS round-robin reached two process identities, then streams the checked-i
 Czech fixture and requires a non-empty final. It reports only counts and status,
 never transcript text.
 
-For the browser/full-stack path, SamuraiBFF must include the
-`enable-realtime-replica-routing` baseline. Until that work is published, build
-the local BFF checkout from the `validate-nemotron-realtime` branch and set
-`SAMURAIBFF_IMAGE` in the uncommitted `.env`; then start the normal combined
-Compose files. The BFF registers `nemotron-rtservice:50052`, resolves all task
+For the browser/full-stack path, the existing pinned SamuraiBFF image predates
+the required realtime replica routing. Build a compatible BFF source revision
+that includes that routing and set `SAMURAIBFF_IMAGE` only in the ignored
+`.env` or an explicitly selected local override. Keep the published default pin
+unchanged. The BFF registers `nemotron-rtservice:50052`, resolves all task
 addresses, uses gRPC `round_robin`, and retries only a pre-admission
 `REPLICA_FULL` response.
 
@@ -221,57 +227,10 @@ Remove the validation containers without deleting the model cache:
 docker compose -f docker-compose.yml -f docker-compose.nemotron.yml down
 ```
 
-### Run the source-built local E2E stack
-
-`docker-compose.local-asr.yml` selects the locally built `local-e2e` images
-for the BFF, persistor and Xamurai workers. Use it after the Nemotron override
-to run Faster Whisper and two Nemotron replicas, with Sortformer and enrolled
-speaker matching enabled. Qwen is not included in these Compose files.
-
-```powershell
-docker compose -f docker-compose.yml -f docker-compose.nemotron.yml `
-  -f docker-compose.local-asr.yml up -d
-```
-
-Keep the existing `HF_TOKEN` available to Compose for Faster Whisper's gated
-pyannote models. Published ports default to `127.0.0.1`; open
-`http://127.0.0.1:8000/live` to test both realtime tracks. The recorder,
-refinement, finalization and persistence services run alongside them.
-Each local image records its source commit in the
-`org.opencontainers.image.revision` label. Build from the current checked-in
-source, using `rtservice/Dockerfile`, `nemotron_rtservice/Dockerfile`,
-`whisperx_worker/Dockerfile`, `recorder_worker/Dockerfile` and
-`finalizer_worker/Dockerfile` in Xamurai, and `Dockerfile` in the BFF and
-persistor repositories. Tag each image with the name in the override.
-
-The 2026-09-08 local refresh rebuilt the BFF, persistor and Nemotron images.
-Faster and the async workers reused their existing dependency images with all
-application source and protobuf modules replaced from the current commit.
-Those incremental images also record `org.opencontainers.image.base.digest`;
-their packaged Python source was checked byte-for-byte against the build
-snapshot. Dependency reuse does not replace validation of the new source.
-
-The refreshed stack passed a 20-second BFF WebSocket smoke requiring
-speaker-labelled finals from both Faster Whisper and Nemotron, a concurrent
-two-replica Nemotron probe, and a recording/S3/Kafka finalization smoke that
-returned a three-segment final transcript. Qwen was stopped and all published
-ports were bound to localhost.
-
-The local E2E preset defaults `NEMOTRON_ENROLL_SIM_THRESHOLD` to `0.55`, keeping
-the `0.10` runner-up margin. This local calibration accommodates shorter turns;
-the general Nemotron override still defaults to `0.65`. Set the variable
-explicitly to choose another raw-cosine cutoff. The Sortformer `r2` profiles
-retain valid speaker labels when native word lookahead extends past a final's
-audio boundary, clipping the emitted timestamps to the audio actually consumed.
-Both deployed replicas passed concurrent replays of a reported 109-second,
-two-speaker recording with every final correctly named. The dual-track BFF
-WebSocket smoke also passed after the refresh. New sessions advertise
-`nemotron-3.5-asr-streaming-0.6b-sortformer-enrolled-q8-r2`.
-
 ### Add optional Sortformer and enrolled names
 
-Build the Xamurai image from `codex/add-optional-sortformer`, which is based on
-the unmerged `validate-nemotron-realtime` work. In the uncommitted `.env`, set
+Build a Xamurai revision that includes optional Sortformer and enrolled-speaker
+matching. In the ignored `.env`, set
 `NEMOTRON_DIARIZATION=true`. Add `NEMOTRON_ENROLL_BACKEND=s3_manifest` to match
 the existing tenant enrollment WAV samples in LocalStack. Neither speaker
 model is loaded in the default ASR-only mode; anonymous diarization also works
