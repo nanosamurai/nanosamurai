@@ -1,0 +1,6 @@
+boto3>=1.40,<2
+confluent-kafka>=2.12,<3
+protobuf>=6.31.1,<7
+psycopg[binary]>=3.2,<4
+requests>=2.32,<3
+websocket-client>=1.8,<2
