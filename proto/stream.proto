@@ -24,7 +24,12 @@ message AudioChunk {
   string tenant_id = 8;
 }
 
-enum AsrType { PARTIAL = 0; FINAL = 1; }
+enum AsrType {
+  PARTIAL = 0;
+  FINAL = 1;
+  // First server response. Audio must not be sent before this is received.
+  SESSION_ACCEPTED = 2;
+}
 
 message AsrEvent {
   string  session_id = 1;
@@ -34,6 +39,9 @@ message AsrEvent {
   AsrType type       = 5;
   string  lang       = 6; // optional (e.g., "cs")
   string speaker    = 7;
+  string provider_profile_id = 8;
+  // Server-generated process identity, populated only on SESSION_ACCEPTED.
+  string serving_instance_id = 9;
 }
 
 message DiarEvent {
@@ -103,6 +111,66 @@ message RecordingFinished {
   string tenant_id    = 6;
 
   int64 created_at_ns = 7;   // when this event was created
+
+  // Additive final-track contract. Absent on legacy recordings.
+  AudioArtifact source = 8;
+  AsyncTrackPlan final_plan = 9;
+}
+
+// Frozen by the BFF before accepting audio; clients cannot supply profiles.
+message AsyncTrackSelection {
+  string track_id = 1;
+  string profile_id = 2;
+  bool primary = 3;
+}
+
+message AsyncTrackPlan {
+  uint32 schema_version = 1;
+  string plan_id = 2;
+  string tenant_id = 3;
+  string session_id = 4;
+  repeated AsyncTrackSelection final_tracks = 5;
+}
+
+message AudioArtifact {
+  string artifact_id = 1;
+  string storage_uri = 2;
+  string sha256 = 3;
+  uint64 size_bytes = 4;
+  uint32 sample_rate = 5;
+  uint64 sample_count = 6;
+  string media_type = 7;
+  string version_id = 8;
+}
+
+// Bounded envelope on transcripts.final-tracks. Transcript JSON is in S3.
+// Delivery may repeat; result_id identifies one immutable logical outcome.
+message FinalTrackResult {
+  uint32 schema_version = 1;
+  string session_id = 2;
+  string tenant_id = 3;
+  string stage = 4;
+  string track_id = 5;
+  string profile_id = 6;
+  string run_id = 7;
+  string attempt_id = 8;
+  string result_id = 9;
+  string unit_id = 10;
+  uint32 revision = 11;
+  string status = 12;
+  AudioArtifact source = 13;
+  string result_uri = 14;
+  string result_sha256 = 15;
+  bool primary = 16;
+  string error_code = 17;
+  repeated string degradations = 18;
+  bool segment_timestamps = 19;
+  bool word_timestamps = 20;
+  bool speaker_labels = 21;
+  string provenance_json = 22;
+  int64 created_at_ns = 23;
+  string lang = 24;
+  string plan_id = 25;
 }
 
 message WordAlignment {
@@ -124,7 +192,31 @@ message FinalEvent {
   repeated WordAlignment words = 7;
 }
 
+message RealtimeCapabilitiesRequest {}
+
+message RealtimeCapabilities {
+  string provider_profile_id = 1;
+  bool windowed_realtime = 2;
+  bool native_streaming = 3;
+  bool batch = 4;
+  bool segment_timestamps = 5;
+  bool word_timestamps = 6;
+  bool language_detection = 7;
+  repeated string supported_languages = 8;
+  bool stateful = 9;
+  uint32 preferred_sample_rate = 10;
+  double maximum_audio_seconds = 11;
+  uint32 maximum_concurrent_sessions = 12;
+  string runtime = 13;
+  string model_revision = 14;
+  string model_digest = 15;
+  string implementation_revision = 16;
+  bool speaker_labels = 17;
+  repeated string aligned_diarized_languages = 18;
+}
+
 service RealtimeASR {
+  rpc GetCapabilities (RealtimeCapabilitiesRequest) returns (RealtimeCapabilities);
   rpc Stream (stream AudioChunk) returns (stream AsrEvent);
 }
 
