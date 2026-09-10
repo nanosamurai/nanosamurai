@@ -130,6 +130,20 @@ message AsyncTrackPlan {
   string tenant_id = 3;
   string session_id = 4;
   repeated AsyncTrackSelection final_tracks = 5;
+  repeated AsyncTrackSelection refinement_tracks = 6;
+  uint64 refinement_window_samples = 7;
+}
+
+// One immutable, non-overlapping window from an open session generation.
+// recording.final_plan identifies that generation; timestamps in outputs are
+// absolute within the session, although the WAV contains only this range.
+message RefinementWindow {
+  RecordingFinished recording = 1;
+  uint64 start_sample = 2;
+  uint64 end_sample = 3;
+  uint64 window_samples = 4;
+  string flush_reason = 5; // slice | eof | idle
+  string bff_origin_uri = 6;
 }
 
 message AudioArtifact {
@@ -171,6 +185,8 @@ message FinalTrackResult {
   int64 created_at_ns = 23;
   string lang = 24;
   string plan_id = 25;
+  // Present only on transcripts.refined-tracks (stage=refined).
+  RefinementWindow refinement_window = 26;
 }
 
 message WordAlignment {
