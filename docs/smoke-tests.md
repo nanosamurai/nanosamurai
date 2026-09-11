@@ -15,6 +15,16 @@ when validating a native-streaming provider to prove that closing the audio
 WebSocket flushes a terminal event through BFF. Pass
 `--require-tracks faster-whisper,qwen` with the Qwen override to require a
 matching event from both peer services.
+Pass `--require-speaker-labels` together with `--require-final` when a selected
+provider/language must prove its aligned-and-diarized path. The assertion counts
+only final events with a non-empty speaker label and never prints transcript
+content.
+Add `--require-distinct-speakers 2` for a multi-speaker fixture, or
+`--require-speaker-epochs 2` for a fixture that must prove labelled finals on
+both sides of a Qwen epoch rollover. Both options require
+`--require-speaker-labels`.
+Use `--require-speakerless-finals` instead for an unsupported alignment language
+such as Czech; the two speaker assertions are mutually exclusive.
 
 ## Install the test environment
 
