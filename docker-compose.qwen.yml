@@ -7,19 +7,21 @@ services:
         condition: service_healthy
 
   qwen-rtservice:
-    image: ${QWEN_RTSERVICE_IMAGE:-ghcr.io/nanosamurai/xamurai-qwen-rtservice:sha-f280868fa3ffa16a81828dc8f81598cbf16204a1}
+    image: ${QWEN_RTSERVICE_IMAGE:-ghcr.io/nanosamurai/xamurai-qwen-rtservice:sha-1de1f7de1c05b4f5d01da9e9792bdea542a51f86}
     restart: unless-stopped
     environment:
       QWEN_RTSERVICE_PORT: "50052"
       QWEN_STREAM_CHUNK_SECONDS: "${QWEN_STREAM_CHUNK_SECONDS:-2.0}"
-      QWEN_STREAM_EPOCH_SECONDS: "${QWEN_STREAM_EPOCH_SECONDS:-120.0}"
+      QWEN_STREAM_EPOCH_SECONDS: "${QWEN_STREAM_EPOCH_SECONDS:-60.0}"
       QWEN_EPOCH_CONTEXT_CHARACTERS: "${QWEN_EPOCH_CONTEXT_CHARACTERS:-1000}"
       QWEN_MAX_NEW_TOKENS: "${QWEN_MAX_NEW_TOKENS:-1024}"
       QWEN_MAX_MODEL_LEN: "${QWEN_MAX_MODEL_LEN:-4096}"
       QWEN_KV_CACHE_MIB: "${QWEN_KV_CACHE_MIB:-512}"
+      HF_TOKEN: "${HF_TOKEN:?Set HF_TOKEN to a least-privilege token with pyannote model access}"
       HF_HOME: /data/huggingface
       XDG_CACHE_HOME: /data/huggingface/runtime-cache
       HF_HUB_DISABLE_TELEMETRY: "1"
+      PYANNOTE_METRICS_ENABLED: "0"
       DO_NOT_TRACK: "1"
       VLLM_NO_USAGE_STATS: "1"
     volumes:

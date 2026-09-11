@@ -121,7 +121,7 @@ services:
     command: ["psql", "-v", "ON_ERROR_STOP=1", "-f", "/seed.sql"]
 
   samuraibff:
-    image: ${SAMURAIBFF_IMAGE:-ghcr.io/nanosamurai/samuraibff:sha-9506c6194f023586e8788916d48d6f444d8d039a}
+    image: ${SAMURAIBFF_IMAGE:-ghcr.io/nanosamurai/samuraibff:sha-2d2fb912ad8c25b36a15bbbc0c15380f68222a40}
     restart: unless-stopped
     ports:
       - "${COMPOSE_BIND_IP:-127.0.0.1}:8000:8000"
@@ -185,7 +185,7 @@ services:
         condition: service_completed_successfully
 
   rtservice:
-    image: ${RTSERVICE_IMAGE:-ghcr.io/nanosamurai/xamurai-rtservice:sha-f280868fa3ffa16a81828dc8f81598cbf16204a1}
+    image: ${RTSERVICE_IMAGE:-ghcr.io/nanosamurai/xamurai-rtservice:sha-1de1f7de1c05b4f5d01da9e9792bdea542a51f86}
     restart: unless-stopped
     ports:
       - "${COMPOSE_BIND_IP:-127.0.0.1}:50052:50052"
@@ -217,7 +217,7 @@ services:
         condition: service_started
 
   whisperx_worker:
-    image: ${WHISPERX_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-whisperx-worker:sha-f280868fa3ffa16a81828dc8f81598cbf16204a1}
+    image: ${WHISPERX_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-whisperx-worker:sha-1de1f7de1c05b4f5d01da9e9792bdea542a51f86}
     restart: unless-stopped
     environment:
       KAFKA_BOOTSTRAP: broker:29092
@@ -244,7 +244,7 @@ services:
         condition: service_completed_successfully
 
   recorder_worker:
-    image: ${RECORDER_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-recorder-worker:sha-f280868fa3ffa16a81828dc8f81598cbf16204a1}
+    image: ${RECORDER_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-recorder-worker:sha-1de1f7de1c05b4f5d01da9e9792bdea542a51f86}
     restart: unless-stopped
     environment:
       KAFKA_BOOTSTRAP: broker:29092
@@ -267,7 +267,7 @@ services:
         condition: service_started
 
   finalizer_worker:
-    image: ${FINALIZER_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-finalizer-worker:sha-f280868fa3ffa16a81828dc8f81598cbf16204a1}
+    image: ${FINALIZER_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-finalizer-worker:sha-1de1f7de1c05b4f5d01da9e9792bdea542a51f86}
     restart: unless-stopped
     environment:
       KAFKA_BOOTSTRAP: broker:29092
