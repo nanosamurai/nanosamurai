@@ -35,3 +35,7 @@ Desktop.ini
 hs_err_pid*.log
 
 .docker-auth/
+
+# Machine-local image overrides and enrollment calibration
+/.env
+/docker-compose.local-asr.yml

@@ -32,11 +32,11 @@ flowchart LR
     end
 
     subgraph Xamurai["Xamurai (Python services)"]
-        RTService["rtservice\n(Faster-Whisper RealtimeASR)"]
-        QwenRT["qwen-rtservice\n(Qwen RealtimeASR)"]
-        WhisperXWorker["whisperx_worker\n(asynchronous refinement)"]
+        RTService["rtservice\n(Faster-Whisper + pyannote)"]
+        QwenRT["qwen-rtservice\n(Qwen3-ASR + ForcedAligner + pyannote)"]
+        WhisperXWorker["whisperx_worker\n(WhisperX + pyannote refinement)"]
         RecorderWorker["recorder_worker\n(session WAV)"]
-        FinalizerWorker["finalizer_worker\n(final transcript)"]
+        FinalizerWorker["finalizer_worker\n(WhisperX + pyannote final transcript)"]
     end
 
     Browser -->|HTTP /api + /auth| HTTP
@@ -47,8 +47,8 @@ flowchart LR
     Electron -->|"WS audio\nWebSocket /ws/audio\nPCM16LE mono 16kHz"| WSAudio
     Electron ---|"WS events\nWebSocket /ws/events\nJSON events"| WSEvents
 
-    SamuraiBFF -->|"gRPC track\nfaster-whisper"| RTService
-    SamuraiBFF -.->|"optional gRPC track\nqwen"| QwenRT
+    SamuraiBFF -->|"configured gRPC track\nfaster-whisper"| RTService
+    SamuraiBFF -->|"configured gRPC track\nqwen"| QwenRT
 
     subgraph Kafka["Kafka"]
         KafkaBroker[(Kafka broker)]
@@ -95,6 +95,11 @@ base stack registers only Faster-Whisper; `docker-compose.qwen.yml` adds Qwen
 as a second internal peer. The live UI receives the configured stable track IDs
 and lets each session select a non-empty subset. Omission selects all tracks for
 compatibility; simultaneous tracks are labelled and rendered side by side.
+Results remain independent rather than being automatically merged or voted on.
+This makes side-by-side evaluation, gradual model adoption, and workload-specific
+selection possible without duplicating client audio or the Kafka recording and
+refinement path. The public-facing model matrix and dual-track startup command
+are in the [main README](../README.md#multiple-realtime-models-one-audio-stream).
 
 ## Replaceable object storage
 
