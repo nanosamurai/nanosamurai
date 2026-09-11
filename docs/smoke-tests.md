@@ -3,6 +3,9 @@
 The tests are cumulative: each higher tier requires the services exercised by
 the lower tiers.
 
+For opt-in refined/final session controls and playback, use the separate
+[Chromium track selection smoke](track-selection.md#repeatable-chromium-smoke).
+
 | Tier | What it verifies |
 | --- | --- |
 | 1 | BFF HTTP connectivity |

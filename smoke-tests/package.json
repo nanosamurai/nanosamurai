@@ -1,0 +1,7 @@
+{
+  "name": "nanosamurai-browser-smoke",
+  "private": true,
+  "type": "module",
+  "scripts": {"test:tracks": "node track_ui.mjs"},
+  "devDependencies": {"playwright": "1.62.1"}
+}

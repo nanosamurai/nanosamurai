@@ -54,7 +54,8 @@ windows from Kafka and immutable S3 manifests. Idle closure defaults to 30
 seconds and cannot reopen a generation. Keep speech input flowing during model
 cold start. Shared source/derived-artifact cleanup and deletion during processing
 remain lifecycle qualification work; use local consented fixtures. No production
-Helm enablement, track query API or workflow consumer migration is included.
+Helm enablement or workflow consumer migration is included. The next stacked
+[track selection spike](track-selection.md) adds the browser choices and read API.
 
 ## Local qualification — 2026-09-10
 

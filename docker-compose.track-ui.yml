@@ -1,0 +1,12 @@
+# Apply after the refinement overlay. Catalog defaults are separate from selections.
+services:
+  samuraibff:
+    image: ${TRACK_UI_BFF_IMAGE:-samuraibff:track-ui}
+    environment:
+      SAMURAIBFF_REFINEMENT_TRACKS_JSON: '[{"track_id":"whisperx","profile_id":"whisperx-medium-refined-r1","primary":true,"display_name":"WhisperX","default_selected":true}]'
+      SAMURAIBFF_FINAL_TRACKS_JSON: '[{"track_id":"whisperx","profile_id":"whisperx-medium-final-r1","primary":true,"display_name":"WhisperX","default_selected":true}]'
+
+  finalizer_worker:
+    environment:
+      FINAL_TRACK_ID: whisperx
+      FINAL_PROFILE_ID: whisperx-medium-final-r1

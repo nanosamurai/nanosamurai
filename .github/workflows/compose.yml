@@ -23,6 +23,9 @@ jobs:
             config --quiet
           docker compose -f docker-compose.yml -f docker-compose.refinement-tracks.yml config --quiet
           docker compose -f docker-compose.yml -f docker-compose.refinement-tracks.yml -f docker-compose.refinement-tracks.test.yml config --quiet
+          docker compose -f docker-compose.yml -f docker-compose.refinement-tracks.yml -f docker-compose.track-ui.yml config --format json | python smoke-tests/check_track_catalog.py
+          docker compose -f docker-compose.yml -f docker-compose.refinement-tracks.yml -f docker-compose.track-ui.yml -f docker-compose.track-ui.test.yml config --format json | python smoke-tests/check_track_catalog.py
+          python -m unittest discover -s smoke-tests -p test_track_catalog.py
 
       - name: Reject mutable latest tags
         run: |

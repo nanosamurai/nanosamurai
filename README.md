@@ -17,6 +17,10 @@ It is model agnostic orchestration platform that supports different models used 
 Batteries included: we have a browser UI, a windows Electron app, API,
 SDK, recording storage, persistence, and optional local observability.
 
+The opt-in [track selection spike](docs/track-selection.md) adds independent
+refined/final choices, per-track result tabs and playback. It includes a local
+Chromium smoke and optional text-only/failing test tracks.
+
 This is the public front-door repository for running Community Edition locally
 with Docker Compose. Service images are pulled from `ghcr.io/nanosamurai/*` and
 pinned by source SHA.

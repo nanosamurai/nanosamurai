@@ -1,0 +1,61 @@
+# Explicit local UI qualification only; synthetic profiles are not speech models.
+x-test-worker: &test-worker
+  image: ${REFINEMENT_XAMURAI_IMAGE:-xamurai-finalizer-worker:refinement-tracks}
+  command: ["python", "-m", "finalizer_worker.track_worker"]
+  restart: unless-stopped
+
+x-test-environment: &test-environment
+  KAFKA_BOOTSTRAP: broker:29092
+  S3_ENDPOINT: http://localstack:4566
+  S3_BUCKET: ${NANOSAMURAI_RECORDINGS_BUCKET:-nanosamurai-recordings}
+  S3_REGION: us-east-1
+  S3_ACCESS_KEY: test
+  S3_SECRET_KEY: test
+  S3_FORCE_PATH_STYLE: "true"
+  FINAL_TRACK_TEST_DELAY_SECONDS: "1"
+
+services:
+  samuraibff:
+    environment:
+      SAMURAIBFF_REFINEMENT_TRACK_TEST_PROFILE_ENABLED: "true"
+      SAMURAIBFF_FINAL_TRACK_TEST_PROFILE_ENABLED: "true"
+      SAMURAIBFF_REFINEMENT_TRACKS_JSON: '[{"track_id":"whisperx","profile_id":"whisperx-medium-refined-r1","primary":true,"display_name":"WhisperX","default_selected":true},{"track_id":"shadow","profile_id":"test-refined-r1","primary":false,"display_name":"Test text only","default_selected":false},{"track_id":"failure","profile_id":"test-refined-r1","primary":false,"display_name":"Test failure","default_selected":false}]'
+      SAMURAIBFF_FINAL_TRACKS_JSON: '[{"track_id":"whisperx","profile_id":"whisperx-medium-final-r1","primary":true,"display_name":"WhisperX","default_selected":true},{"track_id":"shadow","profile_id":"test-final-r1","primary":false,"display_name":"Test text only","default_selected":false},{"track_id":"failure","profile_id":"test-final-r1","primary":false,"display_name":"Test failure","default_selected":false}]'
+
+  refinement_shadow:
+    <<: *test-worker
+    environment:
+      <<: *test-environment
+      ASR_TRACK_STAGE: refined
+      REFINEMENT_TRACK_ID: shadow
+      REFINEMENT_PROFILE_ID: test-refined-r1
+      REFINEMENT_TRACK_TEST_PROFILE_ENABLED: "true"
+
+  refinement_failure:
+    <<: *test-worker
+    environment:
+      <<: *test-environment
+      ASR_TRACK_STAGE: refined
+      REFINEMENT_TRACK_ID: failure
+      REFINEMENT_PROFILE_ID: test-refined-r1
+      REFINEMENT_TRACK_TEST_PROFILE_ENABLED: "true"
+      FINAL_TRACK_TEST_FAIL: "true"
+
+  final_shadow:
+    <<: *test-worker
+    environment:
+      <<: *test-environment
+      ASR_TRACK_STAGE: final
+      FINAL_TRACK_ID: shadow
+      FINAL_PROFILE_ID: test-final-r1
+      FINAL_TRACK_TEST_PROFILE_ENABLED: "true"
+
+  final_failure:
+    <<: *test-worker
+    environment:
+      <<: *test-environment
+      ASR_TRACK_STAGE: final
+      FINAL_TRACK_ID: failure
+      FINAL_PROFILE_ID: test-final-r1
+      FINAL_TRACK_TEST_PROFILE_ENABLED: "true"
+      FINAL_TRACK_TEST_FAIL: "true"
