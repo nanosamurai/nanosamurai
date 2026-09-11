@@ -1,0 +1,60 @@
+# Apply last to the regular local stack; both asynchronous stages use track workers.
+services:
+  samuraibff:
+    image: ${REFINEMENT_BFF_IMAGE:-samuraibff:refinement-tracks}
+    environment:
+      SAMURAIBFF_FINAL_TRACKS_ENABLED: "true"
+      SAMURAIBFF_REFINEMENT_TRACKS_ENABLED: "true"
+      SAMURAIBFF_REFINEMENT_TRACK_TEST_PROFILE_ENABLED: ${REFINEMENT_TEST_PROFILES:-false}
+      SAMURAIBFF_REFINEMENT_TRACKS_JSON: ${REFINEMENT_TRACKS_JSON:-[{"track_id":"whisperx","profile_id":"whisperx-medium-refined-r1","primary":true}]}
+
+  samuraipersistor:
+    image: ${REFINEMENT_PERSISTOR_IMAGE:-samuraipersistor:refinement-tracks}
+    environment:
+      SP_FINAL_TRACKS_ENABLED: "true"
+      SP_REFINEMENT_TRACKS_ENABLED: "true"
+      SP_FINAL_SOURCE_BUCKET: ${NANOSAMURAI_RECORDINGS_BUCKET:-nanosamurai-recordings}
+
+  recorder_worker:
+    image: ${REFINEMENT_XAMURAI_IMAGE:-xamurai-finalizer-worker:refinement-tracks}
+    command: ["python", "-m", "recorder_worker.recorder_worker"]
+    environment:
+      FINAL_TRACKS_ENABLED: "true"
+
+  finalizer_worker:
+    image: ${REFINEMENT_XAMURAI_IMAGE:-xamurai-finalizer-worker:refinement-tracks}
+    environment:
+      FINAL_TRACKS_ENABLED: "true"
+      S3_BUCKET: ${NANOSAMURAI_RECORDINGS_BUCKET:-nanosamurai-recordings}
+
+  whisperx_worker:
+    image: ${REFINEMENT_XAMURAI_IMAGE:-xamurai-finalizer-worker:refinement-tracks}
+    command: ["python", "-m", "finalizer_worker.track_worker"]
+    environment:
+      ASR_TRACK_STAGE: refined
+      REFINEMENT_TRACK_ID: whisperx
+      REFINEMENT_PROFILE_ID: whisperx-medium-refined-r1
+      S3_ENDPOINT: http://localstack:4566
+      S3_BUCKET: ${NANOSAMURAI_RECORDINGS_BUCKET:-nanosamurai-recordings}
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: test
+      S3_SECRET_KEY: test
+      S3_FORCE_PATH_STYLE: "true"
+
+  refinement_windows:
+    image: ${REFINEMENT_XAMURAI_IMAGE:-xamurai-finalizer-worker:refinement-tracks}
+    command: ["python", "-m", "recorder_worker.refinement_windows"]
+    restart: unless-stopped
+    environment:
+      KAFKA_BOOTSTRAP: broker:29092
+      S3_ENDPOINT: http://localstack:4566
+      S3_BUCKET: ${NANOSAMURAI_RECORDINGS_BUCKET:-nanosamurai-recordings}
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: test
+      S3_SECRET_KEY: test
+      S3_FORCE_PATH_STYLE: "true"
+    depends_on:
+      kafka_init:
+        condition: service_completed_successfully
+      localstack:
+        condition: service_started

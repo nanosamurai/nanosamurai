@@ -1,0 +1,35 @@
+# Local qualification only: apply after docker-compose.refinement-tracks.yml.
+services:
+  samuraibff:
+    environment:
+      SAMURAIBFF_REFINEMENT_TRACK_TEST_PROFILE_ENABLED: "true"
+      SAMURAIBFF_REFINEMENT_TRACKS_JSON: '[{"track_id":"whisperx","profile_id":"whisperx-medium-refined-r1","primary":true},{"track_id":"shadow","profile_id":"test-refined-r1","primary":false},{"track_id":"failure","profile_id":"test-refined-r1","primary":false}]'
+
+  refinement_shadow:
+    image: ${REFINEMENT_XAMURAI_IMAGE:-xamurai-finalizer-worker:refinement-tracks}
+    command: ["python", "-m", "finalizer_worker.track_worker"]
+    restart: unless-stopped
+    deploy:
+      replicas: 2
+    environment: &test_environment
+      KAFKA_BOOTSTRAP: broker:29092
+      ASR_TRACK_STAGE: refined
+      REFINEMENT_TRACK_ID: shadow
+      REFINEMENT_PROFILE_ID: test-refined-r1
+      REFINEMENT_TRACK_TEST_PROFILE_ENABLED: "true"
+      FINAL_TRACK_TEST_DELAY_SECONDS: "1"
+      S3_ENDPOINT: http://localstack:4566
+      S3_BUCKET: ${NANOSAMURAI_RECORDINGS_BUCKET:-nanosamurai-recordings}
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: test
+      S3_SECRET_KEY: test
+      S3_FORCE_PATH_STYLE: "true"
+
+  refinement_failure:
+    image: ${REFINEMENT_XAMURAI_IMAGE:-xamurai-finalizer-worker:refinement-tracks}
+    command: ["python", "-m", "finalizer_worker.track_worker"]
+    restart: unless-stopped
+    environment:
+      <<: *test_environment
+      REFINEMENT_TRACK_ID: failure
+      FINAL_TRACK_TEST_FAIL: "true"

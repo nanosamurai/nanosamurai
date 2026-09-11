@@ -19,9 +19,19 @@ speech processing, agentic workflows, and webhooks.
 Batteries included: we have a browser UI, a windows Electron app, API,
 SDK, recording storage, persistence, and optional local observability.
 
+The opt-in [track selection spike](docs/track-selection.md) adds independent
+refined/final choices, per-track result tabs and playback. It includes a local
+Chromium smoke and optional text-only/failing test tracks.
+
 This is the public front-door repository for running Community Edition locally
 with Docker Compose. Service images are pulled from `ghcr.io/nanosamurai/*` and
 pinned by source SHA.
+
+For the opt-in completed-recording experiment, see
+[independent final tracks](docs/final-tracks.md) and its
+[qualification evidence](docs/final-tracks-qualification.md).
+The stacked [refinement-track evaluation](docs/refinement-tracks.md) runs in the
+regular local stack with fixed live windows and the same primary API behavior.
 
 ## Demo - See it in action
 

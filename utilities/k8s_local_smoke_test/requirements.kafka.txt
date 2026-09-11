@@ -2,4 +2,4 @@
 #
 # These are intentionally separated because confluent-kafka pulls native wheels.
 confluent-kafka>=2.5
-protobuf>=6.31.1
+protobuf>=6.33.4
