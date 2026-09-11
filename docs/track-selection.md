@@ -9,7 +9,9 @@ separate work.
 ## Start the updated local stack
 
 Use `implement-track-selection-ui` in SamuraiBFF and this repo. Both branches
-start from `implement-refinement-tracks`. Use the existing matching
+include the refinement prerequisites and target `master` for review. Review
+final tracks, refinement tracks, then catalog/API/UI; later diffs include the
+earlier prerequisites until those merge. Use the existing matching
 `implement-refinement-tracks` Xamurai and Persistor images; build them first if
 they are not already present. From a directory with sibling service checkouts:
 
@@ -22,7 +24,7 @@ docker build -t xamurai-finalizer-worker:refinement-tracks -f ../xamurai/finaliz
 
 Keep your usual project name and `.env`, and preserve any realtime overrides.
 Append the refinement overlay, then `docker-compose.track-ui.yml`, in that order.
-The normal catalog selects only the real WhisperX primary. Example for the
+The normal catalog selects only the real WhisperX track by default. Example for the
 standard stack, with `COMPOSE_BIND_IP=127.0.0.1`:
 
 ```sh
@@ -58,9 +60,13 @@ allowed profiles, display names, defaults and optional tenant restrictions.
 
 Open [Record](http://127.0.0.1:8000/live), then **Session settings**.
 
-1. Enable **Refined** and **Final**, keep recording storage enabled, and set a
-   ten-second refinement window. Each stage has its own optional track choices;
-   the primary remains selected. New sessions normally select only WhisperX.
+1. Use the checkboxes beside the **Real-time**, **Refined** and **Final**
+   settings tabs to enable each stage without opening it. Open **Refined** to
+   set a ten-second refinement window. All track choices are optional: clearing
+   the last one disables that stage; turning it back on restores its choices.
+   The separate **Recording** tab contains retention. New sessions normally
+   select only WhisperX. The server chooses one selected compatibility output
+   automatically; users do not need to select a special primary track.
 2. Select both test tracks in each stage. Choose a language supported by the
    profile and record a short consented sample. Settings lock after start.
 3. Open **Refined real-time** during recording. Switch between the three tabs:
@@ -71,10 +77,11 @@ Open [Record](http://127.0.0.1:8000/live), then **Session settings**.
    timing; refinement words in the second window use absolute recording time.
    The text-only tab offers ordinary playback and explains missing word timings.
 6. Open the saved session from **Sessions**, reload, and switch tabs again.
+   Saved results use one level, such as **Final Transcript (WhisperX)**.
    The frozen choices/labels remain available even after changing the current
    catalog. Switching views does not change execution or primary output.
-7. Use **New session** to change choices. Try primary-only, refinement-only and
-   final-only. Refinement-only stores windows; Final additionally stores the
+7. Use **New session** to change choices. Try default-track-only, refinement-only,
+   final-only and alternative-track-only. Refinement-only stores windows; Final additionally stores the
    full recording needed for playback.
 
 ## Repeatable Chromium smoke
@@ -92,16 +99,19 @@ python smoke-tests/audit_track_ui.py
 ```
 
 Set `HEADED=true` to see the browser. `TRACK_UI_BASE_URL` may override the BFF
-address, but must remain loopback. A run creates four retained local fixture
+address, but must remain loopback. A run creates five retained local fixture
 sessions; it does not delete existing sessions or restart services. Allow several
 minutes for recorder idle closure, model startup and finalization. Keep this
 fixture run separate from recordings whose content you need to preserve.
 
-Checks cover independent choices, primary/defaults, locked controls, a real live
+Checks cover tab-header toggles, optional defaults, empty-stage disablement,
+remembered choices, the Recording tab, locked controls, a real live
 window, per-track success/failure, text-only playback, actual word highlighting
-across refinement windows, direct links/reload, primary-only and stage-only
-sessions, and browser runtime errors. Ignored `test-results/track-ui/report.json`
-records the four session identities for the read-only SQL/S3 audit, which checks
+across refinement windows, flat historical tabs, direct links/reload, default
+and alternative-only selections, stage-only sessions, and browser runtime errors.
+The realtime summary distinguishes maximum inference input from the configurable
+processing window. Ignored `test-results/track-ui/report.json`
+records the five session identities for the read-only SQL/S3 audit, which checks
 that unselected tracks created neither canonical outcomes nor result artifacts.
 The report contains IDs/check names. Screenshots and Chromium's optional
 `debug.log` are ignored local diagnostics and must not be committed; screenshots
@@ -138,7 +148,7 @@ limitations still apply. Guest auth and fixture infrastructure credentials are
 appropriate only for this loopback stack. This spike adds no remote enablement,
 named policies, discovery service, SDK expansion or workflow migration.
 
-## Local qualification — 2026-09-11
+## Initial local qualification — 2026-09-11
 
 Chromium 151.0.7922.34 passed the microphone/UI flow with real WhisperX, two
 refinement windows, final results, actual audio/word highlighting, text-only
@@ -155,3 +165,26 @@ five validator tests, syntax checks and the public-tree secret scan passed.
 The BFF full suite passed 142 tests / 1,066 assertions and its normal container
 UI build reported zero warnings. The test used existing local volumes/model
 caches, not a fresh-clone or production rollout.
+
+## PR qualification after the settings fixes — 2026-09-11
+
+The refreshed Chromium smoke passed all five scenarios against the normal BFF
+container built from `a9a0e26`. It verifies header toggles without tab navigation,
+remembered choices, no enabled stage with zero selections, optional WhisperX,
+the Recording tab and flat saved-session tabs. The alternative-only case proves
+that the selected test track becomes the compatibility output. The realtime
+summary describes 30 seconds as the maximum inference input, not the configured
+window. No browser runtime errors occurred.
+
+The SQL/S3 audit found refined/final counts of 6/3 for comparison, 2/1 for
+default-only, 2/0 for refinement-only, 0/1 for final-only and 2/1 for
+alternative-only. Full recording counts were 1, 1, 0, 1 and 1 respectively.
+Only selected tracks produced indexed outcomes and artifacts. After restoring
+the regular catalog and stopping synthetic workers, historical labels and
+results remained readable. Existing data and volumes were preserved.
+
+Both resolved catalogs, five validator tests and JavaScript syntax validation
+passed. The BFF full suite passed 150 tests / 1,100 assertions. This rerun used
+the existing local stack and cached real WhisperX model. The earlier worker
+failure/replay qualification remains recorded in the final/refinement reports;
+this browser run does not requalify production lifecycle or consumer migration.

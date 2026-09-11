@@ -19,7 +19,7 @@ def main():
     parser.add_argument("--report", type=Path, default=Path("test-results/track-ui/report.json"))
     args = parser.parse_args()
     report = json.loads(args.report.read_text())
-    assert "failure" not in report and len(report["sessions"]) == 4, "Complete Chromium smoke first"
+    assert "failure" not in report and len(report["sessions"]) == 5, "Complete Chromium smoke first"
     database = os.environ.get("TRACK_UI_DATABASE", "postgresql://nanosamurai:nanosamurai@127.0.0.1:5432/nanosamurai")
     endpoint = os.environ.get("TRACK_UI_S3_ENDPOINT", "http://127.0.0.1:4566")
     assert all(urlparse(url).hostname in ("127.0.0.1", "localhost") for url in (database, endpoint))
@@ -33,7 +33,7 @@ def main():
             rows = conn.execute("SELECT stage,track_id,profile_id,is_primary,status FROM transcript_track_results WHERE session_id=%s", (sid,)).fetchall()
             recording_count = conn.execute("SELECT count(*) FROM recordings WHERE session_id=%s", (sid,)).fetchone()[0]
             assert recording_count == int(session["final"]), "Unexpected full recording retention"
-            expected_ids = {"whisperx", "shadow", "failure"} if session["secondary"] else {"whisperx"}
+            expected_ids = set(session["track_ids"])
             counts = {}
             for stage, key, prefix in (("refined", "refinement_tracks", "refined-tracks"),
                                        ("final", "final_tracks", "final-tracks")):
