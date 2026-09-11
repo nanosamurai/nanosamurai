@@ -21,6 +21,8 @@ jobs:
             -f docker-compose.yml \
             -f docker-compose.observability.yml \
             config --quiet
+          docker compose -f docker-compose.yml -f docker-compose.refinement-tracks.yml config --quiet
+          docker compose -f docker-compose.yml -f docker-compose.refinement-tracks.yml -f docker-compose.refinement-tracks.test.yml config --quiet
 
       - name: Reject mutable latest tags
         run: |
@@ -34,7 +36,7 @@ jobs:
       - name: Validate shell and Python syntax
         run: |
           find . -type f -name '*.sh' -print0 | xargs -0 -r bash -n
-          python -m compileall -q utilities proto_gen
+          python -m compileall -q utilities proto_gen smoke-tests
 
       - name: Check smoke-test entry points
         run: |

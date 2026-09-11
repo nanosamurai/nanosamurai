@@ -23,6 +23,12 @@ This is the public front-door repository for running Community Edition locally
 with Docker Compose. Service images are pulled from `ghcr.io/nanosamurai/*` and
 pinned by source SHA.
 
+For the opt-in completed-recording experiment, see
+[independent final tracks](docs/final-tracks.md) and its
+[qualification evidence](docs/final-tracks-qualification.md).
+The stacked [refinement-track evaluation](docs/refinement-tracks.md) runs in the
+regular local stack with fixed live windows and the same primary API behavior.
+
 ## Demo - See it in action
 
 <a href="https://nanosamur.ai/#demo">

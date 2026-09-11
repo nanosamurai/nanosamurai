@@ -1,0 +1,177 @@
+name: nanosamurai-final-tracks
+
+x-speech: &speech
+  image: ${FINAL_TRACK_XAMURAI_IMAGE:-xamurai-finalizer-worker:final-tracks}
+  environment: &speech-env
+    KAFKA_BOOTSTRAP: broker:29092
+    FINAL_TRACKS_ENABLED: "true"
+    S3_ENDPOINT: http://localstack:4566
+    S3_REGION: us-east-1
+    S3_BUCKET: recordings
+    S3_ACCESS_KEY: test
+    S3_SECRET_KEY: test
+    RECORDING_STORAGE_BACKEND: s3
+    FINAL_RECORDING_PREFIX: recordings
+    HF_HOME: /data/hf_cache
+    HF_HUB_DISABLE_TELEMETRY: "1"
+    PYANNOTE_METRICS_ENABLED: "0"
+  depends_on:
+    kafka_init: {condition: service_completed_successfully}
+    localstack: {condition: service_healthy}
+
+services:
+  broker:
+    image: apache/kafka:4.3.1
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://broker:29092,EXTERNAL://127.0.0.1:19094
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@broker:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    ports: ["127.0.0.1:19094:9092"]
+
+  kafka_init:
+    image: apache/kafka:4.3.1
+    depends_on: [broker]
+    command:
+      - /bin/bash
+      - -ec
+      - |
+        until /opt/kafka/bin/kafka-topics.sh --bootstrap-server broker:29092 --list >/dev/null 2>&1; do sleep 1; done
+        for topic in audio.raw recordings.finished transcripts.final-tracks transcripts.final transcripts.refined transcripts.persistor.dlq; do
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server broker:29092 --create --if-not-exists --topic "$${topic}" --partitions 2 --replication-factor 1
+        done
+        for topic in sessions.meta transcripts.refined.consolidated; do
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server broker:29092 --create --if-not-exists --topic "$${topic}" --partitions 2 --replication-factor 1 --config cleanup.policy=compact
+        done
+
+  localstack:
+    image: localstack/localstack:3.8.1
+    environment: {SERVICES: "s3,secretsmanager", AWS_DEFAULT_REGION: us-east-1}
+    ports: ["127.0.0.1:14566:4566"]
+    volumes: ["./docker/final-tracks/init-s3.sh:/etc/localstack/init/ready.d/init-s3.sh:ro"]
+    healthcheck:
+      test: ["CMD", "awslocal", "s3api", "head-bucket", "--bucket", "recordings"]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+
+  postgres:
+    image: postgres:16-alpine
+    environment: {POSTGRES_USER: nanosamurai, POSTGRES_PASSWORD: nanosamurai, POSTGRES_DB: nanosamurai}
+    ports: ["127.0.0.1:15434:5432"]
+    volumes: ["final_tracks_pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "nanosamurai"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  db_init:
+    image: postgres:16-alpine
+    depends_on:
+      postgres: {condition: service_healthy}
+    environment: {PGHOST: postgres, PGUSER: nanosamurai, PGPASSWORD: nanosamurai, PGDATABASE: nanosamurai}
+    volumes:
+      - ./docker/postgres/migrations:/migrations:ro
+      - ./docker/postgres/migrate.sh:/migrate.sh:ro
+      - ./docker/postgres/seed.sql:/seed.sql:ro
+    command: ["/bin/sh", "-ec", "sh /migrate.sh && psql -v ON_ERROR_STOP=1 -f /seed.sql"]
+
+  samuraibff:
+    image: ${FINAL_TRACK_BFF_IMAGE:-samuraibff:final-tracks}
+    ports: ["127.0.0.1:18000:8000"]
+    environment:
+      SAMURAIBFF_HTTP_HOST: 0.0.0.0
+      SAMURAIBFF_DB_JDBC_URL: jdbc:postgresql://postgres:5432/nanosamurai
+      SAMURAIBFF_DB_USERNAME: nanosamurai
+      SAMURAIBFF_DB_PASSWORD: nanosamurai
+      SAMURAIBFF_KAFKA_BOOTSTRAP_SERVERS: broker:29092
+      SAMURAIBFF_AUTH_REQUIRED: "false"
+      SAMURAIBFF_AUTH_GUEST_TENANT_ID: 00000000-0000-0000-0000-000000000000
+      SAMURAIBFF_CE_MODE: "true"
+      SAMURAIBFF_SECRETS_AWS_REGION: us-east-1
+      SAMURAIBFF_SECRETS_AWS_ENDPOINT: http://localstack:4566
+      SAMURAIBFF_SECRETS_AWS_ACCESS_KEY: test
+      SAMURAIBFF_SECRETS_AWS_SECRET_KEY: test
+      SAMURAIBFF_S3_REGION: us-east-1
+      SAMURAIBFF_S3_ENDPOINT: http://localstack:4566
+      SAMURAIBFF_S3_ACCESS_KEY: test
+      SAMURAIBFF_S3_SECRET_KEY: test
+      SAMURAIBFF_S3_FORCE_PATH_STYLE: "true"
+      SAMURAIBFF_S3_RECORDINGS_BUCKET: recordings
+      SAMURAIBFF_S3_RECORDINGS_PREFIX: recordings
+      SAMURAIBFF_FINAL_TRACKS_ENABLED: "true"
+      SAMURAIBFF_FINAL_TRACK_TEST_PROFILE_ENABLED: "true"
+      SAMURAIBFF_FINAL_TRACKS_JSON: '[{"track_id":"whisperx","profile_id":"whisperx-medium-final-r1","primary":true},{"track_id":"shadow","profile_id":"test-final-r1","primary":false},{"track_id":"failure","profile_id":"test-final-r1","primary":false}]'
+    depends_on:
+      db_init: {condition: service_completed_successfully}
+      kafka_init: {condition: service_completed_successfully}
+
+  samuraipersistor:
+    image: ${FINAL_TRACK_PERSISTOR_IMAGE:-samuraipersistor:final-tracks}
+    environment:
+      SP_DB_JDBC_URL: jdbc:postgresql://postgres:5432/nanosamurai
+      SP_DB_USERNAME: nanosamurai
+      SP_DB_PASSWORD: nanosamurai
+      SP_KAFKA_BOOTSTRAP_SERVERS: broker:29092
+      SP_FINAL_TRACKS_ENABLED: "true"
+      SP_FINAL_SOURCE_BUCKET: recordings
+      SAMURAIPERSISTOR_CE_MODE: "true"
+    depends_on:
+      db_init: {condition: service_completed_successfully}
+      kafka_init: {condition: service_completed_successfully}
+
+  recorder:
+    <<: *speech
+    command: ["python", "-m", "recorder_worker.recorder_worker"]
+    environment:
+      <<: *speech-env
+      RECORDER_IDLE_SECONDS: "3"
+
+  whisperx:
+    <<: *speech
+    command: ["python", "-m", "finalizer_worker.track_worker"]
+    environment:
+      <<: *speech-env
+      HF_TOKEN: ${HF_TOKEN:?Set HF_TOKEN with access to the pinned pyannote models}
+      FINAL_TRACK_ID: whisperx
+      FINAL_PROFILE_ID: whisperx-medium-final-r1
+    volumes: ["final_tracks_hf_cache:/data/hf_cache"]
+    deploy:
+      resources:
+        reservations:
+          devices: [{driver: nvidia, count: 1, capabilities: [gpu]}]
+
+  shadow:
+    <<: *speech
+    command: ["python", "-m", "finalizer_worker.track_worker"]
+    environment:
+      <<: *speech-env
+      FINAL_TRACK_ID: shadow
+      FINAL_PROFILE_ID: test-final-r1
+      FINAL_TRACK_TEST_PROFILE_ENABLED: "true"
+      FINAL_TRACK_TEST_DELAY_SECONDS: "1"
+    deploy: {replicas: 2}
+
+  failure:
+    <<: *speech
+    command: ["python", "-m", "finalizer_worker.track_worker"]
+    environment:
+      <<: *speech-env
+      FINAL_TRACK_ID: failure
+      FINAL_PROFILE_ID: test-final-r1
+      FINAL_TRACK_TEST_PROFILE_ENABLED: "true"
+      FINAL_TRACK_TEST_FAIL: "true"
+
+volumes:
+  final_tracks_pgdata:
+  final_tracks_hf_cache:
+    name: ${FINAL_TRACK_HF_CACHE:-nanosamurai-final-tracks-hf-cache}
