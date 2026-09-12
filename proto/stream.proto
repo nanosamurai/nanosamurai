@@ -143,34 +143,31 @@ message AudioArtifact {
   string version_id = 8;
 }
 
-// Bounded envelope on transcripts.final-tracks. Transcript JSON is in S3.
-// Delivery may repeat; result_id identifies one immutable logical outcome.
+// Inline terminal outcome on transcripts.final-tracks (schema_version = 2).
+// Persistor accepts the first result in Postgres and publishes the legacy primary.
 message FinalTrackResult {
+  reserved 4, 7, 8, 10, 11, 14, 15, 16, 22;
+  reserved "stage", "run_id", "attempt_id", "unit_id", "revision",
+           "result_uri", "result_sha256", "primary", "provenance_json";
   uint32 schema_version = 1;
   string session_id = 2;
   string tenant_id = 3;
-  string stage = 4;
   string track_id = 5;
   string profile_id = 6;
-  string run_id = 7;
-  string attempt_id = 8;
   string result_id = 9;
-  string unit_id = 10;
-  uint32 revision = 11;
   string status = 12;
   AudioArtifact source = 13;
-  string result_uri = 14;
-  string result_sha256 = 15;
-  bool primary = 16;
   string error_code = 17;
   repeated string degradations = 18;
   bool segment_timestamps = 19;
   bool word_timestamps = 20;
   bool speaker_labels = 21;
-  string provenance_json = 22;
   int64 created_at_ns = 23;
   string lang = 24;
   string plan_id = 25;
+  // Tag 26 belongs to refinement_window in the preserved refinement draft.
+  string full_text = 27;
+  repeated SessionTranscriptSegment segments = 28;
 }
 
 message WordAlignment {
