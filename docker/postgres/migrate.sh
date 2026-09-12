@@ -75,3 +75,5 @@ apply_migration 011 011-sessions-workflow-overrides.up.sql
 apply_migration 012 012-workflow-results.up.sql
 apply_migration 013 013-workflow-outcomes.up.sql
 apply_migration 014 014-final-track-results.up.sql
+
+apply_migration 016 016-inline-final-track-transcripts.up.sql

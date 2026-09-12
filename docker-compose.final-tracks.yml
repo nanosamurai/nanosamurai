@@ -1,7 +1,7 @@
-name: nanosamurai-final-tracks
+name: ${FINAL_TRACK_COMPOSE_PROJECT:-nanosamurai-final-tracks}
 
 x-speech: &speech
-  image: ${FINAL_TRACK_XAMURAI_IMAGE:-xamurai-finalizer-worker:final-tracks}
+  image: ${FINAL_TRACK_XAMURAI_IMAGE:-xamurai-finalizer-worker:postgres-final-tracks}
   environment: &speech-env
     KAFKA_BOOTSTRAP: broker:29092
     FINAL_TRACKS_ENABLED: "true"
@@ -35,6 +35,8 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_MESSAGE_MAX_BYTES: 1048576
+      KAFKA_REPLICA_FETCH_MAX_BYTES: 1048576
     ports: ["127.0.0.1:19094:9092"]
 
   kafka_init:
@@ -86,7 +88,7 @@ services:
     command: ["/bin/sh", "-ec", "sh /migrate.sh && psql -v ON_ERROR_STOP=1 -f /seed.sql"]
 
   samuraibff:
-    image: ${FINAL_TRACK_BFF_IMAGE:-samuraibff:final-tracks}
+    image: ${FINAL_TRACK_BFF_IMAGE:-samuraibff:postgres-final-tracks}
     ports: ["127.0.0.1:18000:8000"]
     environment:
       SAMURAIBFF_HTTP_HOST: 0.0.0.0
@@ -116,7 +118,7 @@ services:
       kafka_init: {condition: service_completed_successfully}
 
   samuraipersistor:
-    image: ${FINAL_TRACK_PERSISTOR_IMAGE:-samuraipersistor:final-tracks}
+    image: ${FINAL_TRACK_PERSISTOR_IMAGE:-samuraipersistor:postgres-final-tracks}
     environment:
       SP_DB_JDBC_URL: jdbc:postgresql://postgres:5432/nanosamurai
       SP_DB_USERNAME: nanosamurai
@@ -141,7 +143,8 @@ services:
     command: ["python", "-m", "finalizer_worker.track_worker"]
     environment:
       <<: *speech-env
-      HF_TOKEN: ${HF_TOKEN:?Set HF_TOKEN with access to the pinned pyannote models}
+      HF_TOKEN: ${HF_TOKEN:-}
+      HF_HUB_OFFLINE: ${HF_HUB_OFFLINE:-0}
       FINAL_TRACK_ID: whisperx
       FINAL_PROFILE_ID: whisperx-medium-final-r1
     volumes: ["final_tracks_hf_cache:/data/hf_cache"]

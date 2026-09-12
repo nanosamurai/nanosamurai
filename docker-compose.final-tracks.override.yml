@@ -1,0 +1,35 @@
+# Opt-in real final track for the regular local stack. Apply after image overrides.
+# Keep docker-compose.final-tracks.yml for the separate fault-injection evaluator.
+services:
+  samuraibff:
+    image: ${FINAL_TRACK_BFF_IMAGE:-samuraibff:postgres-final-tracks}
+    environment:
+      SAMURAIBFF_FINAL_TRACKS_ENABLED: "true"
+      SAMURAIBFF_FINAL_TRACK_TEST_PROFILE_ENABLED: "false"
+      SAMURAIBFF_FINAL_TRACKS_JSON: '[{"track_id":"whisperx","profile_id":"whisperx-medium-final-r1","primary":true}]'
+
+  samuraipersistor:
+    image: ${FINAL_TRACK_PERSISTOR_IMAGE:-samuraipersistor:postgres-final-tracks}
+    environment:
+      SP_FINAL_TRACKS_ENABLED: "true"
+      SP_FINAL_SOURCE_BUCKET: ${NANOSAMURAI_RECORDINGS_BUCKET:-nanosamurai-recordings}
+      SP_FINAL_RECORDING_PREFIX: recordings
+
+  recorder_worker:
+    image: ${FINAL_TRACK_XAMURAI_IMAGE:-xamurai-finalizer-worker:postgres-final-tracks}
+    command: ["python", "-m", "recorder_worker.recorder_worker"]
+    environment:
+      FINAL_TRACKS_ENABLED: "true"
+      FINAL_RECORDING_PREFIX: recordings
+
+  finalizer_worker:
+    image: ${FINAL_TRACK_XAMURAI_IMAGE:-xamurai-finalizer-worker:postgres-final-tracks}
+    environment:
+      FINAL_TRACKS_ENABLED: "true"
+      FINAL_TRACK_ID: whisperx
+      FINAL_PROFILE_ID: whisperx-medium-final-r1
+      FINAL_TRACK_TEST_PROFILE_ENABLED: "false"
+      FINAL_RECORDING_PREFIX: recordings
+      S3_BUCKET: ${NANOSAMURAI_RECORDINGS_BUCKET:-nanosamurai-recordings}
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      PYANNOTE_METRICS_ENABLED: "0"

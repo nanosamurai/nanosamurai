@@ -6,7 +6,6 @@ The optional database fault stops only this Compose project's postgres service.
 
 import argparse
 import base64
-import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -14,7 +13,6 @@ import sys
 import time
 import uuid
 import wave
-import zlib
 
 import boto3
 from confluent_kafka import Consumer, Producer, TopicPartition
@@ -68,7 +66,7 @@ def counts(session_id):
     with psycopg.connect(DB, connect_timeout=5) as conn:
         return tuple(conn.execute(
             "SELECT (SELECT count(*) FROM recordings WHERE session_id=%s),"
-            "(SELECT count(*) FROM transcript_track_results WHERE session_id=%s),"
+            "(SELECT count(*) FROM session_transcripts WHERE session_id=%s AND track_id IS NOT NULL),"
             "(SELECT count(*) FROM session_transcripts WHERE session_id=%s)",
             (session_id,) * 3).fetchone())
 
@@ -90,6 +88,48 @@ def compose(*args):
                    stdout=subprocess.DEVNULL)
 
 
+def stored(session_id):
+    from psycopg.rows import dict_row
+    with psycopg.connect(DB, row_factory=dict_row) as conn:
+        return conn.execute("SELECT result_id,track_id,profile_id,status,is_primary,full_text,segments,"
+                            "recording_id,event_created_at_ns FROM session_transcripts "
+                            "WHERE session_id=%s ORDER BY track_id", (session_id,)).fetchall()
+
+
+def crash_after_acceptance(message, after_publish):
+    """Use the real Persistor code in a one-shot process; the input stays uncommitted."""
+    program = """
+(require '[jsonista.core :as json] '[next.jdbc :as jdbc]
+         '[samuraipersistor.final-track-consumer :as consumer]
+         '[samuraipersistor.kafka.common :as kafka])
+(import '(java.util Base64) '(org.apache.kafka.clients.consumer ConsumerRecord))
+(let [input (json/read-value (slurp *in*) (json/object-mapper {:decode-key-fn keyword}))
+      value (.decode (Base64/getDecoder) (:value input))
+      key (.getBytes (:key input) "UTF-8")
+      record (ConsumerRecord. "transcripts.final-tracks" 0 0 key value)
+      config {:bootstrap-servers "broker:29092" :final-source-bucket "recordings"
+              :topics {:final "transcripts.final"}}
+      ds (jdbc/get-datasource {:jdbcUrl "jdbc:postgresql://postgres:5432/nanosamurai"
+                              :user "nanosamurai" :password "nanosamurai"})
+      producer (kafka/->producer config)
+      publish consumer/publish-primary!]
+  (with-redefs [consumer/publish-primary!
+                (fn [& args]
+                  (when (:after-publish input) (apply publish args))
+                  (System/exit 17))]
+    (consumer/persist-record! ds config false record producer)))
+"""
+    data = json.dumps({"value": base64.b64encode(message.value()).decode(),
+                       "key": message.key().decode(), "after-publish": after_publish}).encode()
+    result = subprocess.run(["docker", "compose", "-f", "docker-compose.final-tracks.yml",
+                             "run", "--rm", "--no-deps", "-T", "--entrypoint", "java",
+                             "samuraipersistor", "-cp", "/app/samuraipersistor.jar",
+                             "clojure.main", "-e", program], input=data,
+                            cwd=Path(__file__).resolve().parents[1],
+                            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+    assert result.returncode == 17, "Fault process did not reach the post-commit boundary"
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--wav", type=Path, required=True)
@@ -102,13 +142,13 @@ def main():
         assert 0 < wav.getnframes() <= 600 * 16000
         pcm = wav.readframes(wav.getnframes())
     consumer = Consumer({"bootstrap.servers": BROKER, "group.id": "final-track-audit." + str(uuid.uuid4()),
-                         "enable.auto.commit": False, "auto.offset.reset": "earliest"})
+                         "enable.auto.commit": False, "auto.offset.reset": "earliest",
+                         "max.partition.fetch.bytes": 1048576})
     consumer.subscribe(list(TOPICS))
-    producer = Producer({"bootstrap.servers": BROKER, "enable.idempotence": True})
+    producer = Producer({"bootstrap.servers": BROKER, "enable.idempotence": True, "message.max.bytes": 1048576})
     s3 = boto3.client("s3", endpoint_url="http://127.0.0.1:14566", region_name="us-east-1",
                       aws_access_key_id="test", aws_secret_access_key="test")
-    sessions = []
-    records = {topic: [] for topic in TOPICS}
+    sessions, records = [], {topic: [] for topic in TOPICS}
 
     def collect():
         message = consumer.poll(0.2)
@@ -118,14 +158,19 @@ def main():
             if event.session_id in sessions:
                 records[message.topic()].append((event, message))
 
-    def wait_for_results(count):
+    def wait_for(topic, count):
         def ready():
             collect()
-            return (len(records["transcripts.final-tracks"]) >= count * 3
-                    and len(records["transcripts.final"]) >= count)
+            return len(records[topic]) >= count
         eventually(ready, 600)
 
-    def replay():
+    def new_session(audio):
+        session_id = create_session()
+        sessions.append(session_id)
+        stream(session_id, audio)
+        return session_id
+
+    def replay_sources():
         for _, message in records["recordings.finished"][:2]:
             producer.produce("recordings.finished", key=message.key(), value=message.value(),
                              headers=message.headers(), partition=message.partition())
@@ -140,131 +185,97 @@ def main():
         else:
             rejected.close()
             raise AssertionError("No-retention plan was accepted")
-        first = create_session()
-        sessions.append(first)
-        for _ in range(40):
-            other = create_session()
-            if zlib.crc32(first.encode()) % 2 != zlib.crc32(other.encode()) % 2:
-                sessions.append(other)
-                break
-        assert len(sessions) == 2
-        for session_id in sessions:
-            stream(session_id, pcm)
-        wait_for_results(2)
-        assert {m.partition() for _, m in records["recordings.finished"]} == {0, 1}
-        summaries = []
-        shadow_instances = set()
+        speech = new_session(pcm)
+        silence = new_session(bytes(3 * 32000))
+        wait_for("transcripts.final-tracks", 6)
+        wait_for("transcripts.final", 2)
+        eventually(lambda: all(counts(s) == (1, 3, 3) for s in sessions))
+        snapshots = {s: stored(s) for s in sessions}
         for session_id in sessions:
             events = [e for e, _ in records["transcripts.final-tracks"] if e.session_id == session_id]
-            assert len(events) == 3
             assert {e.track_id: e.status for e in events} == {
                 "whisperx": "succeeded", "shadow": "succeeded", "failure": "failed"}
-            assert len({e.source.artifact_id for e in events}) == 1
+            assert all(e.schema_version == 2 for e in events)
+            assert len({row["recording_id"] for row in snapshots[session_id]}) == 1
             for event in events:
-                provenance = json.loads(event.provenance_json)
-                if event.track_id == "whisperx":
-                    assert event.primary and event.word_timestamps and event.speaker_labels
-                    assert not event.degradations
-                else:
-                    assert not event.primary
-                if event.track_id == "shadow":
-                    shadow_instances.add(provenance["worker_instance"])
-                if event.status == "succeeded":
-                    key = event.result_uri.removeprefix("s3://recordings/")
-                    body = s3.get_object(Bucket="recordings", Key=key)["Body"]
-                    try:
-                        data = body.read(1000001)
-                    finally:
-                        body.close()
-                    assert hashlib.sha256(data).hexdigest() == event.result_sha256
-                    assert json.loads(data)["provenance"] == provenance
-                summaries.append({"session_id": session_id, "track_id": event.track_id,
-                                  "result_id": event.result_id, "status": event.status,
-                                  "provenance": provenance})
-        assert len(shadow_instances) == 2, "Two source partitions must reach two shadow replicas"
-        eventually(lambda: all(counts(s) == (1, 3, 1) for s in sessions))
-        for session_id in sessions:
+                row = next(row for row in snapshots[session_id] if str(row["result_id"]) == event.result_id)
+                assert row["full_text"] == event.full_text and row["status"] == event.status
+                assert row["is_primary"] == (event.track_id == "whisperx")
+            primary = next(e for e in events if e.track_id == "whisperx")
+            legacy = next(e for e, _ in records["transcripts.final"] if e.session_id == session_id)
+            assert primary.full_text == legacy.full_text and primary.segments == legacy.segments
+            if session_id == silence:
+                assert not primary.full_text and not primary.segments
+            else:
+                assert primary.full_text and primary.word_timestamps
+                assert primary.speaker_labels == any(segment.speaker for segment in primary.segments)
+                if not primary.speaker_labels:
+                    assert "diarization_unavailable_or_unassigned" in primary.degradations
             response = requests.get(BASE + f"/api/recordings/{session_id}/audio",
                                     headers={"Range": "bytes=0-43"}, timeout=15)
             assert response.status_code == 206 and response.content[:4] == b"RIFF"
-        accepted = {e.result_id: m.value() for e, m in records["transcripts.final-tracks"]}
-        replay()
-        wait_for_results(4)
-        assert all(accepted[e.result_id] == m.value() for e, m in records["transcripts.final-tracks"])
-        eventually(lambda: all(counts(s) == (1, 3, 1) for s in sessions))
+        replay_sources()
+        wait_for("transcripts.final-tracks", 12)
+        wait_for("transcripts.final", 4)
+        assert all(stored(s) == snapshots[s] for s in sessions)
         if args.database_fault:
             time.sleep(2)
+            compose("restart", "whisperx")
             before = offsets()
             compose("stop", "postgres")
             try:
-                replay()
-                wait_for_results(6)
+                replay_sources()
+                wait_for("transcripts.final-tracks", 18)
                 time.sleep(3)
                 assert offsets() == before, "Database outage advanced canonical offsets"
             finally:
                 compose("start", "postgres")
-            eventually(lambda: all(a > b for a, b in zip(offsets(), before)), 120)
-            assert all(counts(s) == (1, 3, 1) for s in sessions)
+            eventually(lambda: offsets() != before, 120)
+            wait_for("transcripts.final", 6)
+            assert all(stored(s) == snapshots[s] for s in sessions)
         if args.process_exit_fault:
-            compose("stop", "shadow")
-            try:
-                crash_session = create_session()
-                sessions.append(crash_session)
-                stream(crash_session, pcm)
-
-                def source_ready():
-                    collect()
-                    return any(e.session_id == crash_session for e, _ in records["recordings.finished"])
-
-                eventually(source_ready, 60)
-                _, message = next(pair for pair in records["recordings.finished"]
-                                  if pair[0].session_id == crash_session)
-                payload = json.dumps({"value": base64.b64encode(message.value()).decode(),
-                                      "headers": [(k, base64.b64encode(v).decode())
-                                                  for k, v in message.headers()]}).encode()
-                script = """
-import base64, hashlib, json, os, sys
-from proto_gen import stream_pb2 as pb
-from drsynth_common.final_track_artifacts import S3Artifacts
-from finalizer_worker.track_processing import process_recording
-from finalizer_worker.test_track import TestTrack
-data = json.load(sys.stdin)
-event = pb.RecordingFinished.FromString(base64.b64decode(data['value']))
-headers = [(k, base64.b64decode(v)) for k, v in data['headers']]
-accepted = process_recording(event, headers, track_id='shadow', profile_id='test-final-r1',
-                             provider=TestTrack(), store=S3Artifacts.from_env())
-print(hashlib.sha256(accepted[1]).hexdigest(), flush=True)
-os._exit(17)
-"""
-                crash = subprocess.run(
-                    ["docker", "compose", "-f", "docker-compose.final-tracks.yml", "run", "--rm",
-                     "--no-deps", "-T", "shadow", "python", "-c", script], input=payload,
-                    cwd=Path(__file__).resolve().parents[1], stdout=subprocess.PIPE, check=False)
-                assert crash.returncode == 17, "Expected exit immediately after durable manifest creation"
-                accepted_digest = crash.stdout.decode().strip()
-                assert len(accepted_digest) == 64
-            finally:
-                compose("start", "shadow")
-
-            def crash_recovered():
-                collect()
-                return any(e.session_id == crash_session and e.track_id == "shadow"
-                           for e, _ in records["transcripts.final-tracks"])
-
-            eventually(crash_recovered, 120)
-            recovered = next(m for e, m in records["transcripts.final-tracks"]
-                             if e.session_id == crash_session and e.track_id == "shadow")
-            assert hashlib.sha256(recovered.value()).hexdigest() == accepted_digest
-            eventually(lambda: counts(crash_session) == (1, 3, 1), 120)
-        report = {"passed": True, "source_partitions": [0, 1], "shadow_replicas_observed": 2,
-                  "rows_per_session": {"recordings": 1, "track_results": 3, "primary_transcripts": 1},
-                  "immutable_replay": True, "retention_rejection": True,
-                  "primary_recording_playback": True,
+            for after_publish in (False, True):
+                compose("stop", "samuraipersistor")
+                before = offsets()
+                count = len(records["transcripts.final-tracks"])
+                try:
+                    session_id = new_session(pcm)
+                    wait_for("transcripts.final-tracks", count + 3)
+                    event, message = next((e, m) for e, m in records["transcripts.final-tracks"]
+                                          if e.session_id == session_id and e.track_id == "whisperx")
+                    crash_after_acceptance(message, after_publish)
+                    assert offsets() == before
+                    accepted = stored(session_id)
+                    assert len(accepted) == 1 and accepted[0]["full_text"] == event.full_text
+                finally:
+                    compose("start", "samuraipersistor")
+                eventually(lambda: counts(session_id) == (1, 3, 3), 120)
+                assert next(r for r in stored(session_id) if r["is_primary"]) == accepted[0]
+        objects = [obj["Key"] for page in s3.get_paginator("list_objects_v2").paginate(Bucket="recordings")
+                   for obj in page.get("Contents", [])]
+        assert objects and all(key.startswith("recordings/") and key.endswith(".wav") for key in objects)
+        compose("pause", "localstack")
+        try:
+            for session_id in sessions:
+                response = requests.get(BASE + f"/api/recordings/{session_id}", timeout=15)
+                response.raise_for_status()
+                final = response.json()["transcripts"]["final"]
+                assert len(final) == 1
+                assert final[0]["full_text"] == next(r["full_text"] for r in stored(session_id) if r["is_primary"])
+        finally:
+            compose("unpause", "localstack")
+        report = {"passed": True, "sessions": sessions, "rows_per_session": [1, 3, 3],
+                  "speech_and_silence": True, "stable_accepted_replay": True,
+                  "no_transcript_objects": True, "postgres_reads_without_s3": True,
+                  "primary_recording_playback": True, "retention_rejection": True,
                   "database_retry": args.database_fault,
-                  "manifest_process_exit_recovery": args.process_exit_fault, "results": summaries}
+                  "worker_restart_replay": args.database_fault,
+                  "real_speaker_labels": next(e.speaker_labels for e, _ in records["transcripts.final-tracks"]
+                                                if e.session_id == speech and e.track_id == "whisperx"),
+                  "post_commit_and_post_publication_crash_recovery": args.process_exit_fault}
         if args.report:
             args.report.write_text(json.dumps(report, indent=2), encoding="utf-8")
-        print(json.dumps({k: v for k, v in report.items() if k != "results"}), flush=True)
+        print(json.dumps(report), flush=True)
     finally:
         consumer.close()
 
