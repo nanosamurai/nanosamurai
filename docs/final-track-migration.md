@@ -40,3 +40,9 @@ old experiment: it required `result_id`, `plan_id` and `profile_id` on every
 non-NULL track. Forward migration 018 retires that obsolete check, leaving
 foreign keys, uniqueness indexes, old columns and history intact. It is a
 no-op on clean master schemas. Migration 017 remains unchanged after application.
+
+The retained local database was subsequently backed up and upgraded with 018
+after explicit approval. A separately approved one-time local cleanup removed
+the unused experimental table and columns; it preserved transcript/recording
+content and ledger entries. This is not an additional deployment migration.
+See [the retained-database evidence](final-tracks-spike.md#approved-retained-database-cleanup-and-local-images).
