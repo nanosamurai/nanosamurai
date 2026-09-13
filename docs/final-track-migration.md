@@ -34,3 +34,9 @@ final groups. Its ledger already contained experimental versions 014 and 016,
 so versions 014-016 are deliberately not reused. Extra experimental schema,
 existing rows and applied ledger entries remain intact. This is preflight
 evidence; execution results belong in the spike smoke report.
+
+The first live write exposed `session_transcripts_final_track_check` from the
+old experiment: it required `result_id`, `plan_id` and `profile_id` on every
+non-NULL track. Forward migration 018 retires that obsolete check, leaving
+foreign keys, uniqueness indexes, old columns and history intact. It is a
+no-op on clean master schemas. Migration 017 remains unchanged after application.
