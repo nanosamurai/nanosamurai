@@ -1,0 +1,74 @@
+# Opt-in local spike: one real WhisperX track and test-only synthetic workers.
+# Start only the services listed in docs/final-tracks-spike.md.
+services:
+  samuraibff:
+    image: samuraibff:lean-tracks
+    build: ${BFF_SOURCE:-../../IdeaProjects/samuraibff}
+    environment:
+      SAMURAIBFF_FINAL_TRACKS: whisperx,test-shadow,test-unselected
+      SAMURAIBFF_CE_MODE: "true"
+
+  samuraipersistor:
+    image: samuraipersistor:lean-tracks
+    build: ${PERSISTOR_SOURCE:-../../IdeaProjects/samuraipersistor}
+    environment:
+      SAMURAIPERSISTOR_CE_MODE: "true"
+
+  recorder_worker:
+    image: xamurai-finalizer-worker:lean-tracks
+    command: [python, -m, recorder_worker.recorder_worker]
+    environment:
+      RECORDER_IDLE_SECONDS: "2"
+
+  finalizer_worker:
+    image: xamurai-finalizer-worker:lean-tracks
+    build:
+      context: ${XAMURAI_SOURCE:-../xamurai}
+      dockerfile: finalizer_worker/Dockerfile
+    environment:
+      FINALIZER_TRACK_ID: whisperx
+      KAFKA_GROUP_ID_FINALIZER: finalizer.whisperx
+
+  test-shadow:
+    image: xamurai-finalizer-worker:lean-tracks
+    restart: unless-stopped
+    command: [python, /probe/synthetic_finalizer.py]
+    environment:
+      KAFKA_BOOTSTRAP: broker:29092
+      FINALIZER_TRACK_ID: test-shadow
+      WHISPERX_MODEL: synthetic-test-only
+      TEST_FAILURE_FILE: /faults/fail
+      S3_ENDPOINT: http://localstack:4566
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: test
+      S3_SECRET_KEY: test
+    volumes:
+      - ./smoke-tests/final-tracks/synthetic_finalizer.py:/probe/synthetic_finalizer.py:ro
+      - final_track_faults:/faults
+
+  test-unselected:
+    extends: test-shadow
+    environment:
+      FINALIZER_TRACK_ID: test-unselected
+      TEST_FAILURE_FILE: ""
+
+  final-tracks-smoke:
+    profiles: [validation]
+    build: ./smoke-tests/final-tracks
+    environment:
+      BFF_URL: http://samuraibff:8000
+      KAFKA_BOOTSTRAP: broker:29092
+      PGHOST: postgres
+      PGDATABASE: nanosamurai
+      PGUSER: nanosamurai
+      PGPASSWORD: nanosamurai
+      S3_ENDPOINT: http://localstack:4566
+      RECORDINGS_BUCKET: ${NANOSAMURAI_RECORDINGS_BUCKET:-nanosamurai-recordings}
+    volumes:
+      - ${XAMURAI_SOURCE:-../xamurai}/proto_gen:/probe/proto_gen:ro
+      - ./tests/data/test_cs.wav:/probe/test_cs.wav:ro
+      - ./docker/postgres/migrations:/migrations:ro
+      - final_track_faults:/faults
+
+volumes:
+  final_track_faults:
