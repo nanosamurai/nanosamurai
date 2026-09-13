@@ -28,12 +28,12 @@ WHERE type='final' AND track_id IS NOT NULL AND recording_id IS NOT NULL
 GROUP BY recording_id, track_id HAVING count(*) > 1;
 ```
 
-The retained local spike database was inspected on 2026-09-13: 49 transcript
-rows (48 tagged), zero duplicate recording groups and zero duplicate tagged
-final groups. Its ledger already contained experimental versions 014 and 016,
-so versions 014-016 are deliberately not reused. Extra experimental schema,
-existing rows and applied ledger entries remain intact. This is preflight
-evidence; execution results belong in the spike smoke report.
+The original `nanosamurai` database was inspected on 2026-09-13: 117 transcript
+rows, 51 recording rows and zero duplicate recording URL groups. Its ledger
+already contained experimental versions 014 and 015. Version 016 was used by
+another discarded local experiment, so versions 014-016 are not reused.
+Migration 017 added the previously absent track column; migration 018 was a
+no-op on this original schema. Applied ledger entries remain intact.
 
 The first live write exposed `session_transcripts_final_track_check` from the
 old experiment: it required `result_id`, `plan_id` and `profile_id` on every
@@ -41,8 +41,9 @@ non-NULL track. Forward migration 018 retires that obsolete check, leaving
 foreign keys, uniqueness indexes, old columns and history intact. It is a
 no-op on clean master schemas. Migration 017 remains unchanged after application.
 
-The retained local database was subsequently backed up and upgraded with 018
-after explicit approval. A separately approved one-time local cleanup removed
-the unused experimental table and columns; it preserved transcript/recording
-content and ledger entries. This is not an additional deployment migration.
-See [the retained-database evidence](final-tracks-spike.md#approved-retained-database-cleanup-and-local-images).
+After backups and approval, a one-time local cleanup removed the original
+database's obsolete experimental table and eight metadata columns. Its 126
+experimental result-metadata rows are archived in full and table-only backups;
+all 117 transcript rows and 51 recording records remain unchanged. This cleanup
+is not an additional deployment migration.
+See [the original-stack evidence](final-tracks-spike.md#original-nanosamurai-stack).

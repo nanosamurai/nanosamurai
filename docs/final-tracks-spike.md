@@ -20,29 +20,25 @@ migration ledger first; see [the migration notes](final-track-migration.md).
 Stop any obsolete experimental worker containers consuming these same topics.
 Do not enable this spike against external webhook/workflow consumers.
 
-The following commands assume the existing base infrastructure is running:
+Run these commands from the Nanosamurai checkout, using its original
+`nanosamurai` project. They keep its existing Nemotron and local image overrides; keep the local
+override last so the existing final consumer group is preserved. Infrastructure
+must already be running. No separate Compose project or database is needed.
 
-```bash
-docker compose -f docker-compose.yml -f docker-compose.final-tracks-smoke.yml \
-  build samuraibff samuraipersistor finalizer_worker final-tracks-smoke
-
-docker compose -f docker-compose.yml -f docker-compose.final-tracks-smoke.yml \
-  --profile validation run --rm --no-deps --entrypoint python \
-  final-tracks-smoke /probe/migration.py
-
-docker compose -f docker-compose.yml -f docker-compose.final-tracks-smoke.yml \
-  run --rm --no-deps db_migrate
-
-docker compose -f docker-compose.yml -f docker-compose.final-tracks-smoke.yml \
-  up -d --no-deps --no-build samuraibff samuraipersistor recorder_worker \
-  finalizer_worker test-shadow test-unselected
-
-docker compose -f docker-compose.yml -f docker-compose.final-tracks-smoke.yml \
-  --profile validation run --rm --no-deps final-tracks-smoke
+```powershell
+$smokeFiles = @('-p', 'nanosamurai',
+  '-f', 'docker-compose.yml', '-f', 'docker-compose.nemotron.yml',
+  '-f', 'docker-compose.final-tracks-smoke.yml', '-f', 'docker-compose.local-asr.yml')
+docker compose @smokeFiles build samuraibff samuraipersistor finalizer_worker final-tracks-smoke
+docker compose @smokeFiles --profile validation run --rm --no-deps --entrypoint python final-tracks-smoke /probe/migration.py
+docker compose @smokeFiles run --rm --no-deps db_migrate
+docker compose @smokeFiles up -d --no-deps --no-build samuraibff samuraipersistor recorder_worker finalizer_worker test-shadow test-unselected
+docker compose @smokeFiles --profile validation run --rm --no-deps final-tracks-smoke
 ```
 
-The recorder reuses the source-built finalizer image, which already includes
-the production recorder code. The synthetic workers run the production finalizer
+The generic smoke overlay can reuse the finalizer image for the recorder. This
+checkout's local override selects its separately built recorder image instead.
+The synthetic workers run the production finalizer
 loop with only inference replaced by the mounted test function. No production
 worker has a synthetic inference mode. Test services expose no host ports.
 
@@ -97,68 +93,50 @@ Validation on 2026-09-13:
 - Final cleanup check found no fault marker, DB trigger or fault function.
   Every published local stack port was bound to `127.0.0.1`.
 
-The initial run used a new
-`nanosamurai_lean_validation` database on the same local Postgres service, seeded
-from master migrations 001-013 plus 017/018 (018 is a no-op on a clean schema).
-BFF, Persistor and the probe used that database; Persistor used separate
-`samuraipersistor-final-validation` and `samuraipersistor-refined-validation`
-consumer groups. The probe's `PERSISTOR_GROUP` matched the final group. Existing
-Kafka topics, infrastructure volumes, source audio and retained DB were preserved.
-That first pass was a fresh-schema validation; the retained upgrade is now
-validated separately below.
+## Original nanosamurai stack
 
-## Approved retained-database cleanup and local images
+The deployment target is the existing Compose project `nanosamurai`, with
+`nanosamurai-postgres-1` (Postgres 18), `nanosamurai-broker-1` and
+`nanosamurai-localstack-1`. The earlier experimental
+`nanosamurai-final-tracks-postgres` project is stopped and is not selected by
+`.env`. The original infrastructure containers and their data volumes are reused.
 
-On 2026-09-13 the user approved migration 018, then separately approved removing
-obsolete experimental schema while preserving transcripts and recordings.
-After a full local `pg_dump -Fc` backup, the normal migration runner applied 018.
-A transactional cleanup was rehearsed with rollback, then committed locally.
-It removed only:
+The original database contained 117 transcripts, 51 recordings and migration
+ledger entries 001-015. After full and experimental-table-only `pg_dump -Fc`
+backups, the normal runner applied 017 and 018. Approved local cleanup archived
+the 126 obsolete final/refined result-metadata rows in those backups, removed
+`transcript_track_results`, and removed eight experimental columns:
+`sessions.asr_meta_snapshot`, the five `recordings.source_*` metadata columns,
+and `session_transcripts.result_id` / `result_event_sha256`. The cleanup used no
+`CASCADE` and checked that row counts still matched the backup. All 117 original
+transcripts and 51 recording records passed content-hash comparisons afterward.
+`track_id` remains, and applied ledger entries 014/015 were preserved.
 
-- the empty `transcript_track_results` table;
-- `sessions.asr_meta_snapshot`;
-- recording columns `source_artifact_id`, `source_sha256`, `source_size_bytes`,
-  `source_sample_count` and `source_version_id`;
-- transcript columns `result_id`, `result_event_sha256`, `plan_id`, `profile_id`,
-  `status`, `is_primary`, `error_code`, `capabilities` and `degradations`, including
-  their dependent experimental indexes/checks.
+Only ignored local configuration selects source-built images: `.env` names
+project `nanosamurai` and the existing base, Nemotron and `docker-compose.local-asr.yml`
+files. BFF, Persistor, realtime, ordinary refinement, recorder and finalizer use
+their `:lean-tracks` images. Existing Nemotron settings are retained. BFF is at
+`http://127.0.0.1:8000`; its internal reply address is `http://samuraibff:8000`.
+The finalizer continues the last active original WhisperX input group,
+`final-track.whisperx.whisperx-medium-final-r1`, rather than replaying a retired
+group's stale backlog. Other original consumer groups are retained. No offsets
+are reset, topics deleted, or new application stack created.
 
-The cleanup used no `CASCADE` and refused to drop a non-empty result table.
-`track_id`, source audio, all 49 original transcripts and all 17 original
-recordings were preserved. Content hashes of their retained fields matched
-before and after cleanup. Column types/defaults, constraints and indexes now
-match the clean master-plus-017/018 schema. Applied ledger entries 014 and 016
-remain as truthful history; no applied migration was edited or renumbered.
-There were no additional refinement-specific tables in this active database.
+Synthetic workers are used only during the smoke. After validation, stop them
+and use ordinary `docker compose up -d --no-deps --no-build` for the application
+services; the default configuration does not include the test overlay.
 
-The application now uses the cleaned retained `nanosamurai` database and its
-original Persistor consumer groups. The full final-track Compose smoke passed
-again against that database with rebuilt local images. The separate validation
-database and stopped legacy stacks were left intact and are no longer selected
-by the active local configuration.
+The full final-track smoke passed on this original stack. After removing the
+test overlay from the running application configuration and stopping its two
+synthetic workers, a normal realtime/refined/final audio session also passed.
+All 117 original transcript hashes and 51 recording-record hashes still matched
+after both tests. Each of the six updated service containers was checked against
+its local image ID. The original refinement consumer caught up without resetting
+offsets, and no injected DB failure trigger/function remained.
 
-In the Nanosamurai checkout, only ignored machine-local startup configuration
-was changed: `.env` now
-selects the normal Compose file, the final-track smoke overlay and
-`.tmp/lean-local.yml`, using the existing Compose project. The rejected final/
-refined override references were removed from that selection. The local overlay
-pins Postgres 16 to its existing data volume, retains LocalStack/model-cache
-volumes and keeps all published ports on localhost. BFF is available at
-`http://127.0.0.1:18000`; its internal reply address is `http://samuraibff:8000`.
-
-Kafka's existing logs were in its writable container layer. With the application
-and broker stopped, those logs were backed up and copied to a named local volume
-mounted at the same path. The restarted broker retained its existing events and
-consumer groups; no offsets were reset and no topics were deleted.
-
-Local images were rebuilt for BFF, Persistor, finalizer/recorder, realtime and
-ordinary refinement. Published image pins and remote deployments were untouched.
-All eight application/test containers were verified against their local image
-IDs. A normal audio session with all default stages enabled also passed: live
-realtime events, persisted refined rows and the default final result. The hashes
-of all 49 original transcripts and 17 recordings still matched after both smokes;
-no injected failure marker, trigger or function remained.
-The backup, cleanup SQL and detailed run logs remain under the ignored local
-`.tmp/lean-approved-upgrade/` directory. Ordinary `docker compose` commands now
-select this local setup; use `--no-deps` when restarting only an application
-service during review.
+The original LocalStack recordings bucket was empty when its existing container
+started, before the new smoke. The 51 historical DB references are preserved,
+but their old audio is unavailable in that bucket. This is a storage-recovery
+limitation; the new-recording smoke checks new audio and playback separately.
+The backup, cleanup SQL and validation logs for the original stack are in the
+ignored `.tmp/original-stack-upgrade/` directory.
