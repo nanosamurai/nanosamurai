@@ -1,0 +1,62 @@
+# Opt-in spike 3 browser validation; reuse the original project and volumes.
+services:
+  samuraibff:
+    image: samuraibff:lean-tracks
+    build: ${BFF_SOURCE:-../../IdeaProjects/samuraibff}
+    environment:
+      SAMURAIBFF_FINAL_TRACKS: whisperx,ui-shadow,ui-unavailable
+      SAMURAIBFF_REFINEMENT_TRACKS: whisperx,ui-shadow,ui-unavailable
+      SAMURAIBFF_TRACK_LABELS: '{"final":{"whisperx":"WhisperX","ui-shadow":"Test-only text","ui-unavailable":"Unavailable test"},"refined":{"whisperx":"WhisperX","ui-shadow":"Test-only windows","ui-unavailable":"Unavailable test"}}'
+      SAMURAIBFF_CE_MODE: "true"
+
+  whisperx_worker:
+    environment:
+      WHISPERX_IDLE_SECONDS: "3"
+
+  recorder_worker:
+    environment:
+      RECORDER_IDLE_SECONDS: "2"
+
+  ui-test-final:
+    profiles: [validation]
+    image: xamurai-finalizer-worker:lean-tracks
+    command: [python, /probe/synthetic_finalizer.py]
+    environment:
+      KAFKA_BOOTSTRAP: broker:29092
+      FINALIZER_TRACK_ID: ui-shadow
+      KAFKA_GROUP_ID_FINALIZER: finalizer.ui-ui-shadow
+      WHISPERX_MODEL: synthetic-test-only
+      S3_ENDPOINT: http://localstack:4566
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: test
+      S3_SECRET_KEY: test
+    volumes:
+      - ./smoke-tests/final-tracks/synthetic_finalizer.py:/probe/synthetic_finalizer.py:ro
+
+  ui-test-refined:
+    profiles: [validation]
+    image: xamurai-whisperx-worker:lean-tracks
+    command: [python, /probe/synthetic_refinement.py]
+    environment:
+      KAFKA_BOOTSTRAP: broker:29092
+      REFINEMENT_TRACK_ID: ui-shadow
+      KAFKA_GROUP_ID: refinement.ui-ui-shadow
+      WHISPERX_MODEL: synthetic-test-only
+      WHISPERX_IDLE_SECONDS: "3"
+    volumes:
+      - ./smoke-tests/refinement-tracks/synthetic_refinement.py:/probe/synthetic_refinement.py:ro
+
+  track-ui-audit:
+    profiles: [validation]
+    build: ./smoke-tests/final-tracks
+    entrypoint: [python, /probe/track-ui/audit.py]
+    environment:
+      BFF_URL: http://samuraibff:8000
+      KAFKA_BOOTSTRAP: broker:29092
+      PGHOST: postgres
+      PGDATABASE: nanosamurai
+      PGUSER: nanosamurai
+      PGPASSWORD: nanosamurai
+    volumes:
+      - ./smoke-tests/track-ui:/probe/track-ui:ro
+      - ./.tmp/track-ui:/probe/evidence:ro
