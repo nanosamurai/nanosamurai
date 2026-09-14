@@ -140,3 +140,35 @@ but their old audio is unavailable in that bucket. This is a storage-recovery
 limitation; the new-recording smoke checks new audio and playback separately.
 The backup, cleanup SQL and validation logs for the original stack are in the
 ignored `.tmp/original-stack-upgrade/` directory.
+
+## Session-start diagnosis on 2026-09-14
+
+Two browser session starts failed before microphone capture: BFF timed out
+waiting for Nemotron admission and returned HTTP 500 from `/ws/audio`. The UI
+requests microphone access only after that WebSocket opens. Direct gRPC probes
+to both Nemotron replicas succeeded, while BFF's resolver thread and LocalStack
+were blocked in the Linux kernel's `netlink_dump` wait. The WSL kernel also
+reported a `vmbus_alloc_ring` memory-allocation failure and a failed network
+subchannel. This was observed with the original stack's local images running.
+
+Recovery evidence and a fresh database backup are in the ignored
+`.tmp/session-start-recovery/` directory. A Docker Desktop restart was approved
+because it also interrupts the unrelated local database container. Restarting
+the Desktop application alone retained the stuck WSL kernel, and WSL restart
+attempts did not recover it. The user updated Docker and rebooted Windows.
+Afterward, the original containers were reused and BFF was started again.
+No schema or application-code changes were made for this recovery.
+
+Post-reboot validation passed with one Nemotron replica. The ignored local
+`.env` now sets `NEMOTRON_RTSERVICE_REPLICAS=1`; Compose removed only the second
+Nemotron replica. The focused smoke explicitly selected `realtime_tracks=nemotron`
+and verified nonempty realtime output, refined/final transcript rows, and WAV
+HTTP range playback. The browser's Record now action opened both WebSockets
+and logged `capture started mic=true system=false`; Stop closed both realtime
+tracks and microphone capture. The unrelated local database was also restarted,
+and the experimental application stack remains stopped.
+
+The incident also exposes a UI gap: startup failure is mainly visible in the
+diagnostic log, and a session activated before admission can still appear as
+Recording despite having accepted no audio. Improving that failure feedback is
+separate from the kernel recovery.
