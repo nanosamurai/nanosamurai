@@ -88,8 +88,14 @@ The original Postgres 18 stack passed:
 - The audit checks one recording per final-enabled session, independent rows,
   tenant denial and the existing `sessions.meta` label snapshot.
 - Deployment label renaming preserves historical tab labels.
-- BFF release build and lint; 129 backend tests / 980 assertions and all eight
+- BFF release build and lint; 129 backend tests / 982 assertions and all eight
   Electron tests, with no failures or errors.
+
+After removing test overrides and stopping both synthetic workers, the ordinary
+Nemotron realtime / WhisperX refined / WhisperX final session and shared audio
+playback smoke passed. The final BFF image was verified against its running
+container, and the saved tabs/reload check passed on that image with only the
+default async tracks configured. All published ports remained on loopback.
 
 No migrations were applied. Per-track durable failure/completion remains a
 later contract; missing results are unavailable, and session status does not
