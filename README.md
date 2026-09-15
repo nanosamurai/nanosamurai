@@ -288,6 +288,9 @@ endpoints, available signals, trace behavior, and current limitations.
 
 ## Documentation
 
+The unmerged lean track UI spike is described in
+[Track selection and local browser validation](docs/track-selection-ui.md).
+
 - [Documentation index](docs/README.md)
 - [Evaluator getting started](docs/getting-started.md)
 - [Transcription lifecycle](docs/transcription-lifecycle.md)

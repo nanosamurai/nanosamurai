@@ -1,5 +1,7 @@
 # Smoke tests and release rehearsal
 
+For the unmerged lean track UI spike, see [the browser/Compose runbook](track-selection-ui.md).
+
 The tests are cumulative: each higher tier requires the services exercised by
 the lower tiers.
 
