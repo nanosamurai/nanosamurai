@@ -103,6 +103,41 @@ prove track completion. Realtime text remains a browser cache. Historical
 audio already missing from LocalStack is not restored. Start a new session
 after completion; the existing idle-tail resume limitation remains.
 
+## Realtime speaker placeholder follow-up
+
+Realtime messages without diarization retain the `?` avatar and `Unknown`
+label, keeping partial text aligned with diarized final turns. Saved text-only
+results still omit absent speakers and timestamps. The previous shared-renderer
+change accidentally hid the realtime placeholder too.
+
+With normal Compose configuration, Nemotron enabled, `NEMOTRON_DIARIZATION=true`
+and Playwright configured as above, run:
+
+```powershell
+node smoke-tests/track-ui/realtime.cjs
+```
+
+This uses the real microphone fixture and Nemotron, checks the partial label
+and its alignment with a diarized turn, then stops the session. Evidence goes
+to `.tmp/track-ui-realtime/`; no synthetic tracks are needed.
+
+On 2026-09-15 this test reproduced the absent placeholder on the previous BFF
+image and passed on the rebuilt image. The screenshot confirms alignment.
+Saved text-only and aligned WhisperX rendering also passed on the same image;
+BFF lint, release build, 129 backend tests / 982 assertions and eight Electron
+tests passed. Only BFF was recreated with normal settings; all published ports
+remain on loopback.
+
+The 2026-09-15 timing comparison found the same 800 ms token-silence endpoint,
+30-second forced-utterance backstop and default RNNT right context of `1` in
+Xamurai `d479dba3`, `a72d9c15`, master and the lean branches. `d479dba3` did not
+yet include diarization; `a72d9c15` added it. The current Nemotron native/server
+sources, Dockerfile and diarization geometry are unchanged from `a72d9c15`
+(also the local master). The running image matches those sources apart from
+line endings and has right context `1` and diarization enabled. Nemotron uses
+native endpointing, not the UI's window setting for windowed realtime workers.
+No endpoint or diarization tuning changed in this UI follow-up.
+
 ## Migration ownership and security
 
 Nanosamurai and Nanodeploy remain migration owners. Their Docker SQL copies
