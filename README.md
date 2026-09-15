@@ -338,3 +338,9 @@ Contribution guidance is in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 Licensed under the Apache License 2.0. See [LICENSE](LICENSE) and
 [NOTICE](NOTICE).
+
+## Refinement spike
+
+The opt-in [refinement track runbook](docs/refinement-tracks-spike.md) describes
+source builds, migration 019 and the local Compose qualification. It retains
+the original stack and volumes. Track selection UI remains a separate spike.

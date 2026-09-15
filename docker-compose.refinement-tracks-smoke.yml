@@ -1,0 +1,42 @@
+# Opt-in spike 2 validation. Reuses the original Compose project and data.
+services:
+  samuraibff:
+    image: samuraibff:lean-tracks
+    build: ${BFF_SOURCE:-../../IdeaProjects/samuraibff}
+    environment:
+      SAMURAIBFF_REFINEMENT_TRACKS: whisperx,test-shadow,test-unselected
+      SAMURAIBFF_CE_MODE: "true"
+
+  samuraipersistor:
+    image: samuraipersistor:lean-tracks
+    build: ${PERSISTOR_SOURCE:-../../IdeaProjects/samuraipersistor}
+    environment:
+      SAMURAIPERSISTOR_CE_MODE: "true"
+
+  whisperx_worker:
+    image: xamurai-whisperx-worker:lean-tracks
+    build:
+      context: ${XAMURAI_SOURCE:-../xamurai}
+      dockerfile: whisperx_worker/Dockerfile
+    environment:
+      REFINEMENT_TRACK_ID: whisperx
+      WHISPERX_IDLE_SECONDS: "3"
+
+  refinement-tracks-smoke:
+    profiles: [validation]
+    build: ./smoke-tests/refinement-tracks
+    environment:
+      BFF_URL: http://samuraibff:8000
+      KAFKA_BOOTSTRAP: broker:29092
+      PGHOST: postgres
+      PGDATABASE: nanosamurai
+      PGUSER: nanosamurai
+      PGPASSWORD: nanosamurai
+      S3_ENDPOINT: http://localstack:4566
+      RECORDINGS_BUCKET: ${NANOSAMURAI_RECORDINGS_BUCKET:-nanosamurai-recordings}
+      WHISPERX_IDLE_SECONDS: "3"
+    volumes:
+      - ./smoke-tests/final-tracks:/probe/final:ro
+      - ./smoke-tests/refinement-tracks:/probe/refinement:ro
+      - ./tests/data/test_cs.wav:/probe/test_cs.wav:ro
+      - ./docker/postgres/migrations:/migrations:ro

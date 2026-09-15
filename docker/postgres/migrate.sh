@@ -76,3 +76,4 @@ apply_migration 012 012-workflow-results.up.sql
 apply_migration 013 013-workflow-outcomes.up.sql
 apply_migration 017 017-add-final-track-identity.up.sql
 apply_migration 018 018-retire-experimental-final-track-check.up.sql
+apply_migration 019 019-add-refinement-track-identity.up.sql

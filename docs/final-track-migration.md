@@ -47,3 +47,18 @@ experimental result-metadata rows are archived in full and table-only backups;
 all 117 transcript rows and 51 recording records remain unchanged. This cleanup
 is not an additional deployment migration.
 See [the original-stack evidence](final-tracks-spike.md#original-nanosamurai-stack).
+
+## Refinement follow-up
+
+Migration `019-add-refinement-track-identity.up.sql` reuses `track_id` and adds
+uniqueness for tagged refined windows on `(tenant_id, session_id, track_id,
+window_length, segment_start_s, segment_end_s)`. PostgreSQL 15+ NULL equality
+also deduplicates old events without a window length. Historical NULL tracks
+and all existing text/segments remain unchanged. The duplicate preflight aborts
+without rewriting data; apply this before the updated refinement Persistor.
+
+On 2026-09-14, the normal original-stack runner applied 019 after a custom-format
+backup and rolled-back migration tests. All 182 pre-existing transcripts and
+63 recording records passed hash comparisons afterward. SQL copies in both
+deployment repositories and the chart assets match. The Compose runner wiring
+is updated; Helm execution and cloud rollout remain separate.
