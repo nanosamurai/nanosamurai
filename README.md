@@ -25,6 +25,8 @@ pinned by source SHA.
 
 For the source-built per-service realtime settings spike and its real Compose
 smoke test, see [service-owned realtime settings](docs/realtime-settings.md).
+The optional [Parakeet final track](docs/parakeet-finalizer.md) adds Parakeet TDT
+v3 with embedded Sortformer and a real two-model Compose smoke test.
 
 ## Demo - See it in action
 

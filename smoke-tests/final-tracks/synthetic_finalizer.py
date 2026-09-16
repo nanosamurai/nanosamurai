@@ -16,5 +16,4 @@ def transcribe(path, **_kwargs):
     return ("" if silence else "Synthetic test-only transcript"), []
 
 
-worker.run_whisperx_diarized_words = transcribe
-worker.main()
+worker.main(transcribe)

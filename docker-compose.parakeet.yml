@@ -1,0 +1,52 @@
+# Optional real final track. Use after the base and any local image overrides.
+services:
+  samuraibff:
+    environment:
+      SAMURAIBFF_FINAL_TRACKS: whisperx,parakeet
+      SAMURAIBFF_TRACK_LABELS: '{"final":{"whisperx":"WhisperX","parakeet":"Parakeet TDT v3"}}'
+
+  parakeet-finalizer:
+    image: ${PARAKEET_FINALIZER_IMAGE:-xamurai-parakeet-finalizer:local}
+    build:
+      context: ${XAMURAI_SOURCE:-../xamurai}
+      dockerfile: nemotron_rtservice/Dockerfile
+      target: parakeet-finalizer
+    restart: unless-stopped
+    environment:
+      FINALIZER_TRACK_ID: parakeet
+      KAFKA_BOOTSTRAP: broker:29092
+      KAFKA_GROUP_ID_FINALIZER: finalizer.parakeet
+      S3_ENDPOINT: http://localstack:4566
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: test
+      S3_SECRET_KEY: test
+      S3_FORCE_PATH_STYLE: "true"
+    volumes:
+      - nanosamurai_parakeet_hf_cache:/data/huggingface
+    gpus: all
+    depends_on:
+      kafka_init:
+        condition: service_completed_successfully
+      localstack:
+        condition: service_started
+
+  parakeet-smoke:
+    profiles: [validation]
+    build: ./smoke-tests/final-tracks
+    entrypoint: [python, -u, /probe/parakeet.py]
+    environment:
+      BFF_URL: http://samuraibff:8000
+      KAFKA_BOOTSTRAP: broker:29092
+      PGHOST: postgres
+      PGDATABASE: nanosamurai
+      PGUSER: nanosamurai
+      PGPASSWORD: nanosamurai
+      S3_ENDPOINT: http://localstack:4566
+      WHISPERX_FINALIZER_GROUP: ${WHISPERX_FINALIZER_GROUP:-finalizer-worker}
+    volumes:
+      - ./smoke-tests/final-tracks/parakeet.py:/probe/parakeet.py:ro
+      - ${XAMURAI_SOURCE:-../xamurai}/proto_gen:/probe/proto_gen:ro
+      - ./tests/data/test_cs.wav:/probe/test_cs.wav:ro
+
+volumes:
+  nanosamurai_parakeet_hf_cache:

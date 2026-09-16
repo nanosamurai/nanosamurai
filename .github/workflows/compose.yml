@@ -17,6 +17,7 @@ jobs:
       - name: Validate Compose configurations
         run: |
           docker compose config --quiet
+          docker compose -f docker-compose.yml -f docker-compose.parakeet.yml config --quiet
           docker compose \
             -f docker-compose.yml \
             -f docker-compose.observability.yml \
