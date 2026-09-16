@@ -16,6 +16,8 @@ with psycopg.connect('', autocommit=True) as db:
     for item in sessions:
         sid = item['id']
         controls, = db.execute('SELECT stream_controls FROM sessions WHERE id=%s', (sid,)).fetchone()
+        if 'realtime_settings' in item:
+            assert controls['realtime_settings'] == item['realtime_settings']
         expected[sid] = controls
         rows = db.execute('SELECT type,track_id,recording_id FROM session_transcripts WHERE session_id=%s', (sid,)).fetchall()
         assert all(controls[stage] for stage, _, _ in rows), item['label']
@@ -42,7 +44,7 @@ with psycopg.connect('', autocommit=True) as db:
     finally:
         db.execute('DELETE FROM sessions WHERE id=%s AND tenant_id=%s', (foreign_session, foreign))
         db.execute('DELETE FROM tenants WHERE id=%s', (foreign,))
-print('PASS one shared recording, independent rows, nested controls and tenant denial', flush=True)
+print('PASS saved controls, selected outputs and tenant denial', flush=True)
 
 consumer = Consumer({'bootstrap.servers': os.environ['KAFKA_BOOTSTRAP'],
                      'group.id': 'ui-audit-' + uuid.uuid4().hex,

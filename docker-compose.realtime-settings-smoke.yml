@@ -1,0 +1,15 @@
+services:
+  realtime-settings-audit:
+    profiles: [validation]
+    build: ./smoke-tests/final-tracks
+    entrypoint: [python, /probe/track-ui/audit.py]
+    environment:
+      BFF_URL: http://samuraibff:8000
+      KAFKA_BOOTSTRAP: broker:29092
+      PGHOST: postgres
+      PGDATABASE: nanosamurai
+      PGUSER: nanosamurai
+      PGPASSWORD: nanosamurai
+    volumes:
+      - ./smoke-tests/track-ui:/probe/track-ui:ro
+      - ./.tmp/realtime-settings:/probe/evidence:ro
