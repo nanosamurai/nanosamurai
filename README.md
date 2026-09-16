@@ -23,6 +23,9 @@ This is the public front-door repository for running Community Edition locally
 with Docker Compose. Service images are pulled from `ghcr.io/nanosamurai/*` and
 pinned by source SHA.
 
+For the source-built per-service realtime settings spike and its real Compose
+smoke test, see [service-owned realtime settings](docs/realtime-settings.md).
+
 ## Demo - See it in action
 
 <a href="https://nanosamur.ai/#demo">

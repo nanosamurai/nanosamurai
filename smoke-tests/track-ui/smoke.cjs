@@ -96,7 +96,8 @@ async function main() {
 
     await settings();
     await page.getByRole('tab', { name: /^Real-time/ }).click();
-    assert.equal(await page.getByRole('spinbutton', { name: 'Window (sec)', exact: true }).inputValue(), '');
+    const whisper = metadata.realtime_track_capabilities.find(c => c.session_settings?.window_sec);
+    assert.equal(Number(await page.getByRole('spinbutton', { name: `${whisper.id}: Window (sec)`, exact: true }).inputValue()), whisper.session_settings.window_sec.default);
     if (metadata.realtime_track_capabilities.some(c => c.windowed_realtime && c.maximum_audio_seconds > 0))
       await page.getByText(/Maximum inference input:/).first().waitFor();
     await stage('Real-time', false);
