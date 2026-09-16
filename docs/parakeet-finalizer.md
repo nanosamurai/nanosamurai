@@ -65,3 +65,22 @@ failure/restart coverage remains in the existing final-track smoke.
 The Xamurai [pipeline documentation](https://github.com/nanosamurai/xamurai/blob/master/docs/parakeet-finalizer.md)
 records model/runtime pins and limitations. Short-fixture smoke is functional
 qualification, not a claim about recognition accuracy or maximum recording length.
+
+## Local validation on 2026-09-16
+
+The complete Parakeet Compose smoke passed on the original project and volumes,
+using source-built Parakeet and WhisperX finalizer images. The fixture is 20
+seconds long; the silence case is one second. Both results persisted, playback
+and word timings matched the API, repeated inference preserved the first rows,
+and every selection/skip and tenant-denial assertion passed.
+
+Existing Tier 1 connectivity and Tier 2 real Nemotron FINAL smokes passed too.
+Both finalizers and the existing realtime/refinement services were running with
+zero restarts at the final check. No temporary Parakeet recording downloads
+remained, and all six configured published ports were bound to loopback.
+
+The ignored local override selects `xamurai-finalizer-worker:parakeet-spike` and
+preserves the original WhisperX group. The ignored `.env` appends the Parakeet
+overlay; ordinary local startup now advertises the additional final track.
+The new Parakeet image is `xamurai-parakeet-finalizer:local`. Public base image
+pins are unchanged; build the source images as above to reproduce this spike.
