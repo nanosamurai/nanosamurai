@@ -23,17 +23,19 @@ docker compose @files --profile validation build track-ui-audit
 docker compose @files --profile validation up -d --no-deps --no-build `
   samuraibff whisperx_worker recorder_worker ui-test-final ui-test-refined
 
-npm install --prefix .tmp/track-ui-tools --no-save playwright@1.62.1
-node .tmp/track-ui-tools/node_modules/playwright/cli.js install chromium
-$env:PLAYWRIGHT_MODULE = (Resolve-Path .tmp/track-ui-tools/node_modules/playwright).Path
-node smoke-tests/track-ui/smoke.cjs
+python -m venv .tmp/track-ui-python
+$smokePython = '.tmp/track-ui-python/Scripts/python.exe'
+& $smokePython -m pip install -r smoke-tests/track-ui/requirements.txt
+& $smokePython -m playwright install chromium
+& $smokePython smoke-tests/track-ui/smoke.py
 docker compose @files --profile validation run --rm --no-deps track-ui-audit
 ```
 
 The browser sends `tests/data/test_cs.wav` through real microphone capture.
 Default BFF URL is `http://127.0.0.1:8000`; `BFF_URL` can select another loopback
 URL. Screenshots and newly created session IDs stay in ignored `.tmp/track-ui/`.
-An existing Playwright installation can also supply `PLAYWRIGHT_MODULE`.
+Browser runners use Python Playwright; no npm install or system Node.js is needed.
+On Linux/macOS use `.tmp/track-ui-python/bin/python` for the same commands.
 
 The synthetic workers expose no ports and replace only inference in the real
 worker loops. Their `ui-shadow` ID avoids obsolete fixture messages addressed
@@ -55,7 +57,7 @@ Then recreate only BFF and check the previously saved session:
 
 ```powershell
 docker compose @files -f .tmp/track-ui/renamed-labels.yml up -d --no-deps --no-build samuraibff
-node smoke-tests/track-ui/smoke.cjs --verify-labels
+& $smokePython smoke-tests/track-ui/smoke.py --verify-labels
 ```
 
 After qualification, stop the test workers and restore ordinary configuration:
@@ -70,6 +72,15 @@ docker compose -p nanosamurai -f docker-compose.yml -f docker-compose.nemotron.y
 This keeps the rebuilt BFF image and original volumes while removing the test
 allowlist, labels and short idle timeouts. The mirror in Nanodeploy uses the
 same smoke sources; the qualification target remains Nanosamurai Compose.
+
+## Python browser runners (2026-09-16)
+
+The three browser runners now use Python, preserving the existing scenarios,
+flags, fixture audio and evidence format. Full track selection, playback,
+historical-label renaming, realtime speaker alignment and both Python audits
+passed against local Compose. Service-owned settings also passed at 800/3000 ms.
+The settings runner uses a Python event subscriber to wait for both ASR tracks
+to finish before starting another session; a fixed delay could race with draining.
 
 ## Qualification on 2026-09-14
 
@@ -114,7 +125,7 @@ With normal Compose configuration, Nemotron enabled, `NEMOTRON_DIARIZATION=true`
 and Playwright configured as above, run:
 
 ```powershell
-node smoke-tests/track-ui/realtime.cjs
+& $smokePython smoke-tests/track-ui/realtime.py
 ```
 
 This uses the real microphone fixture and Nemotron, checks the partial label

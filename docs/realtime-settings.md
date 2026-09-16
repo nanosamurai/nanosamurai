@@ -43,12 +43,19 @@ $files = @('-p', 'nanosamurai', '-f', 'docker-compose.yml',
 docker compose @files up -d --no-build samuraibff rtservice nemotron-rtservice `
   samuraipersistor whisperx_worker recorder_worker finalizer_worker
 docker compose @files --profile validation build realtime-settings-audit
-npm install --prefix .tmp/track-ui-tools --no-save playwright@1.62.1
-node .tmp/track-ui-tools/node_modules/playwright/cli.js install chromium
-$env:PLAYWRIGHT_MODULE = (Resolve-Path .tmp/track-ui-tools/node_modules/playwright).Path
-node smoke-tests/track-ui/settings.cjs
+python -m venv .tmp/track-ui-python
+$smokePython = '.tmp/track-ui-python/Scripts/python.exe'
+& $smokePython -m pip install -r smoke-tests/track-ui/requirements.txt
+& $smokePython -m playwright install chromium
+& $smokePython smoke-tests/track-ui/settings.py
 docker compose @files --profile validation run --rm --no-deps realtime-settings-audit
 ```
+
+The browser runner uses Python Playwright; no npm install or system Node.js is
+needed. On Linux/macOS use `.tmp/track-ui-python/bin/python` for the same commands.
+The Python runner and auditor were requalified on 2026-09-16. An independent
+Python event subscriber waits for both tracks to finish draining before the
+next session; the UI's shorter event-close timeout cannot guarantee that.
 
 The browser streams `tests/data/test_cs.wav` through real microphone capture into
 both ASR services. It checks deployment defaults, integer bounds, decimal rounding,

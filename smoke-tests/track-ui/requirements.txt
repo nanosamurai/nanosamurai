@@ -1,0 +1,2 @@
+playwright==1.62.0
+websockets==15.0.1
