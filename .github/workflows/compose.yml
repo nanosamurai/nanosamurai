@@ -34,7 +34,7 @@ jobs:
       - name: Validate shell and Python syntax
         run: |
           find . -type f -name '*.sh' -print0 | xargs -0 -r bash -n
-          python -m compileall -q utilities proto_gen
+          python -m compileall -q utilities proto_gen smoke-tests
 
       - name: Check smoke-test entry points
         run: |
