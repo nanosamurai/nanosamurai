@@ -27,6 +27,8 @@ For the source-built per-service realtime settings spike and its real Compose
 smoke test, see [service-owned realtime settings](docs/realtime-settings.md).
 The optional [Parakeet final track](docs/parakeet-finalizer.md) adds Parakeet TDT
 v3 with embedded Sortformer and a real two-model Compose smoke test.
+The same overlay also offers [Parakeet semi-batch refinement](docs/parakeet-refinement.md)
+with word timing and independently selectable refinement tracks.
 
 ## Demo - See it in action
 
@@ -137,7 +139,7 @@ The stack consists of:
   - `rtservice`, `qwen_rtservice` and `nemotron_rtservice`: realtime transcription.
   - `whisperx_worker`: one pipeline with refinement and finalizer entrypoints,
     built with `Dockerfile.refinement` and `Dockerfile.finalizer`.
-  - `parakeet_worker`: Parakeet finalization with embedded Sortformer.
+  - `parakeet_worker`: Parakeet refinement and finalization with embedded Sortformer.
   - `nemo_speech_native`: native bindings and a shared Docker base for Nemotron and Parakeet.
   - `recorder_worker`: session audio storage.
   - `xamurai_serving.finalization`: the shared Kafka and recording loop for finalizers.
@@ -229,10 +231,11 @@ for the full-stack BFF requirement and exact success checks.
 | `whisperx_refinement` | Asynchronous refinement | WhisperX `medium` by default with pyannote diarization | Refined speaker-aware transcript windows |
 | `whisperx_finalizer` | Completed recording | The shared WhisperX alignment and pyannote pipeline | Canonical full-session transcript |
 | `parakeet-finalizer` | Completed recording | Parakeet TDT 0.6B v3 with embedded Sortformer | Word timing and up to four anonymous speakers |
+| `parakeet-refinement` | Asynchronous refinement | The same Parakeet/Sortformer pipeline | Timed words and up to four anonymous speakers per window |
 | `recorder_worker` | Recording | No inference model | Session WAV and recording-completion event |
 
 Compose runs `whisperx_refinement` and `whisperx_finalizer` as separate services.
-The Parakeet overlay adds `parakeet-finalizer`. The shared native base is a build
+The Parakeet overlay adds `parakeet-finalizer` and `parakeet-refinement`. The shared native base is a build
 dependency with zero runtime replicas. Track IDs, consumer groups and cache
 volumes are unchanged.
 
