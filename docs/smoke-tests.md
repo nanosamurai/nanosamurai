@@ -60,3 +60,54 @@ long. A release note must state clearly if that signal is not validated.
 
 The test audio is synthetic repository data. Never add customer recordings,
 transcripts, tokens, or identifying metadata to test fixtures or public issues.
+
+## Native Nemotron VAD
+
+Build the adjacent Xamurai checkout and recreate the provider using the rebuilt
+image (include any existing local overrides in the same order as the running
+stack). An explicit image override must also point to the new tag:
+
+```powershell
+Set-Location ../xamurai
+docker buildx bake --load nemotron-rtservice
+Set-Location ../nanosamurai
+docker compose -f docker-compose.yml -f docker-compose.nemotron.yml `
+  up -d --no-deps nemotron-rtservice
+```
+
+The image runs Silero v6.2.0 natively with masking disabled; ASR receives all
+audio. `NEMOTRON_ENDPOINTING_SILENCE_MS` defaults to 2000 ms and the per-session
+setting still overrides it. The 30-second forced endpoint is unchanged.
+Wait for health, then run the internal probe as described in
+[getting started](getting-started.md#validate-nemotron-replicas).
+
+To verify a silence endpoint through BFF before EOF, send eight seconds of the
+synthetic fixture followed by five seconds of silence. `--silence-seconds`
+keeps the audio socket open while waiting for a final, so success cannot rely
+on closing the stream. The total input is below the 30-second forced endpoint:
+
+```powershell
+.\.venv-smoke\Scripts\python utilities/k8s_local_smoke_test/tier2_realtime_asr.py `
+  --base-url http://127.0.0.1:8000 --lang cs --stream-seconds 8 `
+  --silence-seconds 5 --require-final --realtime-only `
+  --realtime-tracks nemotron --require-tracks nemotron
+```
+
+With `NEMOTRON_DIARIZATION=true`, use `--stream-seconds 20` and add
+`--require-speaker-labels` for the complete fixture (25 seconds including
+silence, still below the hard endpoint).
+Also run ordinary Tier 2 with `--require-final --realtime-only
+--realtime-tracks faster-whisper,nemotron --require-tracks faster-whisper,nemotron`
+to cover EOF and both realtime tracks. Xamurai's
+`tests/test_nemotron_vad_integration.py` separately checks leading silence,
+repeated utterances and 800/2000/3000 ms native endpoint timing with and without
+Sortformer; its `docs/nemotron-vad.md` includes the container command.
+
+The 2026-09-17 local GPU run passed the native tests, two concurrent replicas,
+Tier 1, Tier 2 finals from both realtime tracks, the eight-second silence smoke,
+and the full-fixture speaker-labelled silence smoke with the rebuilt
+`xamurai-nemotron-rtservice:native-vad` image. Local image overrides stay ignored.
+Short 8/12-second excerpts can return a speakerless final because native word
+metadata does not fully match the final text; requiring speaker labels on those
+excerpts failed. The existing fallback preserves the text. This boundary-quality
+limitation is documented in Xamurai's VAD guide and remains outside this spike.
