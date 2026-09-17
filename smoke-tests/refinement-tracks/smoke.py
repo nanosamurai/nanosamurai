@@ -192,7 +192,10 @@ def parakeet(speech):
         selected_rows = rows(selected)
         assert len(selected_rows) == count and {r['track_id'] for r in selected_rows} == expected
         if not any(pcm):
-            assert all(not r['full_text'].strip() and not r['segments'] for r in selected_rows)
+            # Persistor retains a blank scalar-fallback segment for an empty window.
+            assert all(not r['full_text'].strip() and
+                       all(not s['text'].strip() and not s.get('words') for s in r['segments'])
+                       for r in selected_rows)
     foreign, foreign_session = uuid.uuid4(), uuid.uuid4()
     f.DB.execute("INSERT INTO tenants(id,name) VALUES (%s,'Parakeet refinement smoke tenant')", (foreign,))
     f.DB.execute('INSERT INTO sessions(id,tenant_id,session_key) VALUES (%s,%s,%s)',
