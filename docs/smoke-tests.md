@@ -77,14 +77,16 @@ docker compose -f docker-compose.yml -f docker-compose.nemotron.yml `
 
 The image runs Silero v6.2.0 natively with masking disabled; ASR receives all
 audio. `NEMOTRON_ENDPOINTING_SILENCE_MS` defaults to 2000 ms and the per-session
-setting still overrides it. The 30-second forced endpoint is unchanged.
+setting still overrides it. After 90 seconds, the silence interval shortens to
+700 ms (unless already shorter); 120 seconds is the emergency limit. See
+[instance configuration](realtime-settings.md) for the three environment variables.
 Wait for health, then run the internal probe as described in
 [getting started](getting-started.md#validate-nemotron-replicas).
 
 To verify a silence endpoint through BFF before EOF, send eight seconds of the
 synthetic fixture followed by five seconds of silence. `--silence-seconds`
 keeps the audio socket open while waiting for a final, so success cannot rely
-on closing the stream. The total input is below the 30-second forced endpoint:
+on closing the stream. The total input is below the emergency endpoint:
 
 ```powershell
 .\.venv-smoke\Scripts\python utilities/k8s_local_smoke_test/tier2_realtime_asr.py `
@@ -101,7 +103,8 @@ Also run ordinary Tier 2 with `--require-final --realtime-only
 to cover EOF and both realtime tracks. Xamurai's
 `tests/test_nemotron_vad_integration.py` separately checks leading silence,
 repeated utterances and 800/2000/3000 ms native endpoint timing with and without
-Sortformer; its `docs/nemotron-vad.md` includes the container command.
+Sortformer, plus the 90/120-second duration policy and a shorter configured
+override; its `docs/nemotron-vad.md` includes the container command.
 
 The 2026-09-17 local GPU run passed the native tests, two concurrent replicas,
 Tier 1, Tier 2 finals from both realtime tracks, the eight-second silence smoke,
@@ -111,3 +114,13 @@ Short 8/12-second excerpts can return a speakerless final because native word
 metadata does not fully match the final text; requiring speaker labels on those
 excerpts failed. The existing fallback preserves the text. This boundary-quality
 limitation is documented in Xamurai's VAD guide and remains outside this spike.
+
+The duration-policy follow-up rebuilt and ran
+`xamurai-nemotron-rtservice:duration-endpointing` in the same local Compose stack.
+Tier 1, EOF finals from both realtime tracks, and the 20-second speaker-labelled
+silence smoke passed. A separate
+99-second BFF stream used eleven repetitions of fixture seconds 3–11 followed
+by one second of silence, with a 3000 ms session timeout. It produced no finals
+through 90 seconds, then a final at audio position 92.18 seconds before EOF.
+The native GPU suite also passed the emergency-limit test (120.66 seconds),
+shorter configured limits, and resetting the policy after an endpoint.
