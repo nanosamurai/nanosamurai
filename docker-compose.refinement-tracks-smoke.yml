@@ -24,7 +24,10 @@ services:
 
   refinement-tracks-smoke:
     profiles: [validation]
-    build: ./smoke-tests/refinement-tracks
+    build:
+      context: ./smoke-tests/refinement-tracks
+      additional_contexts:
+        whisperx-worker: service:whisperx_refinement
     environment:
       BFF_URL: http://samuraibff:8000
       KAFKA_BOOTSTRAP: broker:29092

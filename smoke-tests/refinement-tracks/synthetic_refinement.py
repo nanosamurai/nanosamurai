@@ -3,7 +3,7 @@ import os
 import time
 from pathlib import Path
 
-from whisperx_worker import refinement as worker
+from xamurai_serving import refinement as worker
 
 
 def infer(path, **_kwargs):
@@ -18,9 +18,8 @@ def infer(path, **_kwargs):
         raise RuntimeError("Test-only inference failure")
     pcm, sr = worker.sf.read(path)
     duration = len(pcm) / sr
-    return "synthetic test only", [(0.0, min(duration, 0.5), "synthetic test only", "")]
+    return "synthetic test only", [dict(start_s=0.0, end_s=min(duration, 0.5),
+                                       text="synthetic test only", speaker="")]
 
 
-worker.pipeline._init_whisperx = lambda: None
-worker.pipeline.run_whisperx_diarized = infer
-worker.main()
+worker.main(infer, model="synthetic-test-only")

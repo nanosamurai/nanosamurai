@@ -1,4 +1,4 @@
-FROM xamurai-whisperx-worker:lean-tracks
+FROM whisperx-worker
 USER root
 RUN pip install --no-cache-dir "psycopg[binary]==3.2.10" websockets==15.0.1
 USER 10001

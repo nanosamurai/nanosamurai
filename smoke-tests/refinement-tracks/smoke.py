@@ -108,6 +108,105 @@ def normal_session(speech):
     print('PASS ordinary session realtime output and shared recording playback', flush=True)
 
 
+def parakeet(speech):
+    """Real Parakeet and WhisperX windows through live BFF, Kafka, persistence and HTTP."""
+    groups = ['refinement.parakeet', os.getenv('WHISPERX_REFINEMENT_GROUP', 'whisperx-async')]
+    session = f.new_session()
+    live = []
+    with connect(f.BFF.replace('http', 'ws', 1) + '/ws/events?' + urlencode({'session_id': session})) as events:
+        with audio_socket(session, 'parakeet,whisperx') as ws:
+            send(ws, speech)
+            # Keep ingress open: full windows must arrive before session completion.
+            deadline = time.monotonic() + 900
+            while time.monotonic() < deadline:
+                f.pump()
+                try:
+                    event = json.loads(events.recv(timeout=.1))
+                    if event.get('type') == 'refined':
+                        live.append(event)
+                except TimeoutError:
+                    pass
+                if len(rows(session)) == 6 and len({(e['track_id'], e['slice_index']) for e in live}) == 6:
+                    break
+            else:
+                raise AssertionError('Both real refinement tracks must arrive live')
+    assert {e['track_id'] for e in live} == {'parakeet', 'whisperx'}
+    saved = rows(session)
+    for track in ['parakeet', 'whisperx']:
+        track_rows = [r for r in saved if r['track_id'] == track]
+        assert [(r['segment_start_s'], r['segment_end_s']) for r in track_rows] == [(0, 10), (10, 20), (20, 23.125)]
+        assert all(r['window_length'] == 10 and r['full_text'].strip() for r in track_rows)
+        assert all(r['model'] == ('nvidia/parakeet-tdt-0.6b-v3' if track == 'parakeet' else 'medium') for r in track_rows)
+        status, history, _ = f.http(f'/api/recordings/{session}?track_id={track}')
+        assert status == 200 and len(history['transcripts']['refined']) == 3
+        assert [(r['full_text'], r['segments']) for r in history['transcripts']['refined']] == [
+            (r['full_text'], r['segments']) for r in track_rows]
+        for row in track_rows:
+            if track == 'parakeet':
+                words = [w for segment in row['segments'] for w in segment.get('words', [])]
+                assert words and any(s['speaker'].startswith('SPEAKER_') for s in row['segments'])
+                assert all(row['segment_start_s'] <= w['start_s'] <= w['end_s'] <= row['segment_end_s']
+                           for w in words)
+                assert ''.join(row['full_text'].split()) == ''.join(w['text'].replace(' ', '') for w in words)
+    assert any(e.get('speaker', '').startswith('SPEAKER_') for e in live if e['track_id'] == 'parakeet')
+    assert all(e['window_start_s'] <= e['start_s'] <= e['end_s'] <= e['window_end_s'] + .1 for e in live)
+    f.wait_for(lambda: len(observed(session)) == 6, 'both real tracks observed on Kafka')
+    assert all(ev.refinement_model == ('nvidia/parakeet-tdt-0.6b-v3' if ev.track_id == 'parakeet' else 'medium')
+               and msg.key() == session.encode() for ev, msg in observed(session))
+    assert dict(f.EVENTS[(session, 'audio.raw')][0][1].headers())['x-refinement-tracks'] == b'parakeet,whisperx'
+    print('PASS real live tracks, exact windows/tail, session-relative words and filtered history', flush=True)
+
+    # Replaying the retained input exercises real inference plus persistence deduplication.
+    audio = list(f.EVENTS[(session, 'audio.raw')])
+    for group in groups:
+        f.wait_for(lambda: f.committed(group, audio[-1][1]), 'original session audio committed', 900)
+    for _, msg in audio:
+        f.replay(msg)
+    f.wait_for(lambda: len(observed(session)) >= 12, 'real refinement replayed', 900)
+    f.wait_for(lambda: f.committed('samuraipersistor-refined', observed(session)[-1][1]), 'Persistor consumed replay')
+    assert rows(session) == saved
+    # Contradictory replay must also retain the first result.
+    event, msg = observed(session)[0]
+    event.text = 'Replay must not replace the first result'
+    f.replay(msg, event.SerializeToString())
+    f.wait_for(lambda: len(observed(session)) >= 13, 'conflicting replay observed')
+    f.wait_for(lambda: f.committed('samuraipersistor-refined', observed(session)[-1][1]), 'conflicting replay consumed')
+    assert rows(session) == saved
+
+    for tracks, pcm, enabled in [('parakeet', speech[:12 * 32000], True),
+                                  ('whisperx', speech[:12 * 32000], True),
+                                  (None, bytes(32000), True),
+                                  ('parakeet,whisperx', bytes(32000), True),
+                                  ('parakeet', bytes(32000), False)]:
+        selected = f.new_session()
+        expected = set((tracks or 'whisperx').split(',')) if enabled else set()
+        with audio_socket(selected, tracks, refined=enabled) as ws:
+            send(ws, pcm)
+        count = (2 if len(pcm) > 10 * 32000 else 1) * len(expected)
+        f.wait_for(lambda: len(rows(selected)) == count, 'selected refinement completed', 900)
+        f.wait_for(lambda: sum(len(ev.pcm16_le) for ev, _ in f.EVENTS.get((selected, 'audio.raw'), [])) == len(pcm),
+                   'all selection audio observed')
+        last = f.EVENTS[(selected, 'audio.raw')][-1][1]
+        for group in groups:
+            f.wait_for(lambda: f.committed(group, last), 'selected or skipped input committed', 900)
+        selected_rows = rows(selected)
+        assert len(selected_rows) == count and {r['track_id'] for r in selected_rows} == expected
+        if not any(pcm):
+            assert all(not r['full_text'].strip() and not r['segments'] for r in selected_rows)
+    foreign, foreign_session = uuid.uuid4(), uuid.uuid4()
+    f.DB.execute("INSERT INTO tenants(id,name) VALUES (%s,'Parakeet refinement smoke tenant')", (foreign,))
+    f.DB.execute('INSERT INTO sessions(id,tenant_id,session_key) VALUES (%s,%s,%s)',
+                 (foreign_session, foreign, str(foreign_session)))
+    assert f.http(f'/api/recordings/{foreign_session}?track_id=parakeet')[0] == 404
+    try:
+        with audio_socket(str(foreign_session), 'parakeet'):
+            raise AssertionError('Foreign tenant accepted audio')
+    except InvalidStatus as error:
+        assert error.response.status_code == 403
+    print('PASS replay, selection, defaults, silence, disabled refinement and tenant denial', flush=True)
+    print('PARAKEET REFINEMENT COMPOSE SMOKE PASSED', flush=True)
+
+
 def main():
     f.CONSUMER.subscribe(list(f.TOPICS))
     f.wait_for(lambda: {p.topic for p in f.CONSUMER.assignment()} == set(f.TOPICS), 'Kafka observer ready', 40)
@@ -117,6 +216,10 @@ def main():
         fixture = wav.readframes(wav.getnframes())
     size = round(23.125 * 32000)
     speech = (fixture * (size // len(fixture) + 1))[:size]
+
+    if '--parakeet' in sys.argv:
+        parakeet(speech)
+        return
 
     if '--normal-only' in sys.argv:
         normal_session(speech)
