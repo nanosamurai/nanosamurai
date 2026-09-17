@@ -7,6 +7,12 @@ event per window, and uses the same Parakeet/Sortformer pipeline as finalization
 Both model processes share the immutable artifact cache, but load their own
 weights. WhisperX remains the default when no refinement track is selected.
 
+Budget memory for every running model process, including unused services from
+older Compose overlays. During local qualification, two unconfigured Qwen
+containers plus the active stack exhausted a 16 GiB Docker VM and its 4 GiB
+swap. Stopping those unused containers restored headroom without restarting
+the database. Run these smoke suites sequentially on that configuration.
+
 Parakeet returns word timing and up to four anonymous speakers per window.
 Speaker labels restart with each window: matching labels across windows do not
 establish speaker identity. There is no enrolled-speaker mapping for this track.
@@ -76,3 +82,19 @@ worker runs unprivileged, removes temporary windows after inference, and
 requires no model token. The existing local stack has development credentials
 and must remain localhost-only. GPU/memory capacity and cross-window speaker
 matching are not established by these short-fixture tests.
+
+Validated on 2026-09-17 with rebuilt local Parakeet and WhisperX images on the
+original Compose project: the complete real refinement probe and existing
+two-model finalizer probe passed. The latter also verified shared WAV playback
+and range requests. Xamurai's 122 lightweight checks and two real native
+integration tests passed. `/api/me` advertises labelled Parakeet tracks in both
+stages while retaining WhisperX as the default. Silent refined windows may be
+stored as a blank scalar-fallback segment by Persistor; no speech or words are
+invented. No schema changes, offset resets or volume replacement were needed.
+The general refinement recovery suite also passed owner loss, interleaved
+reconstruction, replicas, queue backpressure, independent failure/restart,
+database retry and tenant rejection. Its temporary settings were restored
+afterward; the Parakeet allowlist and normal idle timeout remain active.
+An ordinary realtime/refined/final session with recording/range playback passed
+again after restoration. All four worker image IDs match their rebuilt tags,
+and no smoke processes or injected database faults remain.
