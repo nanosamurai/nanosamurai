@@ -78,7 +78,7 @@ docker compose -f docker-compose.yml -f docker-compose.nemotron.yml `
 The image runs Silero v6.2.0 natively with masking disabled; ASR receives all
 audio. `NEMOTRON_ENDPOINTING_SILENCE_MS` defaults to 2000 ms and the per-session
 setting still overrides it. After 90 seconds, the silence interval shortens to
-700 ms (unless already shorter); 120 seconds is the emergency limit. See
+500 ms (unless already shorter); 120 seconds is the emergency limit. See
 [instance configuration](realtime-settings.md) for the three environment variables.
 Wait for health, then run the internal probe as described in
 [getting started](getting-started.md#validate-nemotron-replicas).
@@ -115,7 +115,7 @@ metadata does not fully match the final text; requiring speaker labels on those
 excerpts failed. The existing fallback preserves the text. This boundary-quality
 limitation is documented in Xamurai's VAD guide and remains outside this spike.
 
-The duration-policy follow-up rebuilt and ran
+The initial duration-policy follow-up, using 700 ms soft silence, rebuilt and ran
 `xamurai-nemotron-rtservice:duration-endpointing` in the same local Compose stack.
 Tier 1, EOF finals from both realtime tracks, and the 20-second speaker-labelled
 silence smoke passed. A separate
@@ -124,3 +124,7 @@ by one second of silence, with a 3000 ms session timeout. It produced no finals
 through 90 seconds, then a final at audio position 92.18 seconds before EOF.
 The native GPU suite also passed the emergency-limit test (120.66 seconds),
 shorter configured limits, and resetting the policy after an endpoint.
+
+After lowering the soft-silence default to 500 ms, the rebuilt image was
+recreated in local Compose, verified healthy with that environment value, and
+passed the 20-second speaker-labelled BFF silence smoke again.

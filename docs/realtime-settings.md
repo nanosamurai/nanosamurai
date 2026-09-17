@@ -16,11 +16,11 @@ to reach ASR. The duration policy is configured only at instance startup:
 | Environment variable | Default | Valid integers |
 | --- | --- | --- |
 | `NEMOTRON_ENDPOINTING_SOFT_AFTER_SECONDS` | `90` | `1` through maximum minus one |
-| `NEMOTRON_ENDPOINTING_SOFT_SILENCE_MS` | `700` | `1`–`30000` |
+| `NEMOTRON_ENDPOINTING_SOFT_SILENCE_MS` | `500` | `1`–`30000` |
 | `NEMOTRON_MAX_UTTERANCE_SECONDS` | `120` | `2`–`3600` |
 
 Before 90 seconds of detected speech and intervening pauses, the normal session
-silence interval applies. Thereafter the smaller of that interval and 700 ms
+silence interval applies. Thereafter the smaller of that interval and 500 ms
 applies. At 120 seconds, an emergency endpoint can still cut speech. Leading
 silence does not spend the duration budget; an endpoint resets it. Native chunk
 timing and lookahead add some latency. Recreate the provider after changing

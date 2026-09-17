@@ -173,7 +173,7 @@ service and probe publish no host ports.
 The native VAD image uses Silero v6.2.0 for silence endpointing, keeping all
 audio in the ASR stream. The deployment silence default remains 2000 ms via
 `NEMOTRON_ENDPOINTING_SILENCE_MS`, with per-session overrides. After 90 seconds,
-Nemotron accepts a 700 ms pause, with an emergency endpoint at 120 seconds.
+Nemotron accepts a 500 ms pause, with an emergency endpoint at 120 seconds.
 The instance environment variables are listed in
 [realtime settings](realtime-settings.md). See [the VAD smoke](smoke-tests.md#native-nemotron-vad)
 to verify finals before closing the audio WebSocket.
