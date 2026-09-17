@@ -1,5 +1,14 @@
 # Optional real final track. Use after the base and any local image overrides.
 services:
+  nemo-speech-native:
+    # Build dependency only; no runtime container.
+    deploy:
+      replicas: 0
+    image: xamurai-nemo-speech-native:local
+    build:
+      context: ${XAMURAI_SOURCE:-../xamurai}
+      dockerfile: nemo_speech_native/Dockerfile
+
   samuraibff:
     environment:
       SAMURAIBFF_FINAL_TRACKS: whisperx,parakeet
@@ -9,8 +18,9 @@ services:
     image: ${PARAKEET_FINALIZER_IMAGE:-xamurai-parakeet-finalizer:local}
     build:
       context: ${XAMURAI_SOURCE:-../xamurai}
-      dockerfile: nemotron_rtservice/Dockerfile
-      target: parakeet-finalizer
+      dockerfile: parakeet_worker/Dockerfile.finalizer
+      additional_contexts:
+        nemo-speech-native: service:nemo-speech-native
     restart: unless-stopped
     environment:
       FINALIZER_TRACK_ID: parakeet

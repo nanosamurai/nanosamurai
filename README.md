@@ -77,9 +77,10 @@ flowchart LR
         RTService["rtservice\n(Faster-Whisper + pyannote)"]
         QwenRT["qwen-rtservice\n(Qwen3-ASR + ForcedAligner + pyannote)"]
         NemotronRT["nemotron-rtservice\n(Nemotron streaming + NeMo-Speech.cpp)"]
-        WhisperXWorker["whisperx_worker\n(WhisperX + pyannote refinement)"]
+        WhisperXWorker["whisperx_refinement\n(WhisperX + pyannote refinement)"]
         RecorderWorker["recorder_worker\n(session WAV)"]
-        FinalizerWorker["finalizer_worker\n(WhisperX + pyannote final transcript)"]
+        FinalizerWorker["whisperx_finalizer\n(WhisperX + pyannote final transcript)"]
+        ParakeetFinalizer["parakeet-finalizer\n(Parakeet + Sortformer final transcript)"]
     end
 
     Browser -->|HTTP /api + /auth| HTTP
@@ -115,6 +116,8 @@ flowchart LR
 
     KafkaBroker -->|"consume\ntopic: recordings.finished"| FinalizerWorker
     FinalizerWorker -->|"produce protobuf SessionTranscript\ntopic: transcripts.final"| KafkaBroker
+    KafkaBroker -->|"recordings.finished"| ParakeetFinalizer
+    ParakeetFinalizer -->|"transcripts.final"| KafkaBroker
 
     RecorderWorker -->|"write session WAV"| ObjectStore
     FinalizerWorker -->|"read recording and speaker enrollments"| ObjectStore
@@ -130,11 +133,14 @@ flowchart LR
 
 The stack consists of:
 
-- [xamurai](https://github.com/nanosamurai/xamurai) — this is a monorepo with all speech-to-text (STT) services, namely:
-  - real time STT (rtservice)
-  - semi-realtime STT (whisperx_worker)
-  - batch STT (finalizer_worker)
-  - recording service (recorder_worker)
+- [xamurai](https://github.com/nanosamurai/xamurai) contains the speech services:
+  - `rtservice`, `qwen_rtservice` and `nemotron_rtservice`: realtime transcription.
+  - `whisperx_worker`: one pipeline with refinement and finalizer entrypoints,
+    built with `Dockerfile.refinement` and `Dockerfile.finalizer`.
+  - `parakeet_worker`: Parakeet finalization with embedded Sortformer.
+  - `nemo_speech_native`: native bindings and a shared Docker base for Nemotron and Parakeet.
+  - `recorder_worker`: session audio storage.
+  - `xamurai_serving.finalization`: the shared Kafka and recording loop for finalizers.
 - [samuraibff](https://github.com/nanosamurai/samuraibff) — HTTP/WebSocket API,
   browser UI, authentication, and orchestration
 - [samuraipersistor](https://github.com/nanosamurai/samuraipersistor) —
@@ -201,8 +207,8 @@ pins stay unchanged. Build a compatible Xamurai image, then use the opt-in
 override and its non-transcript-printing probe:
 
 ```bash
-docker build -f ../xamurai/nemotron_rtservice/Dockerfile \
-  -t xamurai-nemotron-rtservice:local ../xamurai
+docker compose -f docker-compose.yml -f docker-compose.nemotron.yml \
+  build nemotron-rtservice
 docker compose -f docker-compose.yml -f docker-compose.nemotron.yml \
   up -d --no-deps nemotron-rtservice
 docker compose --profile nemotron-validation \
@@ -220,9 +226,15 @@ for the full-stack BFF requirement and exact success checks.
 | `rtservice` | Realtime | `Systran/faster-whisper-medium` with `pyannote/speaker-diarization-3.1`; optional Silero VAD and enrolled-speaker mapping | Replaceable partials and timed, speaker-labelled finals |
 | `qwen-rtservice` | Realtime | `Qwen/Qwen3-ASR-0.6B`, `Qwen/Qwen3-ForcedAligner-0.6B`, and `pyannote/speaker-diarization-3.1` | Native-streaming partials and aligned, speaker-labelled epoch finals where alignment is supported; speakerless fallback otherwise |
 | `nemotron-rtservice` | Realtime | `nvidia/nemotron-3.5-asr-streaming-0.6b` Q8 GGUF through NeMo-Speech.cpp | Native partials/finals; optional Sortformer speaker turns and S3 enrolled names |
-| `whisperx_worker` | Asynchronous refinement | WhisperX `medium` by default, language-specific alignment, and pyannote diarization | Refined speaker-aware transcript windows |
-| `finalizer_worker` | Completed recording | The shared WhisperX alignment and pyannote pipeline | Canonical full-session transcript |
+| `whisperx_refinement` | Asynchronous refinement | WhisperX `medium` by default with pyannote diarization | Refined speaker-aware transcript windows |
+| `whisperx_finalizer` | Completed recording | The shared WhisperX alignment and pyannote pipeline | Canonical full-session transcript |
+| `parakeet-finalizer` | Completed recording | Parakeet TDT 0.6B v3 with embedded Sortformer | Word timing and up to four anonymous speakers |
 | `recorder_worker` | Recording | No inference model | Session WAV and recording-completion event |
+
+Compose runs `whisperx_refinement` and `whisperx_finalizer` as separate services.
+The Parakeet overlay adds `parakeet-finalizer`. The shared native base is a build
+dependency with zero runtime replicas. Track IDs, consumer groups and cache
+volumes are unchanged.
 
 These are the profiles supplied by the project, not model IDs accepted from an
 untrusted client. Xamurai owns the detailed service contract and implementation;

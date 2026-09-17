@@ -9,7 +9,7 @@ services:
       SAMURAIBFF_TRACK_LABELS: '{"final":{"whisperx":"WhisperX","ui-shadow":"Test-only text","ui-unavailable":"Unavailable test"},"refined":{"whisperx":"WhisperX","ui-shadow":"Test-only windows","ui-unavailable":"Unavailable test"}}'
       SAMURAIBFF_CE_MODE: "true"
 
-  whisperx_worker:
+  whisperx_refinement:
     environment:
       WHISPERX_IDLE_SECONDS: "3"
 

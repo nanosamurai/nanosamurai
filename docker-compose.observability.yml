@@ -47,7 +47,7 @@ services:
       otel_collector:
         condition: service_started
 
-  whisperx_worker:
+  whisperx_refinement:
     environment:
       <<: *python-otel-environment
       OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME_WHISPERX_WORKER:-whisperx-worker}
@@ -63,7 +63,7 @@ services:
       otel_collector:
         condition: service_started
 
-  finalizer_worker:
+  whisperx_finalizer:
     environment:
       <<: *python-otel-environment
       OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME_FINALIZER_WORKER:-finalizer-worker}

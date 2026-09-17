@@ -93,9 +93,11 @@ def new_session():
     return body["session_id"]
 
 
-def stream(session, pcm, tracks=None, retained=True):
+def stream(session, pcm, tracks=None, retained=True, *, refined=False):
     params = {"session_id": session, "sample_rate": 16000, "lang": "cs", "realtime": "false",
-              "refined": "false", "final": "true", "store_recording": str(retained).lower()}
+              "refined": str(refined).lower(), "final": "true", "store_recording": str(retained).lower()}
+    if refined:
+        params.update(refinement_tracks="whisperx", refinement_window_sec=10)
     if tracks is not None:
         params["final_tracks"] = tracks
     with connect(BFF.replace("http", "ws", 1) + "/ws/audio?" + urlencode(params), open_timeout=15) as ws:

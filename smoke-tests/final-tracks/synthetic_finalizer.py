@@ -3,7 +3,7 @@ import os
 import wave
 from pathlib import Path
 
-from finalizer_worker import finalizer_worker as worker
+from xamurai_serving import finalization as worker
 
 
 def transcribe(path, **_kwargs):
@@ -16,4 +16,4 @@ def transcribe(path, **_kwargs):
     return ("" if silence else "Synthetic test-only transcript"), []
 
 
-worker.main(transcribe)
+worker.main(transcribe, model=os.getenv("WHISPERX_MODEL", "synthetic-test-only"))

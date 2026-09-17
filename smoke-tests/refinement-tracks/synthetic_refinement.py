@@ -3,7 +3,7 @@ import os
 import time
 from pathlib import Path
 
-from whisperx_worker import whisperx_worker as worker
+from whisperx_worker import refinement as worker
 
 
 def infer(path, **_kwargs):
@@ -21,6 +21,6 @@ def infer(path, **_kwargs):
     return "synthetic test only", [(0.0, min(duration, 0.5), "synthetic test only", "")]
 
 
-worker._init_whisperx = lambda: None
-worker.run_whisperx_diarized = infer
+worker.pipeline._init_whisperx = lambda: None
+worker.pipeline.run_whisperx_diarized = infer
 worker.main()

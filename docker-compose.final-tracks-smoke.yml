@@ -15,16 +15,20 @@ services:
       SAMURAIPERSISTOR_CE_MODE: "true"
 
   recorder_worker:
-    image: xamurai-finalizer-worker:lean-tracks
-    command: [python, -m, recorder_worker.recorder_worker]
+    image: xamurai-recorder-worker:lean-tracks
+    build:
+      context: ${XAMURAI_SOURCE:-../xamurai}
+      dockerfile: recorder_worker/Dockerfile
     environment:
       RECORDER_IDLE_SECONDS: "2"
 
-  finalizer_worker:
+  whisperx_finalizer:
     image: xamurai-finalizer-worker:lean-tracks
     build:
       context: ${XAMURAI_SOURCE:-../xamurai}
-      dockerfile: finalizer_worker/Dockerfile
+      dockerfile: whisperx_worker/Dockerfile.finalizer
+      additional_contexts:
+        whisperx-worker: service:whisperx_refinement
     environment:
       FINALIZER_TRACK_ID: whisperx
       KAFKA_GROUP_ID_FINALIZER: finalizer.whisperx

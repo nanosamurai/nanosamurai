@@ -34,9 +34,10 @@ flowchart LR
     subgraph Xamurai["Xamurai (Python services)"]
         RTService["rtservice\n(Faster-Whisper + pyannote)"]
         QwenRT["qwen-rtservice\n(Qwen3-ASR + ForcedAligner + pyannote)"]
-        WhisperXWorker["whisperx_worker\n(WhisperX + pyannote refinement)"]
+        WhisperXWorker["whisperx_refinement\n(WhisperX + pyannote refinement)"]
         RecorderWorker["recorder_worker\n(session WAV)"]
-        FinalizerWorker["finalizer_worker\n(WhisperX + pyannote final transcript)"]
+        FinalizerWorker["whisperx_finalizer\n(WhisperX + pyannote final transcript)"]
+        ParakeetFinalizer["parakeet-finalizer\n(Parakeet + Sortformer final transcript)"]
     end
 
     Browser -->|HTTP /api + /auth| HTTP
@@ -71,6 +72,8 @@ flowchart LR
 
     KafkaBroker -->|"consume\ntopic: recordings.finished"| FinalizerWorker
     FinalizerWorker -->|"produce protobuf SessionTranscript\ntopic: transcripts.final"| KafkaBroker
+    KafkaBroker -->|"recordings.finished"| ParakeetFinalizer
+    ParakeetFinalizer -->|"transcripts.final"| KafkaBroker
 
     RecorderWorker -->|"write session WAV"| ObjectStore
     FinalizerWorker -->|"read recording and speaker enrollments"| ObjectStore

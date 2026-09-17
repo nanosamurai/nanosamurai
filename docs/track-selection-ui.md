@@ -21,7 +21,7 @@ $files = @('-p', 'nanosamurai',
 docker compose @files build samuraibff
 docker compose @files --profile validation build track-ui-audit
 docker compose @files --profile validation up -d --no-deps --no-build `
-  samuraibff whisperx_worker recorder_worker ui-test-final ui-test-refined
+  samuraibff whisperx_refinement recorder_worker ui-test-final ui-test-refined
 
 python -m venv .tmp/track-ui-python
 $smokePython = '.tmp/track-ui-python/Scripts/python.exe'
@@ -66,7 +66,7 @@ After qualification, stop the test workers and restore ordinary configuration:
 docker compose @files --profile validation stop ui-test-final ui-test-refined
 docker compose -p nanosamurai -f docker-compose.yml -f docker-compose.nemotron.yml `
   -f docker-compose.local-asr.yml up -d --no-deps --no-build `
-  samuraibff whisperx_worker recorder_worker
+  samuraibff whisperx_refinement recorder_worker
 ```
 
 This keeps the rebuilt BFF image and original volumes while removing the test

@@ -61,7 +61,7 @@ complete evaluator stack:
 docker compose pull
 docker compose up -d
 docker compose ps --all
-docker compose logs --tail=100 rtservice whisperx_worker recorder_worker finalizer_worker
+docker compose logs --tail=100 rtservice whisperx_refinement recorder_worker whisperx_finalizer
 ```
 
 Wait for model initialization to finish before treating an early timeout as a
@@ -174,8 +174,7 @@ Build the image from the adjacent Xamurai checkout:
 
 ```powershell
 Set-Location ../xamurai
-docker build -f nemotron_rtservice/Dockerfile `
-  -t xamurai-nemotron-rtservice:local .
+docker buildx bake --load nemotron-rtservice
 Set-Location ../nanosamurai
 ```
 

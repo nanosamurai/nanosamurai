@@ -13,11 +13,11 @@ services:
     environment:
       SAMURAIPERSISTOR_CE_MODE: "true"
 
-  whisperx_worker:
+  whisperx_refinement:
     image: xamurai-whisperx-worker:lean-tracks
     build:
       context: ${XAMURAI_SOURCE:-../xamurai}
-      dockerfile: whisperx_worker/Dockerfile
+      dockerfile: whisperx_worker/Dockerfile.refinement
     environment:
       REFINEMENT_TRACK_ID: whisperx
       WHISPERX_IDLE_SECONDS: "3"

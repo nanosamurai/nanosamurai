@@ -23,12 +23,18 @@ def main():
         raise AssertionError("Non-retained multi-track audio was accepted")
     except InvalidStatus as error:
         assert error.response.status_code == 400
-    s.stream(session, speech, "parakeet,whisperx")
+    s.stream(session, speech, "parakeet,whisperx", refined=True)
     s.wait_for(lambda: len(s.rows(session)) == 2, "both real final tracks persisted", 900)
     saved = s.rows(session)
     assert {r["track_id"] for r in saved} == {"whisperx", "parakeet"}
     assert len({r["recording_id"] for r in saved}) == 1
     assert all(r["full_text"].strip() for r in saved)
+    s.wait_for(lambda: s.DB.execute("SELECT count(*) AS n FROM session_transcripts "
+               "WHERE session_id=%s AND type='refined' AND track_id='whisperx'",
+               (session,)).fetchone()["n"] == 2, "both WhisperX refinement windows persisted", 900)
+    refined = s.DB.execute("SELECT full_text,segments FROM session_transcripts "
+                          "WHERE session_id=%s AND type='refined'", (session,)).fetchall()
+    assert all(row["full_text"].strip() and row["segments"] for row in refined)
     parakeet = next(r for r in saved if r["track_id"] == "parakeet")
     assert parakeet["model"] == "nvidia/parakeet-tdt-0.6b-v3"
     words = [w for segment in parakeet["segments"] for w in segment.get("words", [])]
