@@ -29,15 +29,15 @@ must already be running. No separate Compose project or database is needed.
 $smokeFiles = @('-p', 'nanosamurai',
   '-f', 'docker-compose.yml', '-f', 'docker-compose.nemotron.yml',
   '-f', 'docker-compose.final-tracks-smoke.yml', '-f', 'docker-compose.local-asr.yml')
-docker compose @smokeFiles build samuraibff samuraipersistor finalizer_worker final-tracks-smoke
+docker compose @smokeFiles build samuraibff samuraipersistor recorder_worker whisperx_finalizer final-tracks-smoke
 docker compose @smokeFiles --profile validation run --rm --no-deps --entrypoint python final-tracks-smoke /probe/migration.py
 docker compose @smokeFiles run --rm --no-deps db_migrate
-docker compose @smokeFiles up -d --no-deps --no-build samuraibff samuraipersistor recorder_worker finalizer_worker test-shadow test-unselected
+docker compose @smokeFiles up -d --no-deps --no-build samuraibff samuraipersistor recorder_worker whisperx_finalizer test-shadow test-unselected
 docker compose @smokeFiles --profile validation run --rm --no-deps final-tracks-smoke
 ```
 
-The generic smoke overlay can reuse the finalizer image for the recorder. This
-checkout's local override selects its separately built recorder image instead.
+The recorder uses its own image. The WhisperX finalizer image contains only
+the shared pipeline and worker code it needs.
 The synthetic workers run the production finalizer
 loop with only inference replaced by the mounted test function. No production
 worker has a synthetic inference mode. Test services expose no host ports.

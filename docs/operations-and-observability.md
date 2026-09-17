@@ -152,9 +152,9 @@ For a speech worker:
 
 ```bash
 docker compose logs --tail=200 rtservice
-docker compose logs --tail=200 whisperx_worker
+docker compose logs --tail=200 whisperx_refinement
 docker compose logs --tail=200 recorder_worker
-docker compose logs --tail=200 finalizer_worker
+docker compose logs --tail=200 whisperx_finalizer
 docker compose -f docker-compose.yml -f docker-compose.observability.yml logs --tail=100 dcgm_exporter
 ```
 

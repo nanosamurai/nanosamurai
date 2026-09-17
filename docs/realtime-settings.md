@@ -28,7 +28,9 @@ From this repo, build the three changed images:
 ```powershell
 docker build -t samuraibff:session-settings ../../IdeaProjects/samuraibff
 docker build -t xamurai-rtservice:session-settings -f ../xamurai/rtservice/Dockerfile ../xamurai
-docker build -t xamurai-nemotron-rtservice:session-settings -f ../xamurai/nemotron_rtservice/Dockerfile ../xamurai
+Set-Location ../xamurai
+docker buildx bake --load --set nemotron-rtservice.tags=xamurai-nemotron-rtservice:session-settings nemotron-rtservice
+Set-Location ../nanosamurai
 ```
 
 Set those tags in the ignored `docker-compose.local-asr.yml` for `samuraibff`,
@@ -41,7 +43,7 @@ $files = @('-p', 'nanosamurai', '-f', 'docker-compose.yml',
   '-f', 'docker-compose.nemotron.yml', '-f', 'docker-compose.local-asr.yml',
   '-f', 'docker-compose.realtime-settings-smoke.yml')
 docker compose @files up -d --no-build samuraibff rtservice nemotron-rtservice `
-  samuraipersistor whisperx_worker recorder_worker finalizer_worker
+  samuraipersistor whisperx_refinement recorder_worker whisperx_finalizer
 docker compose @files --profile validation build realtime-settings-audit
 python -m venv .tmp/track-ui-python
 $smokePython = '.tmp/track-ui-python/Scripts/python.exe'

@@ -1,4 +1,13 @@
 services:
+  nemo-speech-native:
+    # Build dependency only; no runtime container.
+    deploy:
+      replicas: 0
+    image: xamurai-nemo-speech-native:local
+    build:
+      context: ${XAMURAI_SOURCE:-../xamurai}
+      dockerfile: nemo_speech_native/Dockerfile
+
   samuraibff:
     environment:
       SAMURAIBFF_GRPC_REALTIME_TRACKS: faster-whisper=rtservice:50052,nemotron=nemotron-rtservice:50052
@@ -8,6 +17,11 @@ services:
 
   nemotron-rtservice:
     image: ${NEMOTRON_RTSERVICE_IMAGE:-xamurai-nemotron-rtservice:local}
+    build:
+      context: ${XAMURAI_SOURCE:-../xamurai}
+      dockerfile: nemotron_rtservice/Dockerfile
+      additional_contexts:
+        nemo-speech-native: service:nemo-speech-native
     restart: unless-stopped
     environment:
       NEMOTRON_RTSERVICE_PORT: "50052"

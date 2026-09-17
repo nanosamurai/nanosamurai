@@ -18,11 +18,11 @@ From Nanosamurai, after inspecting the migration ledger and backing up Postgres:
 $files = @('-p', 'nanosamurai',
   '-f', 'docker-compose.yml', '-f', 'docker-compose.nemotron.yml',
   '-f', 'docker-compose.refinement-tracks-smoke.yml', '-f', 'docker-compose.local-asr.yml')
-docker compose @files build samuraibff samuraipersistor whisperx_worker
+docker compose @files build samuraibff samuraipersistor whisperx_refinement
 docker compose @files --profile validation build refinement-tracks-smoke
 docker compose @files --profile validation run --rm --no-deps --entrypoint python refinement-tracks-smoke /probe/refinement/migration.py
 docker compose @files run --rm --no-deps db_migrate
-docker compose @files up -d --no-deps --no-build samuraibff samuraipersistor whisperx_worker
+docker compose @files up -d --no-deps --no-build samuraibff samuraipersistor whisperx_refinement
 docker compose @files --profile validation run --rm --no-deps refinement-tracks-smoke
 ```
 
@@ -35,7 +35,7 @@ is substituted. Those processes expose no ports and stop when the probe exits;
 there is no Docker socket mounted into the probe or production synthetic mode.
 
 After qualification, run ordinary `docker compose up -d --no-deps --no-build
-samuraibff samuraipersistor whisperx_worker` with the original local Compose
+samuraibff samuraipersistor whisperx_refinement` with the original local Compose
 configuration to remove the test-only BFF allowlist and restore the normal idle
 timeout. Keep the source-built image overrides. Infrastructure is reused.
 
