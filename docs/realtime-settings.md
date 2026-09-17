@@ -9,6 +9,11 @@ Whisper exposes `window_sec`, `overlap_sec`, `emit_every_sec`, `partial_enable`.
 Nemotron exposes `endpointing_silence_ms`, defaulting to the service's
 `NEMOTRON_ENDPOINTING_SILENCE_MS`. Qwen currently advertises an empty map.
 
+In the native VAD image, Nemotron measures silence using Silero v6.2.0 inside
+NeMo-Speech.cpp. The setting and default remain unchanged; all audio continues
+to reach ASR. The independent 30-second forced endpoint still applies. See
+[the native VAD smoke](smoke-tests.md#native-nemotron-vad) for validation.
+
 The UI submits defaults plus edits in one URL-encoded `realtime_settings` JSON
 query parameter, keyed by selected track ID. Audio admission freezes this in
 `sessions.stream_controls.realtime_settings` and `sessions.meta.stream_controls`.

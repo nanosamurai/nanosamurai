@@ -35,6 +35,8 @@ def main() -> int:
     # to reliably trigger at least one ASR event even when FINAL emission is window-based.
     ap.add_argument("--stream-seconds", type=float, default=12.0)
     ap.add_argument("--asr-timeout", type=float, default=45.0)
+    ap.add_argument("--silence-seconds", type=int, default=0,
+                    help="append this much silence and require a final before closing audio")
     ap.add_argument(
         "--require-final",
         action="store_true",
@@ -84,6 +86,10 @@ def main() -> int:
         help="disable refined/final Kafka work for a provider-only smoke",
     )
     args = ap.parse_args()
+    if not 0 <= args.silence_seconds <= 30:
+        ap.error("--silence-seconds must be between 0 and 30")
+    if args.silence_seconds and not args.require_final:
+        ap.error("--silence-seconds requires --require-final")
     if args.require_final_count < 1:
         ap.error("--require-final-count must be at least 1")
     if args.require_final_count > 1 and not args.require_final:
@@ -145,11 +151,16 @@ def main() -> int:
         stream_started = time.monotonic()
         _lib.stream_audio(audio_ws, pcm, frame_ms=20, max_seconds=args.stream_seconds)
 
-        # Help servers flush buffered audio / finalize a window.
-        try:
-            audio_ws.close()
-        except Exception:
-            pass
+        if args.silence_seconds:
+            print(f"[tier2] streaming {args.silence_seconds}s silence; keeping audio open until a final")
+            silence = _lib.WavPcm16(pcm.sample_rate, bytes(args.silence_seconds * pcm.sample_rate * 2))
+            _lib.stream_audio(audio_ws, silence, frame_ms=20, max_seconds=args.silence_seconds)
+        else:
+            # Help servers flush buffered audio / finalize a window.
+            try:
+                audio_ws.close()
+            except Exception:
+                pass
 
         event_kind = (
             f"{args.require_final_count} final asr events"

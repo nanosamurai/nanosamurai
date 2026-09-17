@@ -170,6 +170,12 @@ by default; every accepted stream owns independent native cache state. Compose
 starts two containers behind the stable `nemotron-rtservice` DNS name. The
 service and probe publish no host ports.
 
+The native VAD image uses Silero v6.2.0 for silence endpointing, keeping all
+audio in the ASR stream. The deployment silence default remains 2000 ms via
+`NEMOTRON_ENDPOINTING_SILENCE_MS`; per-session overrides and the 30-second hard
+endpoint remain available. See [the VAD smoke](smoke-tests.md#native-nemotron-vad)
+to verify finals before closing the audio WebSocket.
+
 Build the image from the adjacent Xamurai checkout:
 
 ```powershell
