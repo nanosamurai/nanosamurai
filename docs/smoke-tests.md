@@ -60,3 +60,19 @@ long. A release note must state clearly if that signal is not validated.
 
 The test audio is synthetic repository data. Never add customer recordings,
 transcripts, tokens, or identifying metadata to test fixtures or public issues.
+
+## Native Nemotron VAD
+
+After [Nemotron setup](getting-started.md#validate-nemotron-replicas), run the
+silence smoke below. `--silence-seconds` keeps audio open and requires a final before EOF.
+
+```powershell
+.\.venv-smoke\Scripts\python utilities/k8s_local_smoke_test/tier2_realtime_asr.py `
+  --base-url http://127.0.0.1:8000 --lang cs --stream-seconds 20 `
+  --silence-seconds 5 --require-final --realtime-only `
+  --realtime-tracks nemotron --require-tracks nemotron
+```
+
+With diarization enabled, add `--require-speaker-labels`. See
+[endpoint settings](realtime-settings.md) and
+[native VAD details and limitations](https://github.com/nanosamurai/xamurai/blob/master/docs/nemotron-vad.md).

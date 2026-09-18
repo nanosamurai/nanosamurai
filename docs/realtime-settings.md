@@ -9,6 +9,25 @@ Whisper exposes `window_sec`, `overlap_sec`, `emit_every_sec`, `partial_enable`.
 Nemotron exposes `endpointing_silence_ms`, defaulting to the service's
 `NEMOTRON_ENDPOINTING_SILENCE_MS`. Qwen currently advertises an empty map.
 
+In the native VAD image, Nemotron measures silence using Silero v6.2.0 inside
+NeMo-Speech.cpp. The setting and default remain unchanged; all audio continues
+to reach ASR. The duration policy is configured only at instance startup:
+
+| Environment variable | Default | Valid integers |
+| --- | --- | --- |
+| `NEMOTRON_ENDPOINTING_SOFT_AFTER_SECONDS` | `90` | `1` through maximum minus one |
+| `NEMOTRON_ENDPOINTING_SOFT_SILENCE_MS` | `500` | `1`–`30000` |
+| `NEMOTRON_MAX_UTTERANCE_SECONDS` | `120` | `2`–`3600` |
+
+Before 90 seconds of detected speech and intervening pauses, the normal session
+silence interval applies. Thereafter the smaller of that interval and 500 ms
+applies. At 120 seconds, an emergency endpoint can still cut speech. Leading
+silence does not spend the duration budget; an endpoint resets it. Native chunk
+timing and lookahead add some latency. Recreate the provider after changing
+these variables; invalid combinations fail startup. The three controls are not
+exposed in the session settings UI. See
+[the native VAD smoke](smoke-tests.md#native-nemotron-vad) for validation.
+
 The UI submits defaults plus edits in one URL-encoded `realtime_settings` JSON
 query parameter, keyed by selected track ID. Audio admission freezes this in
 `sessions.stream_controls.realtime_settings` and `sessions.meta.stream_controls`.
