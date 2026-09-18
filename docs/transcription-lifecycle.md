@@ -32,9 +32,11 @@ authoritative tuning reference is Xamurai's
 
 ## Asynchronous refinement
 
-SamuraiBFF also publishes the session audio to Kafka topic `audio.raw`. The
-WhisperX refinement worker buffers configurable windows and produces
-`RefinedEvent` messages on `transcripts.refined`.
+SamuraiBFF also publishes the session audio to Kafka topic `audio.raw`. Selected
+WhisperX and/or Parakeet workers use the shared refinement runtime to buffer
+configurable windows and publish track-labelled `RefinedEvent` messages on
+`transcripts.refined`. Parakeet is enabled by the optional overlay; WhisperX
+remains the default when refinement-track selection is omitted.
 
 A refined event may contain several speaker turns. SamuraiBFF fans those turns
 out to browser events, and SamuraiPersistor stores the underlying transcript
@@ -57,10 +59,13 @@ See [Replaceable object storage](architecture.md#replaceable-object-storage) for
 the consumers and configuration that must move together when selecting another
 provider.
 
-After the recorder publishes `recordings.finished`, the finalizer worker
-processes the completed recording and publishes `SessionTranscript` on
-`transcripts.final`. SamuraiPersistor stores that full-session result, and
-SamuraiBFF serves it through the recording-detail API and UI.
+After the recorder publishes `recordings.finished`, each selected finalizer
+processes the completed recording and publishes its own `SessionTranscript` on
+`transcripts.final`. WhisperX and Parakeet reuse the shared finalization runtime.
+SamuraiPersistor stores each full-session track, and SamuraiBFF serves the
+separate results through the recording-detail API and UI. Final tracks are
+selected independently of refinement tracks; omitted final selection defaults
+to WhisperX. Multiple final tracks currently require `store_recording=true`.
 
 Finalization can take substantially longer during the first run because model
 and alignment initialization are cold. A stopped recording can therefore be
@@ -69,9 +74,17 @@ visible before its final transcript is available.
 ## Speaker labels and word timing
 
 The realtime and asynchronous workers can assign speaker labels through
-diarization. Final transcript segments may also include word-level
-`start_s`/`end_s` timing. The browser uses final word timing for synchronized
-playback and best-effort seeking.
+diarization. WhisperX refinement emits segment timing without word alignment;
+its finalizer adds word timing where alignment succeeds. Parakeet emits native
+word timing in both stages. Live refinement events carry segment text and
+speaker labels; Kafka and saved HTTP transcripts also retain available words.
+The browser uses final word timing for synchronized playback and best-effort
+seeking.
+
+Parakeet supports up to four anonymous speakers per refinement window or final
+recording, with no enrolled-speaker matching. Speaker labels restart in each
+refinement window, so matching labels across windows do not establish identity.
+See [Parakeet refinement](parakeet-refinement.md) for timing and selection details.
 
 Detailed component behavior remains with the owning services:
 
