@@ -13,9 +13,10 @@ source code remains in the related repositories.
 3. Audio and session events are published to Kafka with W3C trace context.
 4. The recorder writes completed session audio to S3-compatible object
    storage; the evaluator supplies LocalStack for this role.
-5. WhisperX produces asynchronously refined transcript events.
-6. The finalizer reads completed recordings and produces final transcript
-   events.
+5. Selected WhisperX and/or Parakeet refinement workers process audio windows
+   and produce separate track-labelled events on `transcripts.refined`.
+6. Selected finalizers read the completed recording and produce separate
+   full-session tracks on `transcripts.final`.
 7. SamuraiPersistor stores transcript events in PostgreSQL.
 
 ```mermaid
@@ -34,7 +35,9 @@ flowchart LR
     subgraph Xamurai["Xamurai (Python services)"]
         RTService["rtservice\n(Faster-Whisper + pyannote)"]
         QwenRT["qwen-rtservice\n(Qwen3-ASR + ForcedAligner + pyannote)"]
+        NemotronRT["nemotron-rtservice\n(Nemotron streaming + NeMo-Speech.cpp)"]
         WhisperXWorker["whisperx_refinement\n(WhisperX + pyannote refinement)"]
+        ParakeetRefinement["parakeet-refinement\n(Parakeet + Sortformer refinement)"]
         RecorderWorker["recorder_worker\n(session WAV)"]
         FinalizerWorker["whisperx_finalizer\n(WhisperX + pyannote final transcript)"]
         ParakeetFinalizer["parakeet-finalizer\n(Parakeet + Sortformer final transcript)"]
@@ -50,6 +53,7 @@ flowchart LR
 
     SamuraiBFF -->|"configured gRPC track\nfaster-whisper"| RTService
     SamuraiBFF -->|"configured gRPC track\nqwen"| QwenRT
+    SamuraiBFF -->|"configured gRPC track\nnemotron"| NemotronRT
 
     subgraph Kafka["Kafka"]
         KafkaBroker[(Kafka broker)]
@@ -66,6 +70,8 @@ flowchart LR
     KafkaBroker -->|"consume protobuf RefinedEvent\ntopic: transcripts.refined"| SamuraiBFF
     KafkaBroker -->|"consume\ntopic: audio.raw"| WhisperXWorker
     WhisperXWorker -->|"produce protobuf RefinedEvent\ntopic: transcripts.refined"| KafkaBroker
+    KafkaBroker -->|"audio.raw"| ParakeetRefinement
+    ParakeetRefinement -->|"transcripts.refined"| KafkaBroker
 
     KafkaBroker -->|"consume\ntopic: audio.raw"| RecorderWorker
     RecorderWorker -->|"produce protobuf RecordingFinished\ntopic: recordings.finished"| KafkaBroker
@@ -77,8 +83,10 @@ flowchart LR
 
     RecorderWorker -->|"write session WAV"| ObjectStore
     FinalizerWorker -->|"read recording and speaker enrollments"| ObjectStore
+    ParakeetFinalizer -->|"read recording"| ObjectStore
     SamuraiBFF -->|"serve recordings; read/write speaker enrollments"| ObjectStore
     RTService -->|"read speaker enrollments"| ObjectStore
+    NemotronRT -->|"optional speaker enrollments"| ObjectStore
     WhisperXWorker -->|"read speaker enrollments"| ObjectStore
 
     KafkaBroker -->|"consume + persist\ntopic: transcripts.refined"| Persistor["SamuraiPersistor\n(PostgreSQL writer)"]
@@ -102,7 +110,15 @@ Results remain independent rather than being automatically merged or voted on.
 This makes side-by-side evaluation, gradual model adoption, and workload-specific
 selection possible without duplicating client audio or the Kafka recording and
 refinement path. The public-facing model matrix and dual-track startup command
-are in the [main README](../README.md#multiple-realtime-models-one-audio-stream).
+are in the [main README](../README.md#multiple-models-one-audio-stream).
+
+The diagrams include optional providers: the Nemotron overlay adds a realtime
+peer, and the Parakeet overlay adds independently selected refinement and final
+tracks. See the [model matrix](../README.md#model-pipelines-in-the-supplied-stack)
+for pinned-image versus source-build setup. WhisperX and Parakeet reuse shared
+refinement and finalization runtimes, with separate model processes and consumer
+groups. Parakeet refinement needs no recording-storage access; its finalizer
+reads the shared recording. Neither Parakeet worker matches enrolled speakers.
 
 ## Replaceable object storage
 

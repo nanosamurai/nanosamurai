@@ -80,6 +80,7 @@ flowchart LR
         QwenRT["qwen-rtservice\n(Qwen3-ASR + ForcedAligner + pyannote)"]
         NemotronRT["nemotron-rtservice\n(Nemotron streaming + NeMo-Speech.cpp)"]
         WhisperXWorker["whisperx_refinement\n(WhisperX + pyannote refinement)"]
+        ParakeetRefinement["parakeet-refinement\n(Parakeet + Sortformer refinement)"]
         RecorderWorker["recorder_worker\n(session WAV)"]
         FinalizerWorker["whisperx_finalizer\n(WhisperX + pyannote final transcript)"]
         ParakeetFinalizer["parakeet-finalizer\n(Parakeet + Sortformer final transcript)"]
@@ -112,6 +113,8 @@ flowchart LR
     KafkaBroker -->|"consume protobuf RefinedEvent\ntopic: transcripts.refined"| SamuraiBFF
     KafkaBroker -->|"consume\ntopic: audio.raw"| WhisperXWorker
     WhisperXWorker -->|"produce protobuf RefinedEvent\ntopic: transcripts.refined"| KafkaBroker
+    KafkaBroker -->|"audio.raw"| ParakeetRefinement
+    ParakeetRefinement -->|"transcripts.refined"| KafkaBroker
 
     KafkaBroker -->|"consume\ntopic: audio.raw"| RecorderWorker
     RecorderWorker -->|"produce protobuf RecordingFinished\ntopic: recordings.finished"| KafkaBroker
@@ -123,8 +126,10 @@ flowchart LR
 
     RecorderWorker -->|"write session WAV"| ObjectStore
     FinalizerWorker -->|"read recording and speaker enrollments"| ObjectStore
+    ParakeetFinalizer -->|"read recording"| ObjectStore
     SamuraiBFF -->|"serve recordings; read/write speaker enrollments"| ObjectStore
     RTService -->|"read speaker enrollments"| ObjectStore
+    NemotronRT -->|"optional speaker enrollments"| ObjectStore
     WhisperXWorker -->|"read speaker enrollments"| ObjectStore
 
     KafkaBroker -->|"consume + persist\ntopic: transcripts.refined"| Persistor["SamuraiPersistor\n(PostgreSQL writer)"]
@@ -143,6 +148,8 @@ The stack consists of:
   - `nemo_speech_native`: native bindings and a shared Docker base for Nemotron and Parakeet.
   - `recorder_worker`: session audio storage.
   - `xamurai_serving.finalization`: the shared Kafka and recording loop for finalizers.
+  - `xamurai_serving.refinement` and `refinement_runtime`: shared window buffering,
+    publication and recovery for WhisperX and Parakeet refinement.
 - [samuraibff](https://github.com/nanosamurai/samuraibff) — HTTP/WebSocket API,
   browser UI, authentication, and orchestration
 - [samuraipersistor](https://github.com/nanosamurai/samuraipersistor) —
@@ -182,8 +189,10 @@ flowchart LR
     Client["Browser, Electron, or SDK"] -->|"one audio stream"| BFF["SamuraiBFF\nsession track selection and fan-out"]
     BFF -->|"selected track"| Faster["Faster Whisper realtime\nFaster-Whisper + pyannote"]
     BFF -->|"selected track"| Qwen["Qwen realtime\nQwen3-ASR + ForcedAligner + pyannote"]
+    BFF -->|"selected track"| Nemotron["Nemotron realtime\nNemotron + optional Sortformer"]
     Faster -->|"labelled ASR events"| Results["Independent realtime results"]
     Qwen -->|"labelled ASR events"| Results
+    Nemotron -->|"labelled ASR events"| Results
     Results --> Client
     BFF -->|"publish audio once"| Async["Kafka refinement, recording, and finalization"]
 ```
@@ -223,21 +232,34 @@ for the full-stack BFF requirement and exact success checks.
 
 ### Model pipelines in the supplied stack
 
-| Xamurai service | Stage | Default model pipeline | Result |
-| --- | --- | --- | --- |
-| `rtservice` | Realtime | `Systran/faster-whisper-medium` with `pyannote/speaker-diarization-3.1`; optional Silero VAD and enrolled-speaker mapping | Replaceable partials and timed, speaker-labelled finals |
-| `qwen-rtservice` | Realtime | `Qwen/Qwen3-ASR-0.6B`, `Qwen/Qwen3-ForcedAligner-0.6B`, and `pyannote/speaker-diarization-3.1` | Native-streaming partials and aligned, speaker-labelled epoch finals where alignment is supported; speakerless fallback otherwise |
-| `nemotron-rtservice` | Realtime | `nvidia/nemotron-3.5-asr-streaming-0.6b` Q8 GGUF through NeMo-Speech.cpp | Native partials/finals; optional Sortformer speaker turns and S3 enrolled names |
-| `whisperx_refinement` | Asynchronous refinement | WhisperX `medium` by default with pyannote diarization | Refined speaker-aware transcript windows |
-| `whisperx_finalizer` | Completed recording | The shared WhisperX alignment and pyannote pipeline | Canonical full-session transcript |
-| `parakeet-finalizer` | Completed recording | Parakeet TDT 0.6B v3 with embedded Sortformer | Word timing and up to four anonymous speakers |
-| `parakeet-refinement` | Asynchronous refinement | The same Parakeet/Sortformer pipeline | Timed words and up to four anonymous speakers per window |
-| `recorder_worker` | Recording | No inference model | Session WAV and recording-completion event |
+| Compose service | Stage / track ID | Default model pipeline | Result | Setup |
+| --- | --- | --- | --- | --- |
+| `rtservice` | Realtime / `faster-whisper` | `Systran/faster-whisper-medium` with `pyannote/speaker-diarization-3.1`; optional Silero VAD and enrolled-speaker mapping | Replaceable partials and timed, speaker-labelled realtime finals | Base stack |
+| `qwen-rtservice` | Realtime / `qwen` | `Qwen/Qwen3-ASR-0.6B` through vLLM, `Qwen/Qwen3-ForcedAligner-0.6B`, and `pyannote/speaker-diarization-3.1` | Native-streaming partials and aligned, speaker-labelled epoch finals where alignment is supported; speakerless fallback otherwise | Qwen overlay, pinned image |
+| `nemotron-rtservice` | Realtime / `nemotron` | `nvidia/nemotron-3.5-asr-streaming-0.6b` Q8 GGUF through NeMo-Speech.cpp; optional Sortformer v2 and WeSpeaker enrollment matching | Native partials and realtime finals; optional speaker turns and enrolled names | Nemotron overlay, source build |
+| `whisperx_refinement` | Semi-batch refinement / `whisperx` | WhisperX `medium` with pyannote diarization and optional enrolled-speaker mapping; alignment disabled | Speaker-aware windows with segment timing, without word timing | Base stack |
+| `whisperx_finalizer` | Completed recording / `whisperx` | The same WhisperX/pyannote pipeline with language-specific alignment enabled | Full-session transcript with word timing where alignment succeeds | Base stack |
+| `parakeet-refinement` | Semi-batch refinement / `parakeet` | `nvidia/parakeet-tdt-0.6b-v3` Q8 with Sortformer v2 through NeMo-Speech.cpp | Native word timing and up to four anonymous speakers per window | Parakeet overlay, source build |
+| `parakeet-finalizer` | Completed recording / `parakeet` | The same Parakeet/Sortformer pipeline | Full-session transcript with native word timing and up to four anonymous speakers per recording | Parakeet overlay, source build |
+| `recorder_worker` | Recording | No inference model | Session WAV and recording-completion event | Base stack |
 
-Compose runs `whisperx_refinement` and `whisperx_finalizer` as separate services.
-The Parakeet overlay adds `parakeet-finalizer` and `parakeet-refinement`. The shared native base is a build
-dependency with zero runtime replicas. Track IDs, consumer groups and cache
-volumes are unchanged.
+The base and Qwen quickstarts pull pinned images. The optional Nemotron and
+Parakeet recipes build from a compatible Xamurai checkout; merging source changes
+does not advance those quickstart pins. Follow the [Parakeet refinement runbook](docs/parakeet-refinement.md)
+for compatible BFF/Persistor prerequisites and rebuilding both WhisperX and
+Parakeet workers with the shared runtime.
+
+WhisperX and Parakeet each have one inference pipeline with separate refinement
+and finalizer entrypoints, images and processes. They share refinement
+buffering/publication/recovery and the finalizer Kafka/recording loop. Nemotron
+and Parakeet also share `nemo-speech-native`, a build dependency with zero runtime
+replicas. Shared code and artifact caches do not share loaded model weights.
+
+Refinement and final tracks are selected independently; omitted selections keep
+WhisperX as the default. Parakeet supports no enrolled names, and its speaker
+labels restart for each refinement window. Matching labels across windows do
+not establish the same speaker. Realtime finals commit an utterance or window;
+full-session final transcripts are separate results.
 
 These are the profiles supplied by the project, not model IDs accepted from an
 untrusted client. Xamurai owns the detailed service contract and implementation;
