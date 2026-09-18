@@ -1,4 +1,4 @@
-# Optional real final track. Use after the base and any local image overrides.
+# Optional real refinement and final tracks. Use after base/local image overrides.
 services:
   nemo-speech-native:
     # Build dependency only; no runtime container.
@@ -12,7 +12,8 @@ services:
   samuraibff:
     environment:
       SAMURAIBFF_FINAL_TRACKS: whisperx,parakeet
-      SAMURAIBFF_TRACK_LABELS: '{"final":{"whisperx":"WhisperX","parakeet":"Parakeet TDT v3"}}'
+      SAMURAIBFF_REFINEMENT_TRACKS: whisperx,parakeet
+      SAMURAIBFF_TRACK_LABELS: '{"refined":{"whisperx":"WhisperX","parakeet":"Parakeet TDT v3"},"final":{"whisperx":"WhisperX","parakeet":"Parakeet TDT v3"}}'
 
   parakeet-finalizer:
     image: ${PARAKEET_FINALIZER_IMAGE:-xamurai-parakeet-finalizer:local}
@@ -40,6 +41,25 @@ services:
       localstack:
         condition: service_started
 
+  parakeet-refinement:
+    image: ${PARAKEET_REFINEMENT_IMAGE:-xamurai-parakeet-refinement:local}
+    build:
+      context: ${XAMURAI_SOURCE:-../xamurai}
+      dockerfile: parakeet_worker/Dockerfile.refinement
+      additional_contexts:
+        parakeet-finalizer: service:parakeet-finalizer
+    restart: unless-stopped
+    environment:
+      REFINEMENT_TRACK_ID: parakeet
+      KAFKA_BOOTSTRAP: broker:29092
+      KAFKA_GROUP_ID: refinement.parakeet
+    volumes:
+      - nanosamurai_parakeet_hf_cache:/data/huggingface
+    gpus: all
+    depends_on:
+      kafka_init:
+        condition: service_completed_successfully
+
   parakeet-smoke:
     profiles: [validation]
     build: ./smoke-tests/final-tracks
@@ -57,6 +77,17 @@ services:
       - ./smoke-tests/final-tracks/parakeet.py:/probe/parakeet.py:ro
       - ${XAMURAI_SOURCE:-../xamurai}/proto_gen:/probe/proto_gen:ro
       - ./tests/data/test_cs.wav:/probe/test_cs.wav:ro
+
+  parakeet-refinement-smoke:
+    extends:
+      service: parakeet-smoke
+    entrypoint: [python, -u, /probe/refinement/smoke.py, --parakeet]
+    environment:
+      PYTHONPATH: /probe
+      WHISPERX_REFINEMENT_GROUP: ${WHISPERX_REFINEMENT_GROUP:-whisperx-async}
+    volumes:
+      - ./smoke-tests/refinement-tracks:/probe/refinement:ro
+      - ./smoke-tests/final-tracks:/probe/final:ro
 
 volumes:
   nanosamurai_parakeet_hf_cache:

@@ -19,6 +19,7 @@ own them.
 - [Operations and observability](operations-and-observability.md)
 - [Deployment and security boundaries](deployment-and-security.md)
 - [Smoke tests and release rehearsal](smoke-tests.md)
+- [Parakeet semi-batch refinement](parakeet-refinement.md)
 - [Troubleshooting](troubleshooting.md)
 - [Image release policy](image-release-policy.md)
 

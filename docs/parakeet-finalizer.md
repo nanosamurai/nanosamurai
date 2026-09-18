@@ -7,6 +7,9 @@ tabs with word timing. Parakeet supports up to four anonymous speakers; enrolled
 names are not part of this spike. No migration or BFF/Persistor code change is
 required beyond the already implemented lean track support.
 
+The overlay also adds [semi-batch refinement](parakeet-refinement.md), selected
+independently in the Refinement tab. Follow that runbook to build/start both stages.
+
 ## Build and run locally
 
 Use the existing `nanosamurai` project and its volumes. The source checkout
