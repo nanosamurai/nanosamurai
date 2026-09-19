@@ -1,0 +1,90 @@
+# Optional source-built Qwen finalization/refinement; independent of realtime Qwen.
+services:
+  qwen-runtime:
+    image: xamurai-qwen-rtservice:local
+    deploy:
+      replicas: 0
+    build:
+      context: ${XAMURAI_SOURCE:-../xamurai}
+      dockerfile: qwen_rtservice/Dockerfile
+
+  samuraibff:
+    environment:
+      SAMURAIBFF_FINAL_TRACKS: whisperx,qwen
+      SAMURAIBFF_REFINEMENT_TRACKS: whisperx,qwen
+      SAMURAIBFF_TRACK_LABELS: '{"refined":{"whisperx":"WhisperX","qwen":"Qwen3-ASR"},"final":{"whisperx":"WhisperX","qwen":"Qwen3-ASR"}}'
+
+  qwen-finalizer:
+    image: ${QWEN_FINALIZER_IMAGE:-xamurai-qwen-finalizer:local}
+    build:
+      context: ${XAMURAI_SOURCE:-../xamurai}
+      dockerfile: qwen_worker/Dockerfile.finalizer
+      additional_contexts:
+        qwen-rtservice: service:qwen-runtime
+    restart: unless-stopped
+    environment:
+      FINALIZER_TRACK_ID: qwen
+      KAFKA_BOOTSTRAP: broker:29092
+      KAFKA_GROUP_ID_FINALIZER: finalizer.qwen
+      HF_TOKEN: ${HF_TOKEN:?Set HF_TOKEN with pyannote model read access}
+      XDG_CACHE_HOME: /data/huggingface/runtime-cache
+      QWEN_BATCH_SIZE: ${QWEN_BATCH_SIZE:-4}
+      QWEN_KV_CACHE_MIB: ${QWEN_KV_CACHE_MIB:-1024}
+      S3_ENDPOINT: http://localstack:4566
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: test
+      S3_SECRET_KEY: test
+      S3_FORCE_PATH_STYLE: "true"
+    volumes:
+      - nanosamurai_qwen_hf_cache:/data/huggingface
+    gpus: all
+    shm_size: 4gb
+    depends_on:
+      kafka_init:
+        condition: service_completed_successfully
+      localstack:
+        condition: service_started
+
+  qwen-refinement:
+    image: ${QWEN_REFINEMENT_IMAGE:-xamurai-qwen-refinement:local}
+    build:
+      context: ${XAMURAI_SOURCE:-../xamurai}
+      dockerfile: qwen_worker/Dockerfile.refinement
+      additional_contexts:
+        qwen-finalizer: service:qwen-finalizer
+    restart: unless-stopped
+    environment:
+      REFINEMENT_TRACK_ID: qwen
+      KAFKA_BOOTSTRAP: broker:29092
+      KAFKA_GROUP_ID: refinement.qwen
+      HF_TOKEN: ${HF_TOKEN:?Set HF_TOKEN with pyannote model read access}
+      XDG_CACHE_HOME: /data/huggingface/runtime-cache
+      QWEN_BATCH_SIZE: ${QWEN_BATCH_SIZE:-4}
+      QWEN_KV_CACHE_MIB: ${QWEN_KV_CACHE_MIB:-1024}
+    volumes:
+      - nanosamurai_qwen_hf_cache:/data/huggingface
+    gpus: all
+    shm_size: 4gb
+    depends_on:
+      kafka_init:
+        condition: service_completed_successfully
+
+  qwen-smoke:
+    profiles: [validation]
+    build: ./smoke-tests/final-tracks
+    entrypoint: [python, -u, /probe/qwen.py]
+    environment:
+      BFF_URL: http://samuraibff:8000
+      KAFKA_BOOTSTRAP: broker:29092
+      PGHOST: postgres
+      PGDATABASE: nanosamurai
+      PGUSER: nanosamurai
+      PGPASSWORD: nanosamurai
+      S3_ENDPOINT: http://localstack:4566
+    volumes:
+      - ./smoke-tests/final-tracks/qwen.py:/probe/qwen.py:ro
+      - ${XAMURAI_SOURCE:-../xamurai}/proto_gen:/probe/proto_gen:ro
+      - ./tests/data/test_cs.wav:/probe/test_cs.wav:ro
+
+volumes:
+  nanosamurai_qwen_hf_cache:

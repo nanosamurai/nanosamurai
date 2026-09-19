@@ -1,0 +1,70 @@
+# Qwen finalization and refinement
+
+The optional `docker-compose.qwen-workers.yml` adds `qwen` to the Final and
+Refinement settings independently. Both services use Qwen3-ASR-0.6B through
+vLLM batching and pyannote speaker diarization. WhisperX remains the default.
+Qwen realtime is a separate overlay and is not needed for these workers.
+
+Use a compatible Xamurai checkout (`XAMURAI_SOURCE`, default `../xamurai`),
+BFF/Persistor images with the existing lean-track support, and the already
+applied track migrations described in [the refinement setup](refinement-tracks-spike.md).
+This addition changes no protocol or database schema. Keep existing local image
+overrides, project name, volumes and consumer groups. `HF_TOKEN` needs read
+access to the pinned pyannote models; keep it in the ignored `.env`.
+
+From an existing local stack:
+
+```powershell
+$env:COMPOSE_BIND_IP = '127.0.0.1'
+$files = @('-p', 'nanosamurai', '-f', 'docker-compose.yml',
+  '-f', 'docker-compose.nemotron.yml', '-f', 'docker-compose.local-asr.yml',
+  '-f', 'docker-compose.qwen-workers.yml')
+docker compose @files build qwen-finalizer qwen-refinement
+docker compose @files up -d --no-deps --no-build samuraibff qwen-finalizer qwen-refinement
+docker compose @files --profile validation build qwen-smoke
+docker compose @files --profile validation run --rm --no-deps qwen-smoke
+```
+
+The Nemotron/local files above preserve this development stack's existing
+source-built images; omit them on installations configured through their own
+compatible image overrides. Start Kafka, Postgres, LocalStack, recorder,
+Persistor and a configured realtime service before the probe. BFF readiness
+still checks realtime gRPC even when a test selects only asynchronous stages.
+Stop obsolete pre-rename workers and synthetic smoke workers before testing.
+
+The overlay enables WhisperX and Qwen; to combine it with Parakeet, explicitly
+include all desired IDs and labels in the BFF allowlists in the final override.
+Keep worker groups `finalizer.qwen` and `refinement.qwen` distinct. The model
+cache is shared with Qwen realtime; loaded weights are separate per process.
+Allow several minutes for cold initialization and budget CPU RAM as well as GPU
+memory. Run GPU integration suites separately from the full model stack on a
+16 GiB Docker VM.
+
+## Results and limits
+
+Pyannote diarizes each input, then Qwen transcribes batches of speaker turns,
+splitting turns into at most 30-second crops. The existing segment timestamps
+describe those crops. There are no word timestamps or enrolled names. Czech
+and other languages outside the forced aligner's language set still receive
+speaker labels. Overlapping voices are not separated; each sample is assigned
+once. Speaker labels are recording-local for finalization and window-local for
+refinement. Equal labels across windows do not establish identity.
+
+`QWEN_BATCH_SIZE` defaults to 4 and `QWEN_KV_CACHE_MIB` to 1024. These bound the
+vLLM batch and cache allocation. Refinement retains the shared window, idle-tail,
+queue and replay behavior. See the
+[Xamurai pipeline guide](https://github.com/nanosamurai/xamurai/blob/master/docs/qwen-workers.md)
+for all settings. Short-fixture tests establish functionality, not ASR accuracy,
+multi-speaker quality or maximum recording capacity.
+
+The smoke uses real models and the public Czech fixture. It checks live windows
+and an idle tail, finalization, model/track metadata, timed speaker segments,
+filtered saved results, exact WAV/range playback, replay deduplication, silence,
+independent stage selection, committed skips/defaults, and foreign-tenant denial.
+It prints assertions rather than transcripts and leaves new fixture sessions as
+evidence. It does not reset offsets, replace volumes or change database objects.
+
+Workers run unprivileged, publish no host port and reuse immutable model pins
+and digest checks. HF credentials are runtime-only and telemetry is disabled.
+Refinement has no storage credentials. The stack's development credentials and
+disabled authentication remain suitable only for localhost evaluation.
