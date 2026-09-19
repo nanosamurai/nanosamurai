@@ -65,78 +65,73 @@ services, but you are free to implement your own workflows / webhook services an
 ```mermaid
 flowchart LR
     subgraph Client
-        Browser["Browser UI\n(ClojureScript)"]
-        Electron["Electron app\n(Windows-first)"]
+        Browser["Browser UI<br/>(ClojureScript)"]
+        Electron["Electron app<br/>(Windows-first)"]
     end
 
-    subgraph SamuraiBFF["SamuraiBFF\n(API and orchestration)"]
+    subgraph SamuraiBFF["SamuraiBFF<br/>(API and orchestration)"]
         HTTP[HTTP /api + /auth]
         WSAudio[ws/audio]
         WSEvents[ws/events]
     end
 
     subgraph Xamurai["Xamurai (Python services)"]
-        RTService["rtservice\n(Faster-Whisper + pyannote)"]
-        QwenRT["qwen-rtservice\n(Qwen3-ASR + ForcedAligner + pyannote)"]
-        NemotronRT["nemotron-rtservice\n(Nemotron streaming + NeMo-Speech.cpp)"]
-        WhisperXWorker["whisperx_refinement\n(WhisperX + pyannote refinement)"]
-        ParakeetRefinement["parakeet-refinement\n(Parakeet + Sortformer refinement)"]
-        RecorderWorker["recorder_worker\n(session WAV)"]
-        FinalizerWorker["whisperx_finalizer\n(WhisperX + pyannote final transcript)"]
-        ParakeetFinalizer["parakeet-finalizer\n(Parakeet + Sortformer final transcript)"]
+        RealtimeService["Realtime service<br/>[Faster-Whisper,<br/>Qwen3-ASR, Nemotron]"]
+        RefinementService["Refinement service<br/>[WhisperX, Parakeet]"]
+        RecorderWorker["recorder_worker<br/>(session WAV)"]
+        FinalizerService["Finalizer service<br/>[WhisperX, Parakeet]"]
     end
 
     Browser -->|HTTP /api + /auth| HTTP
-    Browser -->|"WS audio\nWebSocket /ws/audio\nPCM16LE mono 16kHz"| WSAudio
-    Browser ---|"WS events\nWebSocket /ws/events\nJSON events"| WSEvents
+    Browser -->|"WS audio<br/>WebSocket /ws/audio<br/>PCM16LE mono 16kHz"| WSAudio
+    Browser ---|"WS events<br/>WebSocket /ws/events<br/>JSON events"| WSEvents
 
     Electron -->|HTTP /api + /auth| HTTP
-    Electron -->|"WS audio\nWebSocket /ws/audio\nPCM16LE mono 16kHz"| WSAudio
-    Electron ---|"WS events\nWebSocket /ws/events\nJSON events"| WSEvents
+    Electron -->|"WS audio<br/>WebSocket /ws/audio<br/>PCM16LE mono 16kHz"| WSAudio
+    Electron ---|"WS events<br/>WebSocket /ws/events<br/>JSON events"| WSEvents
 
-    SamuraiBFF -->|"configured gRPC track\nfaster-whisper"| RTService
-    SamuraiBFF -->|"configured gRPC track\nqwen"| QwenRT
-    SamuraiBFF -->|"configured gRPC track\nnemotron"| NemotronRT
+    SamuraiBFF <-->|"gRPC streams per selected realtime track"| RealtimeService
 
     subgraph Kafka["Kafka"]
         KafkaBroker[(Kafka broker)]
     end
 
     subgraph Storage["Storage"]
-        ObjectStore[("S3-compatible object storage\n(Ceph etc., LocalStack in the local setup)")]
+        ObjectStore[("S3-compatible object storage<br/>(Ceph etc., LocalStack in the local setup)")]
         Postgres[(PostgreSQL)]
     end
 
-    SamuraiBFF -->|"produce protobuf AudioChunk\ntopic: audio.raw"| KafkaBroker
-    SamuraiBFF -->|"produce compacted JSON\ntopic: sessions.meta"| KafkaBroker
+    SamuraiBFF -->|"produce protobuf AudioChunk<br/>topic: audio.raw"| KafkaBroker
+    SamuraiBFF -->|"produce compacted JSON<br/>topic: sessions.meta"| KafkaBroker
 
-    KafkaBroker -->|"consume protobuf RefinedEvent\ntopic: transcripts.refined"| SamuraiBFF
-    KafkaBroker -->|"consume\ntopic: audio.raw"| WhisperXWorker
-    WhisperXWorker -->|"produce protobuf RefinedEvent\ntopic: transcripts.refined"| KafkaBroker
-    KafkaBroker -->|"audio.raw"| ParakeetRefinement
-    ParakeetRefinement -->|"transcripts.refined"| KafkaBroker
+    KafkaBroker -->|"consume protobuf RefinedEvent<br/>topic: transcripts.refined"| SamuraiBFF
+    KafkaBroker -->|"consume<br/>topic: audio.raw"| RefinementService
+    RefinementService -->|"produce protobuf RefinedEvent<br/>topic: transcripts.refined"| KafkaBroker
 
-    KafkaBroker -->|"consume\ntopic: audio.raw"| RecorderWorker
-    RecorderWorker -->|"produce protobuf RecordingFinished\ntopic: recordings.finished"| KafkaBroker
+    KafkaBroker -->|"consume<br/>topic: audio.raw"| RecorderWorker
+    RecorderWorker -->|"produce protobuf RecordingFinished<br/>topic: recordings.finished"| KafkaBroker
 
-    KafkaBroker -->|"consume\ntopic: recordings.finished"| FinalizerWorker
-    FinalizerWorker -->|"produce protobuf SessionTranscript\ntopic: transcripts.final"| KafkaBroker
-    KafkaBroker -->|"recordings.finished"| ParakeetFinalizer
-    ParakeetFinalizer -->|"transcripts.final"| KafkaBroker
+    KafkaBroker -->|"consume<br/>topic: recordings.finished"| FinalizerService
+    FinalizerService -->|"produce protobuf SessionTranscript<br/>topic: transcripts.final"| KafkaBroker
 
     RecorderWorker -->|"write session WAV"| ObjectStore
-    FinalizerWorker -->|"read recording and speaker enrollments"| ObjectStore
-    ParakeetFinalizer -->|"read recording"| ObjectStore
+    FinalizerService -->|"read recording; optional speaker enrollments"| ObjectStore
     SamuraiBFF -->|"serve recordings; read/write speaker enrollments"| ObjectStore
-    RTService -->|"read speaker enrollments"| ObjectStore
-    NemotronRT -->|"optional speaker enrollments"| ObjectStore
-    WhisperXWorker -->|"read speaker enrollments"| ObjectStore
+    RealtimeService -->|"optional speaker enrollments"| ObjectStore
+    RefinementService -->|"optional speaker enrollments"| ObjectStore
 
-    KafkaBroker -->|"consume + persist\ntopic: transcripts.refined"| Persistor["SamuraiPersistor\n(PostgreSQL writer)"]
-    KafkaBroker -->|"consume + persist\ntopic: transcripts.final"| Persistor
+    KafkaBroker -->|"consume + persist<br/>topic: transcripts.refined"| Persistor["SamuraiPersistor<br/>(PostgreSQL writer)"]
+    KafkaBroker -->|"consume + persist<br/>topic: transcripts.final"| Persistor
     Persistor -->|persist| Postgres
     SamuraiBFF -->|query| Postgres
 ```
+
+Each speech-service box groups independently deployed, selectable tracks for
+that stage; brackets list the supported model pipelines. Multiple selected
+tracks produce separate labelled results. The [model matrix](#model-pipelines-in-the-supplied-stack)
+below covers default and optional providers, model versions, alignment, and
+diarization (pyannote or Sortformer). Speaker-enrollment access applies only to
+pipelines that support it.
 
 The stack consists of:
 
@@ -186,13 +181,9 @@ This provides practical business and operational benefits:
 
 ```mermaid
 flowchart LR
-    Client["Browser, Electron, or SDK"] -->|"one audio stream"| BFF["SamuraiBFF\nsession track selection and fan-out"]
-    BFF -->|"selected track"| Faster["Faster Whisper realtime\nFaster-Whisper + pyannote"]
-    BFF -->|"selected track"| Qwen["Qwen realtime\nQwen3-ASR + ForcedAligner + pyannote"]
-    BFF -->|"selected track"| Nemotron["Nemotron realtime\nNemotron + optional Sortformer"]
-    Faster -->|"labelled ASR events"| Results["Independent realtime results"]
-    Qwen -->|"labelled ASR events"| Results
-    Nemotron -->|"labelled ASR events"| Results
+    Client["Browser, Electron, or SDK"] -->|"one audio stream"| BFF["SamuraiBFF<br/>session track selection and fan-out"]
+    BFF -->|"independent stream per selected track"| RealtimeService["Realtime service<br/>[Faster-Whisper,<br/>Qwen3-ASR, Nemotron]"]
+    RealtimeService -->|"labelled ASR events per track"| Results["Independent realtime results"]
     Results --> Client
     BFF -->|"publish audio once"| Async["Kafka refinement, recording, and finalization"]
 ```
