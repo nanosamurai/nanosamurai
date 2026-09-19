@@ -235,7 +235,7 @@ for the full-stack BFF requirement and exact success checks.
 | `whisperx_finalizer` | Completed recording / `whisperx` | The same WhisperX/pyannote pipeline with language-specific alignment enabled | Full-session transcript with word timing where alignment succeeds | Base stack |
 | `parakeet-refinement` | Semi-batch refinement / `parakeet` | `nvidia/parakeet-tdt-0.6b-v3` Q8 with Sortformer v2 through NeMo-Speech.cpp | Native word timing and up to four anonymous speakers per window | Parakeet overlay, source build |
 | `parakeet-finalizer` | Completed recording / `parakeet` | The same Parakeet/Sortformer pipeline | Full-session transcript with native word timing and up to four anonymous speakers per recording | Parakeet overlay, source build |
-| `qwen-refinement` / `qwen-finalizer` | Semi-batch refinement / completed recording; `qwen` | `Qwen/Qwen3-ASR-0.6B` through vLLM with pinned pyannote diarization | Batched, speaker-labelled segments with crop timing; no word timing | Qwen workers overlay, source build |
+| `qwen-refinement` / `qwen-finalizer` | Semi-batch refinement / completed recording; `qwen` | `Qwen/Qwen3-ASR-0.6B` through vLLM with pinned Qwen forced alignment and pyannote diarization | Batched, speaker-labelled segments with word timing for final playback highlighting | Qwen workers overlay, source build |
 | `recorder_worker` | Recording | No inference model | Session WAV and recording-completion event | Base stack |
 
 The base and Qwen quickstarts pull pinned images. The optional Nemotron and

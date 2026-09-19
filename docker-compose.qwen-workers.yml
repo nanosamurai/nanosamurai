@@ -84,7 +84,7 @@ services:
     volumes:
       - ./smoke-tests/final-tracks/qwen.py:/probe/qwen.py:ro
       - ${XAMURAI_SOURCE:-../xamurai}/proto_gen:/probe/proto_gen:ro
-      - ./tests/data/test_cs.wav:/probe/test_cs.wav:ro
+      - ${XAMURAI_SOURCE:-../xamurai}/tests/data/test_en.wav:/probe/test_en.wav:ro
 
 volumes:
   nanosamurai_qwen_hf_cache:

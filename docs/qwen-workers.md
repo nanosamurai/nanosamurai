@@ -43,10 +43,14 @@ memory. Run GPU integration suites separately from the full model stack on a
 ## Results and limits
 
 Pyannote diarizes each input, then Qwen transcribes batches of speaker turns,
-splitting turns into at most 30-second crops. The existing segment timestamps
-describe those crops. There are no word timestamps or enrolled names. Czech
-and other languages outside the forced aligner's language set still receive
-speaker labels. Overlapping voices are not separated; each sample is assigned
+splitting turns into at most 30-second crops. The pinned Qwen forced aligner
+adds word timestamps in the session timeline, preserving transcript punctuation.
+The existing Final Transcript player highlights those words and supports
+click-to-seek. Refinement results also store word timings; its UI is unchanged.
+Old saved rows are not rewritten, so record a new session to obtain highlighting.
+Unsupported languages or unusable crop alignments retain speaker segments without
+word timing; other aligned segments still support highlighting.
+There are no enrolled names. Overlapping voices are not separated; each sample is assigned
 once. Speaker labels are recording-local for finalization and window-local for
 refinement. Equal labels across windows do not establish identity.
 
@@ -57,8 +61,9 @@ queue and replay behavior. See the
 for all settings. Short-fixture tests establish functionality, not ASR accuracy,
 multi-speaker quality or maximum recording capacity.
 
-The smoke uses real models and the public Czech fixture. It checks live windows
-and an idle tail, finalization, model/track metadata, timed speaker segments,
+The smoke uses real models and Xamurai's synthetic English fixture. It checks live
+windows and an idle tail, finalization, model/track metadata, timed words/speakers,
+exact word-text preservation and session-relative timing across refinement windows,
 filtered saved results, exact WAV/range playback, replay deduplication, silence,
 independent stage selection, committed skips/defaults, and foreign-tenant denial.
 It prints assertions rather than transcripts and leaves new fixture sessions as
@@ -67,9 +72,12 @@ evidence. It does not reset offsets, replace volumes or change database objects.
 Validated on 2026-09-19 in the existing `nanosamurai` Compose project with rebuilt
 `xamurai-qwen-finalizer:local` and `xamurai-qwen-refinement:local` images:
 
-- The real Compose probe completed with `QWEN COMPOSE SMOKE PASSED`.
+- The real Compose probe completed with `QWEN COMPOSE SMOKE PASSED`, including
+  word timing and text preservation across final and refined results.
 - Xamurai's two real GPU integration tests passed, including observed multi-crop
-  vLLM calls; 28 realtime/shared-worker regression checks also passed.
+  vLLM and forced-aligner calls; 28 realtime/shared-worker regression checks also passed.
+- A browser check rendered all 55 persisted final words. Clicking two words
+  sought playback to 1.465 and 12.108 seconds and activated their highlights.
 - Both running workers matched the rebuilt image IDs, ran as UID 10002 with no
   host ports, and had zero restarts or OOM kills. BFF `/ready` returned 200.
 - Every published stack port was bound to `127.0.0.1`; the implementation commits

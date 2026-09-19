@@ -21,7 +21,7 @@ def refined_rows(session):
 
 
 def audio_socket(session, *, final=True, refined=True, track="qwen"):
-    params = dict(session_id=session, sample_rate=16000, lang="cs", realtime="false",
+    params = dict(session_id=session, sample_rate=16000, lang="en", realtime="false",
                   final=str(final).lower(), refined=str(refined).lower(),
                   store_recording="true", refinement_window_sec=10)
     if track is not None:
@@ -39,7 +39,7 @@ def main():
     s.CONSUMER.subscribe(list(s.TOPICS))
     s.wait_for(lambda: {p.topic for p in s.CONSUMER.assignment()} == set(s.TOPICS), "Kafka observer ready", 40)
     s.wait_for(lambda: s.http("/ready")[0] == 200, "BFF ready", 60)
-    with wave.open("/probe/test_cs.wav", "rb") as wav:
+    with wave.open("/probe/test_en.wav", "rb") as wav:
         fixture = wav.readframes(wav.getnframes())
     speech = (fixture * 3)[:round(23.125 * 32000)]
     session = s.new_session()
@@ -66,12 +66,20 @@ def main():
     assert [(r["segment_start_s"], r["segment_end_s"]) for r in refined] == [(0, 10), (10, 20), (20, 23.125)]
     s.wait_for(lambda: len(s.rows(session)) == 1, "Qwen final persisted", 900)
     final = s.rows(session)
+    assert all(segment.get("words") for segment in final[0]["segments"])
     for row in final + refined:
         assert row["track_id"] == "qwen" and row["model"] == MODEL and row["full_text"].strip()
         start, end = row.get("segment_start_s", 0), row.get("segment_end_s", 23.125)
         assert row["segments"] and all(segment.get("speaker") and
                start <= segment["start_s"] < segment["end_s"] <= end for segment in row["segments"])
         assert row["full_text"] == " ".join(segment["text"] for segment in row["segments"])
+        assert any(segment.get("words") for segment in row["segments"])
+        for segment in row["segments"]:
+            words = segment.get("words", [])
+            if words:
+                assert "".join(w["text"] for w in words) == segment["text"]
+            assert all(segment["start_s"] <= w["start_s"] < w["end_s"] <= segment["end_s"] for w in words)
+            assert all(a["start_s"] <= b["start_s"] for a, b in zip(words, words[1:]))
     status, history, _ = s.http(f"/api/recordings/{session}?track_id=qwen")
     assert status == 200
     for stage, rows in [("final", final), ("refined", refined)]:
@@ -82,7 +90,8 @@ def main():
     with wave.open(io.BytesIO(audio), "rb") as wav:
         assert wav.readframes(wav.getnframes()) == speech
     assert s.http(f"/api/recordings/{session}/audio", headers={"Range": "bytes=0-43"})[0] == 206
-    print("PASS live Qwen windows/tail, timed speakers, final/refined history and exact WAV/range playback")
+    print("PASS live Qwen windows/tail, timed speakers/words, final/refined history and exact WAV/range playback")
+    print(f"QWEN_COMPOSE_SMOKE_SESSION={session}")
 
     s.wait_for(lambda: s.EVENTS.get((session, "recordings.finished")), "recording event observed")
     finished = s.EVENTS[(session, "recordings.finished")][-1][1]
