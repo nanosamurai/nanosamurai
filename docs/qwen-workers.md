@@ -64,6 +64,17 @@ independent stage selection, committed skips/defaults, and foreign-tenant denial
 It prints assertions rather than transcripts and leaves new fixture sessions as
 evidence. It does not reset offsets, replace volumes or change database objects.
 
+Validated on 2026-09-19 in the existing `nanosamurai` Compose project with rebuilt
+`xamurai-qwen-finalizer:local` and `xamurai-qwen-refinement:local` images:
+
+- The real Compose probe completed with `QWEN COMPOSE SMOKE PASSED`.
+- Xamurai's two real GPU integration tests passed, including observed multi-crop
+  vLLM calls; 28 realtime/shared-worker regression checks also passed.
+- Both running workers matched the rebuilt image IDs, ran as UID 10002 with no
+  host ports, and had zero restarts or OOM kills. BFF `/ready` returned 200.
+- Every published stack port was bound to `127.0.0.1`; the implementation commits
+  passed Gitleaks. No protobuf, data-model or database-schema changes were made.
+
 Workers run unprivileged, publish no host port and reuse immutable model pins
 and digest checks. HF credentials are runtime-only and telemetry is disabled.
 Refinement has no storage credentials. The stack's development credentials and
