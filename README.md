@@ -23,15 +23,6 @@ This is the public front-door repository for running Community Edition locally
 with Docker Compose. Service images are pulled from `ghcr.io/nanosamurai/*` and
 pinned by source SHA.
 
-For the source-built per-service realtime settings spike and its real Compose
-smoke test, see [service-owned realtime settings](docs/realtime-settings.md).
-The optional [Parakeet final track](docs/parakeet-finalizer.md) adds Parakeet TDT
-v3 with embedded Sortformer and a real two-model Compose smoke test.
-The same overlay also offers [Parakeet semi-batch refinement](docs/parakeet-refinement.md)
-with word timing and independently selectable refinement tracks.
-[Qwen finalization and refinement](docs/qwen-workers.md) adds batched vLLM
-inference with pyannote speaker turns through another source-build overlay.
-
 ## Demo - See it in action
 
 <a href="https://nanosamur.ai/#demo">
