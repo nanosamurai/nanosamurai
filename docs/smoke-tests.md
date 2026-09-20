@@ -1,6 +1,7 @@
 # Smoke tests and release rehearsal
 
-For the unmerged lean track UI spike, see [the browser/Compose runbook](track-selection-ui.md).
+For optional models, use [model checks](model-checks.md).
+The [browser validation record](track-selection-ui.md) covers track selection tests.
 
 The tests are cumulative: each higher tier requires the services exercised by
 the lower tiers.

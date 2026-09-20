@@ -33,9 +33,9 @@ authoritative tuning reference is Xamurai's
 ## Asynchronous refinement
 
 SamuraiBFF also publishes the session audio to Kafka topic `audio.raw`. Selected
-WhisperX and/or Parakeet workers use the shared refinement runtime to buffer
+WhisperX, Parakeet, or Qwen workers use the shared refinement runtime to buffer
 configurable windows and publish track-labelled `RefinedEvent` messages on
-`transcripts.refined`. Parakeet is enabled by the optional overlay; WhisperX
+`transcripts.refined`. Optional overlays enable Parakeet and Qwen; WhisperX
 remains the default when refinement-track selection is omitted.
 
 A refined event may contain several speaker turns. SamuraiBFF fans those turns
@@ -61,7 +61,7 @@ provider.
 
 After the recorder publishes `recordings.finished`, each selected finalizer
 processes the completed recording and publishes its own `SessionTranscript` on
-`transcripts.final`. WhisperX and Parakeet reuse the shared finalization runtime.
+`transcripts.final`. WhisperX, Parakeet, and Qwen reuse the shared finalization runtime.
 SamuraiPersistor stores each full-session track, and SamuraiBFF serves the
 separate results through the recording-detail API and UI. Final tracks are
 selected independently of refinement tracks; omitted final selection defaults
@@ -92,7 +92,7 @@ seeking.
 Parakeet supports up to four anonymous speakers per refinement window or final
 recording, with no enrolled-speaker matching. Speaker labels restart in each
 refinement window, so matching labels across windows do not establish identity.
-See [Parakeet refinement](parakeet-refinement.md) for timing and selection details.
+See [Parakeet](models/parakeet.md) for timing and selection details.
 
 Detailed component behavior remains with the owning services:
 

@@ -22,6 +22,10 @@ In **Session settings**, select either model or both before you start audio.
 If you already use source-built base images, pull only `qwen-rtservice` with this file list.
 Then use `up -d --no-build --pull never` to preserve your local images.
 
+```bash
+docker compose -f docker-compose.yml -f docker-compose.qwen.yml pull qwen-rtservice
+```
+
 Qwen processes a continuous stream in bounded intervals, called epochs.
 The default epoch is 60 seconds. Speaker labels apply only within each epoch.
 For languages supported by its forced aligner, Qwen adds segment timing and speaker labels.
@@ -100,6 +104,10 @@ This stops the WhisperX workers. Qwen becomes the only refined and final choice.
 Faster-Whisper still runs unless you also apply the realtime replacement above.
 For all-Qwen processing, combine both YAML examples under one `services` map
 and include both Qwen overlays before the local file.
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.qwen.yml -f docker-compose.qwen-workers.yml -f docker-compose.local-asr.yml up -d --no-build --pull never
+```
 
 ## Remove Qwen
 
