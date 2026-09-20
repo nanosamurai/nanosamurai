@@ -1,4 +1,4 @@
-# Evaluator getting started
+# Getting started
 
 This guide takes a clean machine from an empty checkout to a first browser
 transcription. The supplied Docker Compose configuration is an evaluator stack:
