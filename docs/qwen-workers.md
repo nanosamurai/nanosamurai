@@ -79,6 +79,18 @@ session key/partition. It also checks an audio-only connection, abnormal TCP
 closure with the unchanged 30-second fallback, and duplicate/empty Stop without
 additional recordings. Refinement still produces its idle tail normally.
 
+Validated again on 2026-09-20 with those rebuilt BFF/recorder images and real
+Qwen finalizer/refinement: `QWEN COMPOSE SMOKE PASSED`. Stop-to-recording
+completion was **0.364 seconds**, versus **30.794 seconds** for a deliberately
+interrupted connection. Exact WAV bytes, final/refined persistence, timing,
+playback, replay, selections and tenant checks passed. A separate browser-style
+empty close handshake completed in 0.017 seconds. These measure recording
+completion; final inference and persistence still add their own latency.
+
+The developer-local `docker-compose.local-asr.yml` remains ignored. On another
+compatible stack, select the rebuilt images through `SAMURAIBFF_IMAGE` and
+`RECORDER_WORKER_IMAGE`, or update its existing image override.
+
 Validated on 2026-09-19 in the existing `nanosamurai` Compose project with rebuilt
 `xamurai-qwen-finalizer:local` and `xamurai-qwen-refinement:local` images:
 
