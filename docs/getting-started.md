@@ -278,7 +278,8 @@ not establish accuracy for multi-speaker meetings or capacity on other GPUs.
 3. Select **Microphone** as the input.
 4. Open **Session settings**, select the desired realtime tracks, and choose the
    realtime, refined, and final outputs. With the Qwen override, select Faster,
-   Qwen, or both; both are selected by default.
+   Qwen, or both; both are selected unless a realtime default is configured
+   with the [default-track spike](default-tracks-spike.md).
 5. Choose **Record now**, grant microphone permission, and speak.
 6. Compare simultaneous realtime tracks in their labelled side-by-side panels.
 7. Stop the recording when finished.

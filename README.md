@@ -251,7 +251,9 @@ and Parakeet also share `nemo-speech-native`, a build dependency with zero runti
 replicas. Shared code and artifact caches do not share loaded model weights.
 
 Refinement and final tracks are selected independently; omitted selections keep
-WhisperX as the default. Parakeet supports no enrolled names, and its speaker
+WhisperX as the default in the supplied configuration. The optional
+[default-track spike](docs/default-tracks-spike.md) lets operators choose one
+default for each stage, including realtime. Parakeet supports no enrolled names, and its speaker
 labels restart for each refinement window. Matching labels across windows do
 not establish the same speaker. Realtime finals commit an utterance or window;
 full-session final transcripts are separate results.
