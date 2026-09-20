@@ -8,6 +8,7 @@ guarding your sensitive conversations</sub>
 ## **Complete speech AI platform**
 - open source
 - production-grade, distributed architecture
+- model agnostic
 - multitenancy support
 
 nanosamur.ai guards sensitive conversations in infrastructure you control. 
@@ -31,15 +32,21 @@ pinned by source SHA.
 
 [Watch nanosamur.ai](https://nanosamur.ai/#demo) turn a live conversation into speaker-aware transcripts, workflow results, a searchable final record, and a fully traced session. 
 
-## What Community Edition includes
+## What nanosamur.ai includes
 <img src="docs/main-art-large.png" width="35%" align="right">
 
 
 - browser UI and SamuraiBFF API
 - Windows-first Electron wrapper
-- one or more independently selectable realtime transcription models
-- parallel, track-labelled realtime results from the same audio stream
-- asynchronous speaker-aware refinement
+- one or more independently selectable **realtime transcription** models:
+  - nvidia/nemotron-3.5-asr-streaming
+  - Qwen/Qwen3-ASR (streaming)
+  - faster-whisper (in "pseudo-streaming" mode)
+- **batch** and **semi-batch** processing using one or multiple models:
+  - whisper
+  - nvidia/parakeet-tdt v3
+  - Qwen/Qwen3-ASR
+- diarization (currently Pyannote or Sortformer), vad, alignment
 - multi-tenancy support
 - recording storage and full-session final transcripts
 - PostgreSQL transcript persistence
@@ -48,7 +55,7 @@ pinned by source SHA.
 - public smoke tests and trace-context audit
 
 The public code also includes agentic-workflow and webhook contracts.
-Community Edition does not ship workflow execution or webhook delivery
+Community Edition does not currently ship workflow execution or webhook delivery
 services, but you are free to implement your own workflows / webhook services and plug them in.
 <br clear="right">
 
