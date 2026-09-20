@@ -1,6 +1,7 @@
 """Real Qwen workers through Compose BFF, Kafka, recording storage and Postgres."""
 import io
 import json
+import socket
 import time
 import uuid
 import wave
@@ -47,19 +48,33 @@ def main():
     with connect(s.BFF.replace("http", "ws", 1) + "/ws/events?" + urlencode({"session_id": session})) as events:
         with audio_socket(session) as ws:
             send(ws, speech)
-            deadline = time.monotonic() + 900
-            while time.monotonic() < deadline:
-                s.pump()
-                try:
-                    event = json.loads(events.recv(timeout=.1))
-                    if event.get("type") == "refined":
-                        live.append(event)
-                except TimeoutError:
-                    pass
-                if len(refined_rows(session)) == 3 and {e["slice_index"] for e in live} == {0, 1, 2}:
-                    break
-            else:
-                raise AssertionError("Qwen windows and idle tail did not arrive live")
+            stopped_ns = time.time_ns()
+        s.wait_for(lambda: s.EVENTS.get((session, "recordings.finished")), "Stop finalized recording", 15)
+        completion = s.EVENTS[(session, "recordings.finished")][0][0]
+        stop_delay = (completion.created_at_ns - stopped_ns) / 1e9
+        assert 0 <= stop_delay < 10, stop_delay
+        s.wait_for(lambda: any(dict(m.headers()).get("x-audio-end") == b"true"
+                              for _, m in s.EVENTS.get((session, "audio.raw"), [])), "ordered marker observed")
+        records = s.EVENTS[(session, "audio.raw")]
+        marker = records[-1][1]
+        assert not records[-1][0].pcm16_le and dict(marker.headers())["x-audio-end"] == b"true"
+        assert all(m.key() == session.encode() and m.partition() == marker.partition() for _, m in records)
+        assert all(m.offset() < marker.offset() and e.pcm16_le for e, m in records[:-1])
+        assert b"".join(e.pcm16_le for e, _ in records) == speech
+        print(f"PASS Stop to recordings.finished in {stop_delay:.3f}s, after all audio on partition {marker.partition()}")
+        deadline = time.monotonic() + 900
+        while time.monotonic() < deadline:
+            s.pump()
+            try:
+                event = json.loads(events.recv(timeout=.1))
+                if event.get("type") == "refined":
+                    live.append(event)
+            except TimeoutError:
+                pass
+            if len(refined_rows(session)) == 3 and {e["slice_index"] for e in live} == {0, 1, 2}:
+                break
+        else:
+            raise AssertionError("Qwen windows and idle tail did not arrive live")
     assert all(e["track_id"] == "qwen" and e.get("speaker") for e in live)
     assert all(e["window_start_s"] <= e["start_s"] < e["end_s"] <= e["window_end_s"] for e in live)
     refined = refined_rows(session)
@@ -120,6 +135,10 @@ def main():
         selected = s.new_session()
         with audio_socket(selected, final=final_on, refined=refined_on, track=track) as ws:
             send(ws, pcm)
+            selected_stop_ns = time.time_ns()
+        if final_on:
+            s.wait_for(lambda: s.EVENTS.get((selected, "recordings.finished")), "audio-only Stop finalized", 15)
+            assert 0 <= (s.EVENTS[(selected, "recordings.finished")][0][0].created_at_ns - selected_stop_ns) / 1e9 < 10
         s.wait_for(lambda: sum(len(e.pcm16_le) for e, _ in s.EVENTS.get((selected, "audio.raw"), [])) == len(pcm),
                    "selection audio observed")
         s.wait_for(lambda: s.committed("refinement.qwen", s.EVENTS[(selected, "audio.raw")][-1][1]),
@@ -148,6 +167,27 @@ def main():
     except InvalidStatus as error:
         assert error.response.status_code == 403
     print("PASS independent stages, committed skips/defaults, silence, replay and tenant denial")
+
+    # Exercise the fallback with a TCP interruption, and observe duplicate/empty Stop meanwhile.
+    finished_count = len(s.EVENTS[(session, "recordings.finished")])
+    s.replay(marker)
+    empty = s.new_session()
+    with audio_socket(empty):
+        pass
+    interrupted = s.new_session()
+    ws = audio_socket(interrupted, refined=False)
+    send(ws, bytes(32000))
+    interrupted_ns = time.time_ns()
+    ws.socket.shutdown(socket.SHUT_RDWR)
+    ws.socket.close()
+    s.wait_for(lambda: s.EVENTS.get((interrupted, "recordings.finished")), "interruption idle fallback", 50)
+    delay = (s.EVENTS[(interrupted, "recordings.finished")][0][0].created_at_ns - interrupted_ns) / 1e9
+    assert 28 <= delay < 45, delay
+    assert all("x-audio-end" not in dict(m.headers()) for _, m in s.EVENTS[(interrupted, "audio.raw")])
+    assert len(s.EVENTS[(session, "recordings.finished")]) == finished_count
+    assert not s.EVENTS.get((empty, "recordings.finished"))
+    s.wait_for(lambda: len(s.rows(interrupted)) == 1, "interrupted Qwen final persisted", 900)
+    print(f"PASS interruption fallback in {delay:.3f}s; duplicate and empty Stop create no recording")
     print("QWEN COMPOSE SMOKE PASSED")
 
 
