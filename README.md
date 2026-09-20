@@ -29,6 +29,8 @@ The optional [Parakeet final track](docs/parakeet-finalizer.md) adds Parakeet TD
 v3 with embedded Sortformer and a real two-model Compose smoke test.
 The same overlay also offers [Parakeet semi-batch refinement](docs/parakeet-refinement.md)
 with word timing and independently selectable refinement tracks.
+[Qwen finalization and refinement](docs/qwen-workers.md) adds batched vLLM
+inference with pyannote speaker turns through another source-build overlay.
 
 ## Demo - See it in action
 
@@ -77,9 +79,9 @@ flowchart LR
 
     subgraph Xamurai["Xamurai (Python services)"]
         RealtimeService["Realtime service<br/>[Faster-Whisper,<br/>Qwen3-ASR, Nemotron]"]
-        RefinementService["Refinement service<br/>[WhisperX, Parakeet]"]
+        RefinementService["Refinement service<br/>[WhisperX, Parakeet, Qwen3-ASR]"]
         RecorderWorker["recorder_worker<br/>(session WAV)"]
-        FinalizerService["Finalizer service<br/>[WhisperX, Parakeet]"]
+        FinalizerService["Finalizer service<br/>[WhisperX, Parakeet, Qwen3-ASR]"]
     end
 
     Browser -->|HTTP /api + /auth| HTTP
@@ -140,11 +142,12 @@ The stack consists of:
   - `whisperx_worker`: one pipeline with refinement and finalizer entrypoints,
     built with `Dockerfile.refinement` and `Dockerfile.finalizer`.
   - `parakeet_worker`: Parakeet refinement and finalization with embedded Sortformer.
+  - `qwen_worker`: batched vLLM refinement/finalization with pyannote speaker turns.
   - `nemo_speech_native`: native bindings and a shared Docker base for Nemotron and Parakeet.
   - `recorder_worker`: session audio storage.
   - `xamurai_serving.finalization`: the shared Kafka and recording loop for finalizers.
   - `xamurai_serving.refinement` and `refinement_runtime`: shared window buffering,
-    publication and recovery for WhisperX and Parakeet refinement.
+    publication and recovery for WhisperX, Parakeet and Qwen refinement.
 - [samuraibff](https://github.com/nanosamurai/samuraibff) — HTTP/WebSocket API,
   browser UI, authentication, and orchestration
 - [samuraipersistor](https://github.com/nanosamurai/samuraipersistor) —
@@ -232,6 +235,7 @@ for the full-stack BFF requirement and exact success checks.
 | `whisperx_finalizer` | Completed recording / `whisperx` | The same WhisperX/pyannote pipeline with language-specific alignment enabled | Full-session transcript with word timing where alignment succeeds | Base stack |
 | `parakeet-refinement` | Semi-batch refinement / `parakeet` | `nvidia/parakeet-tdt-0.6b-v3` Q8 with Sortformer v2 through NeMo-Speech.cpp | Native word timing and up to four anonymous speakers per window | Parakeet overlay, source build |
 | `parakeet-finalizer` | Completed recording / `parakeet` | The same Parakeet/Sortformer pipeline | Full-session transcript with native word timing and up to four anonymous speakers per recording | Parakeet overlay, source build |
+| `qwen-refinement` / `qwen-finalizer` | Semi-batch refinement / completed recording; `qwen` | `Qwen/Qwen3-ASR-0.6B` through vLLM with pinned Qwen forced alignment and pyannote diarization | Batched, speaker-labelled segments with word timing for final playback highlighting | Qwen workers overlay, source build |
 | `recorder_worker` | Recording | No inference model | Session WAV and recording-completion event | Base stack |
 
 The base and Qwen quickstarts pull pinned images. The optional Nemotron and
@@ -240,7 +244,7 @@ does not advance those quickstart pins. Follow the [Parakeet refinement runbook]
 for compatible BFF/Persistor prerequisites and rebuilding both WhisperX and
 Parakeet workers with the shared runtime.
 
-WhisperX and Parakeet each have one inference pipeline with separate refinement
+WhisperX, Parakeet and Qwen each have one inference pipeline with separate refinement
 and finalizer entrypoints, images and processes. They share refinement
 buffering/publication/recovery and the finalizer Kafka/recording loop. Nemotron
 and Parakeet also share `nemo-speech-native`, a build dependency with zero runtime
