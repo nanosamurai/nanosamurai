@@ -16,11 +16,13 @@ From an existing local stack:
 
 ```powershell
 $env:COMPOSE_BIND_IP = '127.0.0.1'
+docker build -t samuraibff:audio-end ../../IdeaProjects/samuraibff
+docker build -t xamurai-recorder-worker:audio-end -f ../xamurai/recorder_worker/Dockerfile ../xamurai
 $files = @('-p', 'nanosamurai', '-f', 'docker-compose.yml',
   '-f', 'docker-compose.nemotron.yml', '-f', 'docker-compose.local-asr.yml',
   '-f', 'docker-compose.qwen-workers.yml')
 docker compose @files build qwen-finalizer qwen-refinement
-docker compose @files up -d --no-deps --no-build samuraibff qwen-finalizer qwen-refinement
+docker compose @files up -d --no-deps --no-build recorder_worker samuraibff qwen-finalizer qwen-refinement
 docker compose @files --profile validation build qwen-smoke
 docker compose @files --profile validation run --rm --no-deps qwen-smoke
 ```
@@ -68,6 +70,26 @@ filtered saved results, exact WAV/range playback, replay deduplication, silence,
 independent stage selection, committed skips/defaults, and foreign-tenant denial.
 It prints assertions rather than transcripts and leaves new fixture sessions as
 evidence. It does not reset offsets, replace volumes or change database objects.
+
+The local override uses source-built `samuraibff:audio-end` and
+`xamurai-recorder-worker:audio-end`. The probe closes audio immediately after
+sending the fixture and requires `recordings.finished` within 10 seconds of
+Stop, with the empty `x-audio-end=true` marker after every chunk on the same
+session key/partition. It also checks an audio-only connection, abnormal TCP
+closure with the unchanged 30-second fallback, and duplicate/empty Stop without
+additional recordings. Refinement still produces its idle tail normally.
+
+Validated again on 2026-09-20 with those rebuilt BFF/recorder images and real
+Qwen finalizer/refinement: `QWEN COMPOSE SMOKE PASSED`. Stop-to-recording
+completion was **0.364 seconds**, versus **30.794 seconds** for a deliberately
+interrupted connection. Exact WAV bytes, final/refined persistence, timing,
+playback, replay, selections and tenant checks passed. A separate browser-style
+empty close handshake completed in 0.017 seconds. These measure recording
+completion; final inference and persistence still add their own latency.
+
+The developer-local `docker-compose.local-asr.yml` remains ignored. On another
+compatible stack, select the rebuilt images through `SAMURAIBFF_IMAGE` and
+`RECORDER_WORKER_IMAGE`, or update its existing image override.
 
 Validated on 2026-09-19 in the existing `nanosamurai` Compose project with rebuilt
 `xamurai-qwen-finalizer:local` and `xamurai-qwen-refinement:local` images:

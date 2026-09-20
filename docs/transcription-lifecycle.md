@@ -67,6 +67,14 @@ separate results through the recording-detail API and UI. Final tracks are
 selected independently of refinement tracks; omitted final selection defaults
 to WhisperX. Multiple final tracks currently require `store_recording=true`.
 
+With the ordered-audio-end BFF and recorder builds, Stop closes the audio socket
+normally. The BFF drains accepted frames, then sends an empty `AudioChunk` with
+`x-audio-end=true` on the same Kafka session key/partition. The recorder finalizes
+on that marker, removing the usual 30-second idle wait. Interrupted streams and
+older BFFs still use `RECORDER_IDLE_SECONDS` (default 30). Refinement retains its
+idle-tail behavior. The finish API updates session status but cannot establish
+that audio has drained; it does not trigger recording completion.
+
 Finalization can take substantially longer during the first run because model
 and alignment initialization are cold. A stopped recording can therefore be
 visible before its final transcript is available.
