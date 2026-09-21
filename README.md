@@ -6,9 +6,10 @@ guarding your sensitive conversations</sub>
 <sub>Your voice. Your control.</sub>
 
 ## **Complete speech AI platform**
+
 - open source
 - production-grade, distributed architecture
-- model agnostic
+- [model agnostic](#model-pipelines-in-the-supplied-stack)
 - multitenancy support
 
 nanosamur.ai guards sensitive conversations in infrastructure you control. 
@@ -38,14 +39,8 @@ pinned by source SHA.
 
 - browser UI and SamuraiBFF API
 - Windows-first Electron wrapper
-- one or more independently selectable **realtime transcription** models:
-  - nvidia/nemotron-3.5-asr-streaming
-  - Qwen/Qwen3-ASR (streaming)
-  - faster-whisper (in "pseudo-streaming" mode)
-- **batch** and **semi-batch** processing using one or multiple models:
-  - whisper
-  - nvidia/parakeet-tdt v3
-  - Qwen/Qwen3-ASR
+- one or more independently selectable [**realtime transcription** models](#model-pipelines-in-the-supplied-stack)
+- [**batch** and **semi-batch** processing](#model-pipelines-in-the-supplied-stack) with one or more models
 - diarization (currently Pyannote or Sortformer), vad, alignment
 - multi-tenancy support
 - recording storage and full-session final transcripts
