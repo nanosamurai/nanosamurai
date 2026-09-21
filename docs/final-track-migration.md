@@ -1,64 +1,63 @@
-# Final track migration
+# Track storage migrations
 
-Migration `017-add-final-track-identity.up.sql` adds nullable
-`session_transcripts.track_id` and uniqueness on recordings' `(session_id,
-recording_url)` and tagged final transcripts' `(recording_id, track_id)`.
-Transcript text and segment JSON keep their existing shape. Old NULL tracks
-remain history and are read as WhisperX. New untagged events use WhisperX.
+Apply migrations 017–019 before you start services that use final or refinement
+track selection. Migration 019 requires PostgreSQL 15 or later.
+Follow [Prepare the database](models/source-builds.md#prepare-the-database)
+for the upgrade sequence. Keep the existing PostgreSQL major version and volumes.
 
-Nanodeploy and Nanosamurai own the migration. Keep Nanodeploy's Docker and
-chart SQL copies byte-identical to Nanosamurai's Docker SQL. Persistor's
-historical Migratus files are not the deployment migration ledger. This
-duplication can drift; compare hashes whenever promoting the service changes.
-No Helm templates, image pins or cloud deployment are changed by this spike.
+| Migration | Change |
+| --- | --- |
+| 017 | Add nullable `track_id`; make recording URLs unique per session and final results unique per recording and track |
+| 018 | Remove the obsolete `session_transcripts_final_track_check` constraint from an earlier local experiment |
+| 019 | Make refined results unique per tenant, session, track, window length, and time bounds |
 
-Apply the migration transactionally before starting the changed services.
-The SQL takes short table locks to inspect duplicates and build the indexes.
-It aborts on duplicate recording URLs or tagged final results, without deleting
-or rewriting history. Operators must inspect and reconcile such references
-before retrying; do not reset volumes or edit an applied migration.
+Historical rows with NULL track IDs, transcript text, and segment JSON remain
+unchanged. Readers treat old untagged results as WhisperX. New untagged events
+also use WhisperX. Migration 019 uses `NULLS NOT DISTINCT` so that tagged
+replays without a window length still have one stored result.
 
-Preflight queries (counts/groups only; no transcript text):
+## Before an upgrade
+
+Back up Postgres and recording storage. Inspect the migration ledger.
+Versions 014–016 were used by local experiments; do not reuse them or remove
+applied ledger entries. Migration 018 removes only the obsolete constraint.
+It does not remove old tables or columns. Such cleanup needs a separate review.
+
+Migrations 017 and 019 lock the affected tables while they check duplicates
+and create indexes. They abort on duplicate tagged results or recording URLs.
+Inspect and resolve conflicts without deleting transcript history before you
+retry. Do not edit an applied migration or reset volumes.
+
+Check duplicate recording URLs before migration 017:
 
 ```sql
 SELECT session_id, recording_url, count(*) FROM recordings
 GROUP BY session_id, recording_url HAVING count(*) > 1;
+```
+
+If `session_transcripts.track_id` already exists, also check tagged results:
+
+```sql
 SELECT recording_id, track_id, count(*) FROM session_transcripts
 WHERE type='final' AND track_id IS NOT NULL AND recording_id IS NOT NULL
 GROUP BY recording_id, track_id HAVING count(*) > 1;
+
+SELECT tenant_id, session_id, track_id, window_length,
+       segment_start_s, segment_end_s, count(*) FROM session_transcripts
+WHERE type='refined' AND track_id IS NOT NULL
+GROUP BY tenant_id, session_id, track_id, window_length,
+         segment_start_s, segment_end_s HAVING count(*) > 1;
 ```
 
-The original `nanosamurai` database was inspected on 2026-09-13: 117 transcript
-rows, 51 recording rows and zero duplicate recording URL groups. Its ledger
-already contained experimental versions 014 and 015. Version 016 was used by
-another discarded local experiment, so versions 014-016 are not reused.
-Migration 017 added the previously absent track column; migration 018 was a
-no-op on this original schema. Applied ledger entries remain intact.
+These queries return groups and counts, not transcript text.
 
-The first live write exposed `session_transcripts_final_track_check` from the
-old experiment: it required `result_id`, `plan_id` and `profile_id` on every
-non-NULL track. Forward migration 018 retires that obsolete check, leaving
-foreign keys, uniqueness indexes, old columns and history intact. It is a
-no-op on clean master schemas. Migration 017 remains unchanged after application.
+## Migration ownership
 
-After backups and approval, a one-time local cleanup removed the original
-database's obsolete experimental table and eight metadata columns. Its 126
-experimental result-metadata rows are archived in full and table-only backups;
-all 117 transcript rows and 51 recording records remain unchanged. This cleanup
-is not an additional deployment migration.
-See [the original-stack evidence](final-tracks-spike.md#original-nanosamurai-stack).
+Nanosamurai and Nanodeploy own deployment migrations. Keep their Docker SQL
+and Nanodeploy's chart copies of 017–019 identical. Compare the SQL and migration
+runner configuration before promotion. Apply each migration in a transaction.
+Do not use Persistor's historical Migratus files as the deployment ledger.
 
-## Refinement follow-up
-
-Migration `019-add-refinement-track-identity.up.sql` reuses `track_id` and adds
-uniqueness for tagged refined windows on `(tenant_id, session_id, track_id,
-window_length, segment_start_s, segment_end_s)`. PostgreSQL 15+ NULL equality
-also deduplicates old events without a window length. Historical NULL tracks
-and all existing text/segments remain unchanged. The duplicate preflight aborts
-without rewriting data; apply this before the updated refinement Persistor.
-
-On 2026-09-14, the normal original-stack runner applied 019 after a custom-format
-backup and rolled-back migration tests. All 182 pre-existing transcripts and
-63 recording records passed hash comparisons afterward. SQL copies in both
-deployment repositories and the chart assets match. The Compose runner wiring
-is updated; Helm execution and cloud rollout remain separate.
+Use the [track migration probes](track-checks.md) to test SQL behavior in
+separate schemas. These probes roll back; they do not upgrade the application
+database. Past local test results do not validate a new image set or Helm deployment.

@@ -1,7 +1,7 @@
 # Smoke tests and release rehearsal
 
 For optional models, use [model checks](model-checks.md).
-The [browser validation record](track-selection-ui.md) covers track selection tests.
+Use [Track checks](track-checks.md) for selection, recovery, and browser tests.
 
 The tests are cumulative: each higher tier requires the services exercised by
 the lower tiers.

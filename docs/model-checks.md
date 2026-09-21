@@ -69,5 +69,4 @@ It checks refined and final output, word timing, playback, replay, selection,
 tenant isolation, and recording completion after normal or interrupted Stop.
 Updated BFF and recorder images are required for the ordered-Stop assertions.
 
-For shared worker recovery tests, see [final-track tests](final-tracks-spike.md)
-and [refinement-track tests](refinement-tracks-spike.md).
+For shared worker recovery tests, see [Track checks](track-checks.md).
