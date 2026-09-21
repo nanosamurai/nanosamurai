@@ -1,4 +1,4 @@
-# Local refinement regression tests. See docs/track-checks.md.
+# Opt-in spike 2 validation. Reuses the original Compose project and data.
 services:
   samuraibff:
     image: samuraibff:lean-tracks

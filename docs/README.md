@@ -11,7 +11,6 @@ Use [Choose models](models/README.md) to add, replace, or stop model services.
 - [Whisper](models/whisper.md), [Qwen](models/qwen.md), [Nemotron](models/nemotron.md), and [Parakeet](models/parakeet.md)
 - [Architecture and Community Edition boundary](architecture.md)
 - [Transcription lifecycle](transcription-lifecycle.md)
-- [Realtime settings](realtime-settings.md)
 - [APIs and extension points](apis-and-extension-points.md)
 
 ## Validate and operate
@@ -21,8 +20,6 @@ Use [Choose models](models/README.md) to add, replace, or stop model services.
 - [Deployment and security boundaries](deployment-and-security.md)
 - [Smoke tests and release rehearsal](smoke-tests.md)
 - [Optional model checks](model-checks.md)
-- [Track and browser checks](track-checks.md)
-- [Track storage migrations](final-track-migration.md)
 - [Troubleshooting](troubleshooting.md)
 - [Image release policy](image-release-policy.md)
 

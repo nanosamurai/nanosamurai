@@ -1,4 +1,4 @@
-# Local browser regression tests. See docs/track-checks.md.
+# Opt-in spike 3 browser validation; reuse the original project and volumes.
 services:
   samuraibff:
     image: samuraibff:lean-tracks
