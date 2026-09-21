@@ -16,8 +16,9 @@ docker compose -f docker-compose.yml -f docker-compose.qwen.yml logs --tail=100 
 ```
 
 The overlay adds `qwen-rtservice` and keeps the default Whisper services running.
-Faster-Whisper and Qwen are both selected by default for realtime output.
+With no realtime default set, Faster-Whisper and Qwen are both selected.
 In **Session settings**, select either model or both before you start audio.
+To make Qwen the initial choice, [set the realtime default](README.md#set-default-tracks) to `qwen`.
 
 If you already use source-built base images, pull only `qwen-rtservice` with this file list.
 Then use `up -d --no-build --pull never` to preserve your local images.
@@ -68,7 +69,8 @@ docker compose -f docker-compose.yml -f docker-compose.qwen-workers.yml logs --t
 ```
 
 The overlay adds Qwen to the **Refined** and **Final** model lists.
-WhisperX remains selected by default. Select Qwen in each stage that you need.
+With no defaults set, WhisperX remains selected. Select Qwen in each stage that you need.
+To make Qwen the initial choice, set the [refined and final defaults](README.md#set-default-tracks) to `qwen`.
 Qwen realtime is independent; add its overlay if you also want that stage.
 
 Qwen workers add speaker labels and word timing where alignment succeeds.
@@ -113,6 +115,7 @@ docker compose -f docker-compose.yml -f docker-compose.qwen.yml -f docker-compos
 
 With the file list that started Qwen, stop `qwen-rtservice`, `qwen-refinement`,
 and `qwen-finalizer` as applicable. Remove their overlays from your file list.
+Clear any default track settings that name `qwen`.
 Remove any Qwen replacement settings from your local file, then start the base stack.
 This restores the Whisper defaults and retains model caches and saved data.
 

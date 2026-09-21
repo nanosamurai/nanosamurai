@@ -25,7 +25,8 @@ The default Whisper services still need `HF_TOKEN`.
 The Parakeet workers share a disk cache, but each loads separate weights into memory.
 
 Open **Session settings**. Select Parakeet in **Refined**, **Final**, or both.
-WhisperX remains selected by default until you change the selection.
+With no defaults set, WhisperX remains selected until you change the selection.
+To make Parakeet the initial choice, set the [refined and final defaults](README.md#set-default-tracks) to `parakeet`.
 To compare both models, select both in the same stage.
 Keep recording storage enabled when you select both final models.
 
@@ -62,6 +63,7 @@ To keep one WhisperX stage, omit its zero-replica setting and retain `whisperx,p
 
 Stop `parakeet-refinement` and `parakeet-finalizer` with the file list that started them.
 Remove the Parakeet overlay and its local replacement settings.
+Clear any default track settings that name `parakeet`.
 Start the remaining stack to restore WhisperX.
 The model cache and saved transcripts remain available.
 

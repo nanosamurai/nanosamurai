@@ -22,8 +22,9 @@ The overlay starts two Nemotron containers by default. Each accepts one active s
 Set `NEMOTRON_RTSERVICE_REPLICAS=1` in `.env` if you only need one stream.
 Each replica needs separate model memory. The first startup downloads and verifies the model.
 
-Faster-Whisper stays available. Both realtime tracks are selected by default.
+Faster-Whisper stays available. With no realtime default set, both realtime tracks are selected.
 In **Session settings**, select Nemotron, Faster-Whisper, or both.
+To make Nemotron the initial choice, [set the realtime default](README.md#set-default-tracks) to `nemotron`.
 WhisperX still provides refined and final transcripts.
 
 ## Use Nemotron instead of Faster-Whisper
@@ -76,6 +77,7 @@ Nemotron does not provide word timing.
 
 Stop `nemotron-rtservice` with the file list that started it.
 Remove the Nemotron overlay and its local replacement settings.
+Clear the realtime default if it names `nemotron`.
 Start the remaining stack to restore Faster-Whisper.
 The model cache remains available for later use.
 

@@ -1,6 +1,7 @@
 # Prepare source-built models
 
 Use this setup before you add Nemotron, Parakeet, or Qwen workers.
+Use it also for [default track settings](README.md#set-default-tracks), which need newer BFF code.
 Qwen realtime alone can use the [published images](qwen.md#add-realtime-transcription).
 
 The optional worker overlays need newer API, UI, recorder, and persistence code
@@ -20,6 +21,7 @@ git clone https://github.com/nanosamurai/samuraipersistor.git ../samuraipersisto
 
 If a checkout already exists, use it instead. Do not overwrite local changes.
 Use compatible `master` revisions that include track selection and ordered audio completion.
+For default track settings, use a BFF revision that also includes default-track support.
 Record the source commit IDs when you validate a deployment.
 If your directories differ, adjust the build paths below.
 Set `XAMURAI_SOURCE` in `.env` to the Xamurai path used by the model overlays.

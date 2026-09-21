@@ -27,16 +27,61 @@ recording service, and storage. Qwen, Nemotron, and Parakeet are off by default.
 4. If you select multiple final models, keep recording storage enabled.
 5. Start the session.
 
-The Qwen realtime overlay selects both realtime tracks by default.
-The Parakeet and Qwen worker overlays keep WhisperX as the default refined and
-final track. Select the additional tracks in each stage to use them.
-
 Refined and final model selection requires the [source-built stack](source-builds.md).
 The base published images predate this feature. Realtime selection works with
 the published base and Qwen realtime images.
 
 Session selection does not stop containers or release their model memory.
 Each running model process needs its own RAM and GPU memory.
+
+## Set default tracks
+
+A default track is the initial model choice for a stage.
+It applies when that stage is enabled and the session has no explicit track selection.
+An explicit selection takes priority, including a choice of multiple tracks.
+A default does not enable a disabled stage or change a session after audio starts.
+
+These settings require a BFF image with default-track support.
+The pinned base image predates this feature. Complete the [source-build setup](source-builds.md) before you use them.
+
+Set one track ID per stage in `.env`. Leave a value blank to use the behavior below:
+
+| Stage | Setting | Choice when blank |
+| --- | --- | --- |
+| Realtime | `SAMURAIBFF_DEFAULT_REALTIME_TRACK` | All configured realtime tracks |
+| Refined | `SAMURAIBFF_DEFAULT_REFINEMENT_TRACK` | First configured refined track |
+| Final | `SAMURAIBFF_DEFAULT_FINAL_TRACK` | First configured final track |
+
+Thus, the Qwen realtime overlay selects both Faster-Whisper and Qwen when no default is set.
+The Parakeet and Qwen worker overlays list WhisperX first, so it remains the initial choice.
+
+For example, after you add [Qwen realtime](qwen.md#add-realtime-transcription), set these values in `.env`:
+
+```dotenv
+SAMURAIBFF_DEFAULT_REALTIME_TRACK=qwen
+SAMURAIBFF_DEFAULT_REFINEMENT_TRACK=whisperx
+SAMURAIBFF_DEFAULT_FINAL_TRACK=whisperx
+```
+
+This selects Qwen for realtime text and WhisperX for refined and final output.
+Faster-Whisper remains available in **Session settings**, and its container continues to run.
+
+Finish active sessions. Repeat your startup command to apply the settings.
+For this example:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.qwen.yml up -d --no-build --pull never
+```
+
+Include any other overlays from your existing file list.
+Compose recreates BFF when its settings change. A `restart` command does not apply changes from `.env`.
+Reload the UI before you create a new session.
+Check **Session settings**; any explicit choices already in the browser take priority.
+
+Each default must be in that stage's configured track list:
+`SAMURAIBFF_GRPC_REALTIME_TRACKS`, `SAMURAIBFF_REFINEMENT_TRACKS`, or `SAMURAIBFF_FINAL_TRACKS`.
+For realtime, use the ID before `=`, such as `qwen`, without the service address.
+An unknown ID prevents BFF startup. Before you remove a track, clear or change its default.
 
 ## Keep your Compose file list
 
@@ -73,6 +118,7 @@ An ordinary `up -d` starts them again.
 
 For a permanent local choice, use the replacement example in the model guide.
 These examples use `deploy.replicas: 0` and change the API's available tracks.
+If a replacement removes your default track, [change or clear that default](#set-default-tracks).
 Add the example to `docker-compose.local-asr.yml`, which Git ignores.
 If that file exists, merge the settings into it. Do not replace its other settings.
 Include it last in every Compose command.
@@ -103,7 +149,7 @@ services:
 
 Include all four model overlays before this local file.
 Build their images before startup. Register only tracks whose services you run.
-Keep WhisperX first to retain the default refined and final selection.
+With blank default settings, WhisperX stays selected because it is first in each worker track list.
 Do not combine this example with settings that set those services to zero replicas.
 
 Check the configuration without printing token values:

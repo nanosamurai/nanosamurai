@@ -115,11 +115,9 @@ See [Transcription lifecycle](transcription-lifecycle.md) for the differences be
 To disable an output for one session, turn it off in **Session settings** before you start audio.
 This prevents processing for that stage. It does not stop its container.
 
-Optional defaults in `.env`: `SAMURAIBFF_DEFAULT_REALTIME_TRACK`,
-`SAMURAIBFF_DEFAULT_REFINEMENT_TRACK` and `SAMURAIBFF_DEFAULT_FINAL_TRACK`.
-Each names one configured track, used only when that output is enabled and no
-track is selected. Blank values preserve current defaults; explicit selections
-take precedence. Requires a BFF image with default-track support.
+You can also [set a default track for each stage](models/README.md#set-default-tracks).
+A default applies when the stage is enabled and the session has no explicit model choice.
+This requires a newer BFF image; the linked guide includes the setup steps.
 
 To add or replace a model, use its guide:
 
