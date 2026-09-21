@@ -184,7 +184,7 @@ and final transcripts. You can add Qwen, Nemotron, or Parakeet when you need the
 The [model guide](docs/models/README.md) explains how to add, select, or stop each model.
 All model families have published container images. Each guide describes its setup.
 
-### Demo: Showcase of transcribing with two realtime models in parallel
+### Demo: Running 2 models in parallel
 
 <a href="https://nanosamur.ai/#demo">
   <img src="https://nanosamur.ai/blog/posts/qwen-vs-whisper/multi-model-realtime-screenshot.png" alt="Qwen3-ASR and faster-whisper transcribing the same audio in real time" width="100%">
