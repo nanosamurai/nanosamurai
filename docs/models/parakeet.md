@@ -1,7 +1,7 @@
 # Parakeet
 
 Parakeet TDT 0.6B v3 provides refined and final transcripts.
-It is off by default. The optional overlay builds two services from source:
+It is off by default. The optional overlay adds two services:
 
 - `parakeet-refinement` processes audio windows during the session.
 - `parakeet-finalizer` processes the complete recording after you stop.
@@ -11,7 +11,8 @@ Parakeet does not provide realtime transcription in this stack.
 
 ## Add Parakeet
 
-Complete [Prepare source-built models](source-builds.md) first.
+The commands below use local builds. Complete [Prepare source-built models](source-builds.md) for this path.
+GHCR images are also available; see [image choices](source-builds.md#published-images-and-compose-defaults).
 From the repository root:
 
 ```bash

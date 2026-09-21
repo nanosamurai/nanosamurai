@@ -1,13 +1,14 @@
 # Nemotron
 
 Nemotron 3.5 ASR 0.6B provides realtime transcription. It is off by default.
-The optional overlay builds the Q8 model service from Xamurai source.
+The optional overlay runs the Q8 model service.
 It does not provide refined or full-recording final transcripts.
 
 ## Add Nemotron
 
-Complete [Prepare source-built models](source-builds.md) first.
-The published base API image predates the required replica routing.
+The commands below use local builds. Complete [Prepare source-built models](source-builds.md) for this path.
+GHCR images are also available; see [image choices](source-builds.md#published-images-and-compose-defaults).
+The pinned base API image predates the required replica routing.
 
 From the repository root:
 

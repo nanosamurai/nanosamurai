@@ -1,12 +1,32 @@
 # Prepare source-built models
 
-Use this setup before you add Nemotron, Parakeet, or Qwen workers.
-Use it also for [default track settings](README.md#set-default-tracks), which need newer BFF code.
-Qwen realtime alone can use the [published images](qwen.md#add-realtime-transcription).
+This guide builds the service images locally.
+The Nemotron, Parakeet, and Qwen worker guides use this path with their current Compose defaults.
+Published images are also available for these services.
 
 The optional worker overlays need newer API, UI, recorder, and persistence code
-than the base published images contain. Build the related services together.
+than the pinned base images contain. Upgrade the related services together.
 The Compose image pins do not change when source code merges.
+
+## Published images and Compose defaults
+
+All model families have published images in [GHCR](https://github.com/orgs/nanosamurai/packages?repo_name=xamurai).
+The base stack and Qwen realtime overlay select published image tags by default.
+The other model overlays include build settings and default to `:local` images.
+They also accept these image overrides in `.env`:
+
+| Compose overlay | Image setting | Package under `ghcr.io/nanosamurai/` |
+| --- | --- | --- |
+| [`docker-compose.nemotron.yml`](../../docker-compose.nemotron.yml) | `NEMOTRON_RTSERVICE_IMAGE` | `xamurai-nemotron-rtservice` |
+| [`docker-compose.parakeet.yml`](../../docker-compose.parakeet.yml) | `PARAKEET_FINALIZER_IMAGE` | `xamurai-parakeet-finalizer` |
+| Same Parakeet overlay | `PARAKEET_REFINEMENT_IMAGE` | `xamurai-parakeet-refinement` |
+| [`docker-compose.qwen-workers.yml`](../../docker-compose.qwen-workers.yml) | `QWEN_FINALIZER_IMAGE` | `xamurai-qwen-finalizer` |
+| Same Qwen worker overlay | `QWEN_REFINEMENT_IMAGE` | `xamurai-qwen-refinement` |
+
+Set each override to the full image reference with a published `sha-<commit>` tag.
+Keep BFF, Persistor, and the base workers compatible with the selected model images.
+A model image override does not update those services or the database.
+The following steps show the local-build path.
 
 ## Get the source
 

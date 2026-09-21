@@ -110,7 +110,7 @@ and startup commands for each stage.
 The diagrams include optional providers: the Nemotron overlay adds a realtime
 peer, and the Parakeet overlay adds independently selected refinement and final
 tracks. See the [model matrix](../README.md#model-pipelines-in-the-supplied-stack)
-for pinned-image versus source-build setup. WhisperX and Parakeet reuse shared
+for model setup guides. WhisperX and Parakeet reuse shared
 refinement and finalization runtimes, with separate model processes and consumer
 groups. Parakeet refinement needs no recording-storage access; its finalizer
 reads the shared recording. Neither Parakeet worker matches enrolled speakers.

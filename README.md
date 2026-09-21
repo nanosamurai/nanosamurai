@@ -187,7 +187,7 @@ and final transcripts. You can add Qwen, Nemotron, or Parakeet when you need the
 | Parakeet | Refined and final | [Parakeet](docs/models/parakeet.md) |
 
 The [model guide](docs/models/README.md) explains how to add, select, or stop each model.
-Some optional models need a source build. Each guide states what you need.
+All model families have published container images. Each guide describes its setup.
 
 ## Quickstart
 

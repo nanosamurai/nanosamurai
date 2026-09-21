@@ -59,7 +59,8 @@ Keep this file list for later commands.
 
 ## Add refined and final transcription
 
-Complete [Prepare source-built models](source-builds.md) first.
+The commands below use local builds. Complete [Prepare source-built models](source-builds.md) for this path.
+GHCR worker images are also available; see [image choices](source-builds.md#published-images-and-compose-defaults).
 From the repository root, build the workers:
 
 ```bash

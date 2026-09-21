@@ -122,9 +122,9 @@ This requires a newer BFF image; the linked guide includes the setup steps.
 To add or replace a model, use its guide:
 
 - [Whisper](models/whisper.md): use the defaults or change the WhisperX model size.
-- [Qwen](models/qwen.md): add realtime text, or build refined and final workers.
-- [Nemotron](models/nemotron.md): build a realtime service with optional speaker labels.
-- [Parakeet](models/parakeet.md): build refined and final workers with word timing.
+- [Qwen](models/qwen.md): add realtime text, refined output, or final transcripts.
+- [Nemotron](models/nemotron.md): add a realtime service with optional speaker labels.
+- [Parakeet](models/parakeet.md): add refined and final workers with word timing.
 
 The guides show how to stop the default model services and replace their track settings.
 For file order, combined models, and memory use, see [Choose models](models/README.md).
