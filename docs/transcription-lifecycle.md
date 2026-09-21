@@ -33,10 +33,10 @@ authoritative tuning reference is Xamurai's
 ## Asynchronous refinement
 
 SamuraiBFF also publishes the session audio to Kafka topic `audio.raw`. Selected
-WhisperX and/or Parakeet workers use the shared refinement runtime to buffer
+WhisperX, Parakeet, or Qwen workers use the shared refinement runtime to buffer
 configurable windows and publish track-labelled `RefinedEvent` messages on
-`transcripts.refined`. Parakeet is enabled by the optional overlay; WhisperX
-remains the default when refinement-track selection is omitted.
+`transcripts.refined`. Optional overlays enable Parakeet and Qwen; WhisperX
+is the base default. See [Default tracks](models/README.md#set-default-tracks) for omitted selections.
 
 A refined event may contain several speaker turns. SamuraiBFF fans those turns
 out to browser events, and SamuraiPersistor stores the underlying transcript
@@ -61,23 +61,25 @@ provider.
 
 After the recorder publishes `recordings.finished`, each selected finalizer
 processes the completed recording and publishes its own `SessionTranscript` on
-`transcripts.final`. WhisperX and Parakeet reuse the shared finalization runtime.
+`transcripts.final`. WhisperX, Parakeet, and Qwen reuse the shared finalization runtime.
 SamuraiPersistor stores each full-session track, and SamuraiBFF serves the
 separate results through the recording-detail API and UI. Final tracks are
-selected independently of refinement tracks; omitted final selection defaults
-to WhisperX. Multiple final tracks currently require `store_recording=true`.
+selected independently of refinement tracks; omitted selections use the configured
+default, or the first final track. Multiple final tracks require `store_recording=true`.
 
 With the ordered-audio-end BFF and recorder builds, Stop closes the audio socket
 normally. The BFF drains accepted frames, then sends an empty `AudioChunk` with
 `x-audio-end=true` on the same Kafka session key/partition. The recorder finalizes
 on that marker, removing the usual 30-second idle wait. Interrupted streams and
 older BFFs still use `RECORDER_IDLE_SECONDS` (default 30). Refinement retains its
-idle-tail behavior. The finish API updates session status but cannot establish
+idle-tail behavior. Start a new session after audio completion; resumed refinement
+can lose its original time origin. Keep Kafka audio long enough to recover active sessions. The finish API updates session status but cannot establish
 that audio has drained; it does not trigger recording completion.
 
 Finalization can take substantially longer during the first run because model
 and alignment initialization are cold. A stopped recording can therefore be
-visible before its final transcript is available.
+visible before its final transcript is available. Session status does not prove
+that every selected model completed. A missing result can mean processing or failure.
 
 ## Speaker labels and word timing
 
@@ -92,7 +94,7 @@ seeking.
 Parakeet supports up to four anonymous speakers per refinement window or final
 recording, with no enrolled-speaker matching. Speaker labels restart in each
 refinement window, so matching labels across windows do not establish identity.
-See [Parakeet refinement](parakeet-refinement.md) for timing and selection details.
+See [Parakeet](models/parakeet.md) for timing and selection details.
 
 Detailed component behavior remains with the owning services:
 

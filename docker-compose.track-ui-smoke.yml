@@ -1,4 +1,4 @@
-# Opt-in spike 3 browser validation; reuse the original project and volumes.
+# Local browser tests with synthetic transcript workers.
 services:
   samuraibff:
     image: samuraibff:lean-tracks

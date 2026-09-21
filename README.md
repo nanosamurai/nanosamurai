@@ -6,8 +6,10 @@ guarding your sensitive conversations</sub>
 <sub>Your voice. Your control.</sub>
 
 ## **Complete speech AI platform**
+
 - open source
 - production-grade, distributed architecture
+- [model agnostic](#model-pipelines-in-the-supplied-stack)
 - multitenancy support
 
 nanosamur.ai guards sensitive conversations in infrastructure you control. 
@@ -31,15 +33,15 @@ pinned by source SHA.
 
 [Watch nanosamur.ai](https://nanosamur.ai/#demo) turn a live conversation into speaker-aware transcripts, workflow results, a searchable final record, and a fully traced session. 
 
-## What Community Edition includes
+## What nanosamur.ai includes
 <img src="docs/main-art-large.png" width="35%" align="right">
 
 
 - browser UI and SamuraiBFF API
 - Windows-first Electron wrapper
-- one or more independently selectable realtime transcription models
-- parallel, track-labelled realtime results from the same audio stream
-- asynchronous speaker-aware refinement
+- one or more independently selectable [**realtime transcription** models](#model-pipelines-in-the-supplied-stack)
+- [**batch** and **semi-batch** processing](#model-pipelines-in-the-supplied-stack) with one or more models
+- diarization (currently Pyannote or Sortformer), vad, alignment
 - multi-tenancy support
 - recording storage and full-session final transcripts
 - PostgreSQL transcript persistence
@@ -48,7 +50,7 @@ pinned by source SHA.
 - public smoke tests and trace-context audit
 
 The public code also includes agentic-workflow and webhook contracts.
-Community Edition does not ship workflow execution or webhook delivery
+Community Edition does not currently ship workflow execution or webhook delivery
 services, but you are free to implement your own workflows / webhook services and plug them in.
 <br clear="right">
 
@@ -157,100 +159,30 @@ API consumers should start with
 [APIs and extension points](docs/apis-and-extension-points.md) for the generated
 OpenAPI contract, Swagger UI, and BFF-owned protocol documentation.
 
-## Multiple models, one audio stream
+## From live speech to a final transcript
 
-nanosamur.ai's aim is to provide a model-agnostic platform and to (as we progress) support more and more models (for all types of transcription modes). 
-You can run multiple realtime speech models as peer providers behind
-one API. SamuraiBFF accepts the audio once, fans it out to the models selected
-for that session, and returns each result as a separate labelled track. The
-models do not silently overwrite or blend one another.
+Realtime transcription gives you text while you speak. Refinement processes
+short audio windows during the session. Final processing uses the complete
+recording after you stop.
 
-This provides practical business and operational benefits:
+You can choose different models for each stage or use several models together.
+Each model returns a separate result from the same audio.
+This lets you compare live, refined, and final transcripts for your language and task.
 
-- compare accuracy and latency on exactly the same conversation;
-- introduce or evaluate a new model without replacing the established path;
-- choose the best available provider set for a language, workload, or cost and
-  latency target; and
-- keep a slow or unavailable provider from blocking healthy realtime tracks.
-
-```mermaid
-flowchart LR
-    Client["Browser, Electron, or SDK"] -->|"one audio stream"| BFF["SamuraiBFF<br/>session track selection and fan-out"]
-    BFF -->|"independent stream per selected track"| RealtimeService["Realtime service<br/>[Faster-Whisper,<br/>Qwen3-ASR, Nemotron]"]
-    RealtimeService -->|"labelled ASR events per track"| Results["Independent realtime results"]
-    Results --> Client
-    BFF -->|"publish audio once"| Async["Kafka refinement, recording, and finalization"]
-```
-
-The supplied base Compose stack starts the Faster-Whisper track. Add Qwen as a
-second peer with the checked-in override:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.qwen.yml pull
-docker compose -f docker-compose.yml -f docker-compose.qwen.yml up -d
-```
-
-Both tracks are then available in the session settings, where an operator can
-run Faster-Whisper, Qwen, or both. Concurrent models consume GPU memory and
-compute independently, so capacity should be validated on the target hardware.
-See [Evaluator getting started](docs/getting-started.md#evaluate-qwen-native-streaming)
-for readiness checks and the tested profile.
-
-An experimental source-build recipe adds the fixed Nemotron streaming profile
-as two network-internal replicas. It is separate from the pinned quickstart;
-no published Nemotron image pin is selected, and the existing base/Qwen image
-pins stay unchanged. Build a compatible Xamurai image, then use the opt-in
-override and its non-transcript-printing probe:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.nemotron.yml \
-  build nemotron-rtservice
-docker compose -f docker-compose.yml -f docker-compose.nemotron.yml \
-  up -d --no-deps nemotron-rtservice
-docker compose --profile nemotron-validation \
-  -f docker-compose.yml -f docker-compose.nemotron.yml \
-  run --rm --no-deps nemotron-probe
-```
-
-See [Evaluator getting started](docs/getting-started.md#validate-nemotron-replicas)
-for the full-stack BFF requirement and exact success checks.
+The default stack uses Faster-Whisper for live text and WhisperX for refined
+and final transcripts. You can add Qwen, Nemotron, or Parakeet when you need them.
 
 ### Model pipelines in the supplied stack
 
-| Compose service | Stage / track ID | Default model pipeline | Result | Setup |
-| --- | --- | --- | --- | --- |
-| `rtservice` | Realtime / `faster-whisper` | `Systran/faster-whisper-medium` with `pyannote/speaker-diarization-3.1`; optional Silero VAD and enrolled-speaker mapping | Replaceable partials and timed, speaker-labelled realtime finals | Base stack |
-| `qwen-rtservice` | Realtime / `qwen` | `Qwen/Qwen3-ASR-0.6B` through vLLM, `Qwen/Qwen3-ForcedAligner-0.6B`, and `pyannote/speaker-diarization-3.1` | Native-streaming partials and aligned, speaker-labelled epoch finals where alignment is supported; speakerless fallback otherwise | Qwen overlay, pinned image |
-| `nemotron-rtservice` | Realtime / `nemotron` | `nvidia/nemotron-3.5-asr-streaming-0.6b` Q8 GGUF through NeMo-Speech.cpp; optional Sortformer v2 and WeSpeaker enrollment matching | Native partials and realtime finals; optional speaker turns and enrolled names | Nemotron overlay, source build |
-| `whisperx_refinement` | Semi-batch refinement / `whisperx` | WhisperX `medium` with pyannote diarization and optional enrolled-speaker mapping; alignment disabled | Speaker-aware windows with segment timing, without word timing | Base stack |
-| `whisperx_finalizer` | Completed recording / `whisperx` | The same WhisperX/pyannote pipeline with language-specific alignment enabled | Full-session transcript with word timing where alignment succeeds | Base stack |
-| `parakeet-refinement` | Semi-batch refinement / `parakeet` | `nvidia/parakeet-tdt-0.6b-v3` Q8 with Sortformer v2 through NeMo-Speech.cpp | Native word timing and up to four anonymous speakers per window | Parakeet overlay, source build |
-| `parakeet-finalizer` | Completed recording / `parakeet` | The same Parakeet/Sortformer pipeline | Full-session transcript with native word timing and up to four anonymous speakers per recording | Parakeet overlay, source build |
-| `qwen-refinement` / `qwen-finalizer` | Semi-batch refinement / completed recording; `qwen` | `Qwen/Qwen3-ASR-0.6B` through vLLM with pinned Qwen forced alignment and pyannote diarization | Batched, speaker-labelled segments with word timing for final playback highlighting | Qwen workers overlay, source build |
-| `recorder_worker` | Recording | No inference model | Session WAV and recording-completion event | Base stack |
+| Model family | Available output | Setup guide |
+| --- | --- | --- |
+| Whisper | Realtime, refined, and final; on by default | [Whisper](docs/models/whisper.md) |
+| Qwen | Realtime, refined, and final | [Qwen](docs/models/qwen.md) |
+| Nemotron | Realtime | [Nemotron](docs/models/nemotron.md) |
+| Parakeet | Refined and final | [Parakeet](docs/models/parakeet.md) |
 
-The base and Qwen quickstarts pull pinned images. The optional Nemotron and
-Parakeet recipes build from a compatible Xamurai checkout; merging source changes
-does not advance those quickstart pins. Follow the [Parakeet refinement runbook](docs/parakeet-refinement.md)
-for compatible BFF/Persistor prerequisites and rebuilding both WhisperX and
-Parakeet workers with the shared runtime.
-
-WhisperX, Parakeet and Qwen each have one inference pipeline with separate refinement
-and finalizer entrypoints, images and processes. They share refinement
-buffering/publication/recovery and the finalizer Kafka/recording loop. Nemotron
-and Parakeet also share `nemo-speech-native`, a build dependency with zero runtime
-replicas. Shared code and artifact caches do not share loaded model weights.
-
-Refinement and final tracks are selected independently; omitted selections keep
-WhisperX as the default. Parakeet supports no enrolled names, and its speaker
-labels restart for each refinement window. Matching labels across windows do
-not establish the same speaker. Realtime finals commit an utterance or window;
-full-session final transcripts are separate results.
-
-These are the profiles supplied by the project, not model IDs accepted from an
-untrusted client. Xamurai owns the detailed service contract and implementation;
-see its [realtime provider guide](https://github.com/nanosamurai/xamurai/blob/master/docs/modular-asr-providers.md).
-
+The [model guide](docs/models/README.md) explains how to add, select, or stop each model.
+All model families have published container images. Each guide describes its setup.
 
 ## Quickstart
 
@@ -291,7 +223,7 @@ services request `gpus: all`; the default stack requires an NVIDIA GPU available
 to Docker.
 
 See
-[Evaluator getting started](docs/getting-started.md) for success checks,
+[Getting started](docs/getting-started.md) for success checks,
 Windows/Linux instructions, the tested hardware disclosure, observability, and
 safe reset commands.
 
@@ -316,11 +248,9 @@ endpoints, available signals, trace behavior, and current limitations.
 
 ## Documentation
 
-The unmerged lean track UI spike is described in
-[Track selection and local browser validation](docs/track-selection-ui.md).
-
 - [Documentation index](docs/README.md)
-- [Evaluator getting started](docs/getting-started.md)
+- [Getting started](docs/getting-started.md)
+- [Choose models](docs/models/README.md)
 - [Transcription lifecycle](docs/transcription-lifecycle.md)
 - [APIs and extension points](docs/apis-and-extension-points.md)
 - [Architecture and Community Edition boundary](docs/architecture.md)
@@ -369,9 +299,3 @@ Contribution guidance is in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 Licensed under the Apache License 2.0. See [LICENSE](LICENSE) and
 [NOTICE](NOTICE).
-
-## Refinement spike
-
-The opt-in [refinement track runbook](docs/refinement-tracks-spike.md) describes
-source builds, migration 019 and the local Compose qualification. It retains
-the original stack and volumes. Track selection UI remains a separate spike.

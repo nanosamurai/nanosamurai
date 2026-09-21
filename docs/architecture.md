@@ -104,13 +104,13 @@ compatibility; simultaneous tracks are labelled and rendered side by side.
 Results remain independent rather than being automatically merged or voted on.
 This makes side-by-side evaluation, gradual model adoption, and workload-specific
 selection possible without duplicating client audio or the Kafka recording and
-refinement path. The public-facing model matrix and dual-track startup command
-are in the [main README](../README.md#multiple-models-one-audio-stream).
+refinement path. See the [model guides](models/README.md) for model choices
+and startup commands for each stage.
 
 The diagrams include optional providers: the Nemotron overlay adds a realtime
 peer, and the Parakeet overlay adds independently selected refinement and final
 tracks. See the [model matrix](../README.md#model-pipelines-in-the-supplied-stack)
-for pinned-image versus source-build setup. WhisperX and Parakeet reuse shared
+for model setup guides. WhisperX and Parakeet reuse shared
 refinement and finalization runtimes, with separate model processes and consumer
 groups. Parakeet refinement needs no recording-storage access; its finalizer
 reads the shared recording. Neither Parakeet worker matches enrolled speakers.

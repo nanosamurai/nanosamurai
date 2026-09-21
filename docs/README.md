@@ -1,14 +1,14 @@
 # Documentation
 
-Start with the repository [README](../README.md) for the shortest supported
-installation path. These guides document the public Community Edition
-evaluation stack; detailed component contracts remain in the repositories that
-own them.
+Start with [Getting started](getting-started.md) to run Community Edition locally.
+Use [Choose models](models/README.md) to add, replace, or stop model services.
 
 ## Get started
 
-- [Five-minute Docker Compose quickstart](../README.md#quickstart)
-- [Evaluator getting started](getting-started.md)
+- [Docker Compose quickstart](../README.md#quickstart)
+- [Getting started](getting-started.md)
+- [Choose models](models/README.md)
+- [Whisper](models/whisper.md), [Qwen](models/qwen.md), [Nemotron](models/nemotron.md), and [Parakeet](models/parakeet.md)
 - [Architecture and Community Edition boundary](architecture.md)
 - [Transcription lifecycle](transcription-lifecycle.md)
 - [APIs and extension points](apis-and-extension-points.md)
@@ -18,8 +18,7 @@ own them.
 - [Authentication and bring-your-own Keycloak](authentication.md)
 - [Operations and observability](operations-and-observability.md)
 - [Deployment and security boundaries](deployment-and-security.md)
-- [Smoke tests and release rehearsal](smoke-tests.md)
-- [Parakeet semi-batch refinement](parakeet-refinement.md)
+- [Developer smoke-test runbook](smoke-tests.md)
 - [Troubleshooting](troubleshooting.md)
 - [Image release policy](image-release-policy.md)
 
