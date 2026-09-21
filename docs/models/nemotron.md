@@ -1,8 +1,18 @@
 # Nemotron
 
-Nemotron 3.5 ASR 0.6B provides realtime transcription. It is off by default.
-The optional overlay runs the Q8 model service.
+Nemotron 3.5 ASR provides realtime transcription. It is off by default.
 It does not provide refined or full-recording final transcripts.
+
+## Model sizes and variants
+
+The official [Nemotron 3.5 ASR streaming release](https://huggingface.co/nvidia/nemotron-3.5-asr-streaming-0.6b)
+provides a **0.6B** model. It does not list a larger size for this release.
+
+The current adapter selects `nvidia/nemotron-3.5-asr-streaming-0.6b` in Q8 format.
+Q8 uses 8-bit weights; the model still has 0.6 billion parameters.
+The adapter fixes the model file, revision, and checksum.
+It has no model-size setting and does not select a size from available GPU memory.
+Another model would require an adapter update and validation.
 
 ## Add Nemotron
 

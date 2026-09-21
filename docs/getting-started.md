@@ -10,12 +10,13 @@ The default stack starts three speech services:
 
 | Stage | Model | What you get |
 | --- | --- | --- |
-| Realtime | Faster-Whisper medium | Text while you speak |
-| Refined | WhisperX medium | Speaker-labelled text from short audio windows |
-| Final | WhisperX medium | A transcript of the complete recording after you stop |
+| Realtime | Faster-Whisper | Text while you speak |
+| Refined | WhisperX | Speaker-labelled text from short audio windows |
+| Final | WhisperX | A transcript of the complete recording after you stop |
 
 The browser UI, API, database, recording service, and storage start with them.
 All three output stages and recording storage are enabled by default.
+See [model sizes and variants](models/whisper.md#model-sizes-and-variants) for the current Whisper settings and size choices.
 
 Qwen, Nemotron, and Parakeet are off by default.
 To use another model, follow [Choose models](models/README.md).

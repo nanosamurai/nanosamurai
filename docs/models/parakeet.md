@@ -1,13 +1,28 @@
 # Parakeet
 
-Parakeet TDT 0.6B v3 provides refined and final transcripts.
+Parakeet TDT provides refined and final transcripts.
 It is off by default. The optional overlay adds two services:
 
 - `parakeet-refinement` processes audio windows during the session.
 - `parakeet-finalizer` processes the complete recording after you stop.
 
-Both use the Q8 model with Sortformer speaker labels and native word timing.
+Both use Sortformer speaker labels and provide native word timing.
 Parakeet does not provide realtime transcription in this stack.
+
+## Model sizes and variants
+
+NVIDIA publishes several Parakeet variants. These TDT models differ in language coverage as well as size:
+
+| Upstream model | Language coverage | Available in this stack |
+| --- | --- | --- |
+| [TDT 0.6B v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) | Multilingual | Current selection for both workers |
+| [TDT 1.1B](https://huggingface.co/nvidia/parakeet-tdt-1.1b) | English | Requires an adapter update and validation |
+
+The current adapter selects `nvidia/parakeet-tdt-0.6b-v3` in Q8 format.
+Q8 uses 8-bit weights; it does not reduce the number of model parameters.
+The adapter fixes the model file, revision, and checksum.
+It has no model-size setting and does not select a size from available GPU memory.
+Treat a different Parakeet variant as a separate deployment choice. Check its language and runtime support first.
 
 ## Add Parakeet
 

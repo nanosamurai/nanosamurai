@@ -11,10 +11,10 @@ You can select different tracks for each stage:
 
 | Model family | Realtime | Refined | Final | Installation |
 | --- | --- | --- | --- | --- |
-| [Whisper](whisper.md) | Faster-Whisper medium | WhisperX medium | WhisperX medium | On by default; published images |
-| [Qwen](qwen.md) | Qwen3-ASR 0.6B | Qwen3-ASR 0.6B | Qwen3-ASR 0.6B | Optional overlays; published images |
-| [Nemotron](nemotron.md) | Nemotron 3.5 ASR 0.6B | — | — | Optional overlay; published image |
-| [Parakeet](parakeet.md) | — | Parakeet TDT 0.6B v3 | Parakeet TDT 0.6B v3 | Optional overlay; published images |
+| [Whisper](whisper.md) | Faster-Whisper | WhisperX | WhisperX | On by default; published images |
+| [Qwen](qwen.md) | Qwen3-ASR | Qwen3-ASR | Qwen3-ASR | Optional overlays; published images |
+| [Nemotron](nemotron.md) | Nemotron 3.5 ASR | — | — | Optional overlay; published image |
+| [Parakeet](parakeet.md) | — | Parakeet TDT | Parakeet TDT | Optional overlay; published images |
 
 The base stack also starts the browser UI, API, database, message broker,
 recording service, and storage. Qwen, Nemotron, and Parakeet are off by default.
@@ -23,6 +23,18 @@ All families have images in [GHCR](https://github.com/orgs/nanosamurai/packages?
 Each optional family also has a Compose overlay, linked from its guide.
 The Nemotron, Parakeet, and Qwen worker overlays currently default to local image names.
 Their guides show local builds. See [image choices](source-builds.md#published-images-and-compose-defaults) for the published-image settings.
+
+## Model sizes and variants
+
+A model family can include several sizes or variants.
+Each guide lists the available choices and the settings supported by this stack:
+[Whisper](whisper.md#model-sizes-and-variants), [Qwen](qwen.md#model-sizes-and-variants),
+[Nemotron](nemotron.md#model-sizes-and-variants), and [Parakeet](parakeet.md#model-sizes-and-variants).
+
+Model size and computation precision are separate choices.
+For example, `0.6B` describes the parameter count. Q8 and INT8 describe 8-bit representation.
+The services download their selected model weights when needed.
+They do not select a model size from available GPU memory.
 
 ## Select models for a session
 

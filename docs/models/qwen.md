@@ -1,8 +1,23 @@
 # Qwen
 
-Qwen3-ASR 0.6B can provide realtime, refined, and final transcripts.
+Qwen3-ASR can provide realtime, refined, and final transcripts.
 Each stage runs in a separate service. All Qwen services are off by default.
 They need an NVIDIA GPU and `HF_TOKEN` access to pyannote models.
+
+## Model sizes and variants
+
+Qwen publishes **0.6B** and **1.7B** ASR models.
+Both support realtime and offline transcription through the same upstream APIs.
+See the [Qwen3-ASR model card](https://huggingface.co/Qwen/Qwen3-ASR-1.7B).
+
+The current realtime service and workers select `Qwen/Qwen3-ASR-0.6B`.
+Their adapter fixes the model ID, revision, and checksum.
+There is no environment setting to select 1.7B or choose a size from available GPU memory.
+Using 1.7B requires an adapter update and validation before deployment.
+
+`Qwen3-ForcedAligner-0.6B` is a separate model for timing information.
+Upstream supports this aligner with either ASR size.
+`QWEN_KV_CACHE_MIB` controls cache memory; it does not change the ASR model size.
 
 ## Add realtime transcription
 
