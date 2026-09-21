@@ -18,8 +18,7 @@ Use [Choose models](models/README.md) to add, replace, or stop model services.
 - [Authentication and bring-your-own Keycloak](authentication.md)
 - [Operations and observability](operations-and-observability.md)
 - [Deployment and security boundaries](deployment-and-security.md)
-- [Smoke tests and release rehearsal](smoke-tests.md)
-- [Optional model checks](model-checks.md)
+- [Developer smoke-test runbook](smoke-tests.md)
 - [Troubleshooting](troubleshooting.md)
 - [Image release policy](image-release-policy.md)
 

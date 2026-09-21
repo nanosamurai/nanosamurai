@@ -100,10 +100,9 @@ docker compose -f docker-compose.yml run --rm db_migrate
 
 Include your existing overlays in these commands if they change infrastructure settings.
 Do not replace an existing PostgreSQL image with the base image during an upgrade.
-Migrations 017–019 provide final and refinement track storage.
-If a migration fails, inspect the error before you continue.
-Do not delete volumes or reset consumer offsets.
-See [track migrations](../final-track-migration.md).
+[Migrations 017–019](../../docker/postgres/migrations/) provide track storage; 019 requires PostgreSQL 15 or later.
+They stop on duplicate recording or tagged transcript rows. Resolve conflicts without deleting transcript history before retrying.
+Preserve the migration ledger. Do not edit applied SQL, reuse versions 014–016, delete volumes, or reset consumer offsets.
 
 Older installations can have containers named `whisperx_worker` and `finalizer_worker`.
 Stop those containers before you start the renamed services.

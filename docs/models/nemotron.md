@@ -92,5 +92,5 @@ Clear the realtime default if it names `nemotron`.
 Start the remaining stack to restore Faster-Whisper.
 The model cache remains available for later use.
 
-For verification, see [model checks](../model-checks.md#nemotron).
+For verification, see [developer smoke tests](../smoke-tests.md#check-optional-models).
 For speaker limits, see [Xamurai's Nemotron guide](https://github.com/nanosamurai/xamurai/blob/master/docs/nemotron-sortformer.md).

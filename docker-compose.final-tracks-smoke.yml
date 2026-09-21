@@ -1,5 +1,4 @@
-# Opt-in local spike: one real WhisperX track and test-only synthetic workers.
-# Start only the services listed in docs/final-tracks-spike.md.
+# Local tests with one real WhisperX worker and synthetic test workers.
 services:
   samuraibff:
     image: samuraibff:lean-tracks

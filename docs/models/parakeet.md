@@ -89,6 +89,6 @@ Parakeet supports up to four anonymous speakers per window or final recording.
 It does not match enrolled names. Speaker labels restart in each refinement window.
 Equal labels in different windows do not prove that the speaker is the same.
 
-Use [model checks](../model-checks.md#parakeet) to verify both stages.
+Use [developer smoke tests](../smoke-tests.md#check-optional-models) to verify both stages.
 See the [Xamurai pipeline guide](https://github.com/nanosamurai/xamurai/blob/master/docs/parakeet-refinement.md)
 for worker settings and timing details.

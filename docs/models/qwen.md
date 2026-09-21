@@ -137,7 +137,7 @@ This restores the Whisper defaults and retains model caches and saved data.
 
 ## Checks and settings
 
-Use the [model checks](../model-checks.md) to validate realtime or worker output.
+Use the [developer smoke tests](../smoke-tests.md) to validate realtime or worker output.
 The realtime cache allocation defaults to 512 MiB; each worker defaults to 1024 MiB.
 The shared `QWEN_KV_CACHE_MIB` override affects every Qwen service that uses it.
 These values cover the vLLM cache, not total GPU memory.
