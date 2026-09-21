@@ -54,6 +54,12 @@ Copy-Item .env.example .env
 Set `HF_TOKEN` in `.env`. The token should have only the model-read permissions
 needed for the selected models.
 
+Optional defaults in `.env`: `SAMURAIBFF_DEFAULT_REALTIME_TRACK`,
+`SAMURAIBFF_DEFAULT_REFINEMENT_TRACK` and `SAMURAIBFF_DEFAULT_FINAL_TRACK`.
+Each names one configured track, used only when that output is enabled and no
+track is selected. Blank values preserve current defaults; explicit selections
+take precedence. Requires a BFF image with default-track support.
+
 Confirm that Docker can access the intended NVIDIA GPU, then pull and start the
 complete evaluator stack:
 
@@ -278,7 +284,7 @@ not establish accuracy for multi-speaker meetings or capacity on other GPUs.
 3. Select **Microphone** as the input.
 4. Open **Session settings**, select the desired realtime tracks, and choose the
    realtime, refined, and final outputs. With the Qwen override, select Faster,
-   Qwen, or both; both are selected by default.
+   Qwen, or both; both are selected unless a realtime default is configured.
 5. Choose **Record now**, grant microphone permission, and speak.
 6. Compare simultaneous realtime tracks in their labelled side-by-side panels.
 7. Stop the recording when finished.

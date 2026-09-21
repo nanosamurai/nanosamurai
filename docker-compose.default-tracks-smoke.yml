@@ -1,0 +1,9 @@
+# Apply after the Nemotron and Qwen-worker overlays and any local image override.
+services:
+  samuraibff:
+    image: samuraibff:default-tracks
+    build: ${BFF_SOURCE:-../../IdeaProjects/samuraibff}
+    environment:
+      SAMURAIBFF_DEFAULT_REALTIME_TRACK: nemotron
+      SAMURAIBFF_DEFAULT_REFINEMENT_TRACK: qwen
+      SAMURAIBFF_DEFAULT_FINAL_TRACK: qwen

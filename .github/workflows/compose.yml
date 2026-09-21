@@ -19,6 +19,7 @@ jobs:
           docker compose config --quiet
           docker compose -f docker-compose.yml -f docker-compose.parakeet.yml config --quiet
           HF_TOKEN=validation-placeholder docker compose -f docker-compose.yml -f docker-compose.qwen-workers.yml config --quiet
+          HF_TOKEN=validation-placeholder docker compose -f docker-compose.yml -f docker-compose.nemotron.yml -f docker-compose.qwen-workers.yml -f docker-compose.default-tracks-smoke.yml config --quiet
           docker compose \
             -f docker-compose.yml \
             -f docker-compose.observability.yml \
