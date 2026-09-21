@@ -159,7 +159,7 @@ API consumers should start with
 [APIs and extension points](docs/apis-and-extension-points.md) for the generated
 OpenAPI contract, Swagger UI, and BFF-owned protocol documentation.
 
-## From live speech to a final transcript
+## Supported Models
 
 Realtime transcription gives you text while you speak. Refinement processes
 short audio windows during the session. Final processing uses the complete
