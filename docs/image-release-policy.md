@@ -7,13 +7,6 @@ image-selection mechanism for the evaluator. Image environment variables are
 optional overrides for local development, evaluation of another immutable
 release, or rollback; users do not need to set them for the normal quickstart.
 
-The BFF default is `sha-29d7db4b889c0aa702ac8dc876b08cbbc63d5dd7`, including
-[SamuraiBFF PR #155](https://github.com/nanosamurai/samuraibff/pull/155).
-An unavailable realtime provider no longer makes BFF unready while Postgres and
-Kafka are healthy. The capability catalog still marks that provider unavailable;
-select a running provider or disable realtime for the session. This image change
-does not start, stop or change the defaults of model services.
-
 Keep local source-build image selections and enrollment calibration in the
 ignored `.env` or `docker-compose.local-asr.yml`, selected explicitly with `-f`.
 Do not commit these machine-local overrides or promote newly built images into
