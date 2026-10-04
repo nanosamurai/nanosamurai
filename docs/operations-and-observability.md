@@ -43,9 +43,13 @@ SamuraiBFF exposes:
 - `GET /health` for process liveness
 - `GET /ready` for critical dependency readiness
 
-Readiness checks PostgreSQL, Kafka, and every configured realtime gRPC service. SamuraiBFF
-starts gracefully when a dependency is unavailable and reports degraded
-readiness while retrying the affected integration.
+Readiness depends on PostgreSQL and Kafka. If either is unavailable, `/ready`
+returns HTTP 503. Optional realtime providers do not affect the readiness status:
+`/ready` can return HTTP 200 with `grpc.up?=false` when one or more providers are
+unavailable. The existing `grpc.up?` field remains an aggregate diagnostic.
+Use the authenticated `/api/me` capability catalog to check individual tracks;
+an explicitly selected unavailable track does not automatically fall back to
+another provider. Update the default track before stopping its service.
 
 SamuraiPersistor exposes its own `/health` and `/ready` endpoints. Operational
 probes are unauthenticated and must remain network-restricted.
