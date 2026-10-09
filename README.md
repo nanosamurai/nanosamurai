@@ -172,6 +172,9 @@ This lets you compare live, refined, and final transcripts for your language and
 The default stack uses Faster-Whisper for live text and WhisperX for refined
 and final transcripts. You can add Qwen, Nemotron, or Parakeet when you need them.
 
+An optional [shared WhisperX track](docs/models/whisper.md#shared-whisperx-track)
+can reduce GPU memory use by running refinement and finalization together.
+
 ### Model pipelines in the supplied stack
 
 | Model family | Available output | Setup guide |

@@ -11,6 +11,18 @@ Whisper is the default model family. No extra Compose file is required.
 All three services use pyannote for speaker labels. The finalizer also adds
 word timing where alignment succeeds. Refinement uses segment timing by default.
 
+## Shared WhisperX track
+
+Xamurai's optional `whisperx-shared` track runs refinement and finalization in one
+process and loads Whisper ASR once, reducing VRAM use compared with separate workers.
+It can batch compatible ASR requests and align different preloaded languages in
+parallel while ASR continues. Both stages share capacity and must scale together;
+keep the separate `whisperx` workers when independent scaling matters.
+
+This requires an Xamurai build with the combined worker and explicit worker/BFF
+track configuration. The supplied Compose setup still uses separate workers.
+See the [shared-worker guide](https://github.com/nanosamurai/xamurai/blob/f742f8e333df5ee5fd78d7da4378f30e02daedb5/docs/whisperx-shared.md) for setup and limits.
+
 ## Model sizes and variants
 
 Faster-Whisper and WhisperX run models from the Whisper family.
