@@ -32,17 +32,20 @@ When `SAMURAIBFF_AUTH_REQUIRED=true`:
 - REST clients send `Authorization: Bearer <access-token>`.
 - `/ws/audio` and `/ws/events` authenticate before upgrading the connection.
   Browser connections can use the access-token cookie; non-browser clients can
-  use a bearer header or the supported `token` query parameter.
+  use an `Authorization: Bearer <access-token>` header.
 - `/api/*` requests and WebSocket sessions are scoped to the tenant UUID in the
   token. A session created by one tenant cannot be opened by another tenant.
 - Machine-to-machine (M2M) clients use OAuth 2.0 `client_credentials`. They can
   be provisioned externally or, with optional Keycloak Admin API credentials,
   managed through SamuraiBFF.
 
-The token lookup order is bearer header, `token` query parameter, then cookie.
-Avoid query-string tokens unless a client cannot set a header or use the
-cookie: URLs are commonly retained in browser history, proxy logs, and access
-logs.
+The token lookup order is bearer header, then cookie. The `token` and
+`access_token` query parameters are not accepted for authentication.
+
+REST token validation allows 30 seconds of clock skew. Authenticated WebSockets
+require a future token expiry and close at expiry with code 1008. Browser and
+Electron login do not refresh tokens automatically; sign in again and start a
+new recording after expiry.
 
 `POST /auth/logout` clears the SamuraiBFF cookie only. It does not end the
 Keycloak single-sign-on session or call an OIDC end-session endpoint.
@@ -108,6 +111,8 @@ Every accepted access token must provide:
 | --- | --- |
 | `iss` | Exactly the configured issuer. |
 | `sub` | A non-empty subject identifying the user or service account. |
+| `exp` | A valid token expiry time. |
+| `nbf` | If supplied, the token must not be used before this time, subject to clock skew. |
 | `aud` or `azp` | `aud` contains the configured audience, or Keycloak `azp` equals it. |
 | `tenant_id` | A string UUID identifying the Nanosamurai tenant. |
 
@@ -444,9 +449,10 @@ host headers, TLS termination, and the exact `/auth/callback` path.
 
 ### Signing-key rotation causes token failures
 
-SamuraiBFF caches discovery metadata and JWKS in process memory without a TTL.
-Restart SamuraiBFF after a Keycloak signing-key rotation if it continues using
-stale keys. Plan rotations so that old and new verification keys overlap.
+SamuraiBFF caches discovery metadata and JWKS for at most five minutes. An
+unknown signing key can trigger an earlier refresh; refresh attempts share a
+30-second cooldown. Failed refreshes do not extend key trust. Plan rotations
+so that old and new verification keys overlap.
 
 ### M2M management returns `503 keycloak-admin-unavailable`
 
@@ -462,7 +468,7 @@ configuration.
 
 | Capability | Works without SamuraiBFF changes? | Conditions or required changes |
 | --- | --- | --- |
-| Externally minted bearer token for REST | Conditionally | The provider must expose discovery and JWKS, sign with RS256, and emit matching `iss`, `aud` or `azp`, non-empty `sub`, and UUID `tenant_id` claims. |
+| Externally minted bearer token for REST | Conditionally | The provider must expose discovery and JWKS, sign with RS256, and emit matching `iss`, `aud` or `azp`, non-empty `sub`, valid `exp` and optional `nbf`, and UUID `tenant_id` claims. |
 | Bearer or cookie token for WebSockets | Conditionally | The same token requirements apply. Emit `tenant_id`; a custom configured claim name is not reliably honored by WebSockets. |
 | Externally provisioned M2M client used by the Python SDK | Conditionally | The provider's discovery document must advertise `token_endpoint`, support `client_credentials`, and issue a compatible BFF access token. The SDK discovers the token endpoint. |
 | Browser login through `/auth/login` | Usually not | SamuraiBFF constructs Keycloak-specific `/protocol/openid-connect/auth` and `/token` URLs instead of using discovery endpoints. A non-Keycloak provider works unchanged only if it deliberately implements that URL layout and the same public-client PKCE behavior. |
@@ -481,8 +487,7 @@ changes to:
    manage all M2M credentials externally.
 4. Add an explicit, safe signing-algorithm allowlist if the provider cannot use
    RS256.
-5. Add bounded discovery/JWKS refresh and retry on an unknown signing key.
-6. Add provider integration tests for browser PKCE, bearer REST, WebSockets,
+5. Add provider integration tests for browser PKCE, bearer REST, WebSockets,
    tenant isolation, and M2M tokens before claiming support.
 
 These are SamuraiBFF implementation changes, not settings that can be solved in
@@ -492,11 +497,11 @@ this Compose repository.
 
 - Authentication is disabled by default for the localhost evaluator.
 - Token verification accepts RS256 only.
-- OIDC discovery and JWKS are cached for the life of the SamuraiBFF process.
+- Local token validation does not provide immediate account or token revocation.
+  Existing WebSockets keep their original token expiry after signing-key removal.
 - Logout clears only the local cookie.
 - Custom tenant-claim configuration is not applied consistently to WebSockets.
 - Authorization is tenant-scoped, not role- or per-user-scoped.
-- Query-string tokens are supported but can leak through URL handling.
 
 Before exposing Nanosamurai beyond localhost, also follow
 [Deployment and security boundaries](deployment-and-security.md).
