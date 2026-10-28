@@ -137,6 +137,10 @@ docker compose exec samuraibff java -cp /app/samuraibff.jar clojure.main \
   --role admin --name "Ada Admin" --email ada@example.com
 ```
 
+On Windows, run it in PowerShell (use a backtick instead of `\` to continue
+lines), or in Git Bash with `MSYS_NO_PATHCONV=1` in front, so the jar path is
+not rewritten.
+
 `--issuer` must equal `SAMURAIBFF_AUTH_ISSUER` exactly. `--tenant-name`
 also creates the tenant if it does not exist. The command prints ids and
 roles, never emails or secrets, and writes an audit event.
