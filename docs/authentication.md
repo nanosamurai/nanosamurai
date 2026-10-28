@@ -112,6 +112,10 @@ and passes these settings to SamuraiBFF:
 | `SAMURAIBFF_AUTH_CLIENT_CLAIM` | `azp` | Claim with the client id of machine tokens (Okta: `cid`). |
 | `SAMURAIBFF_PUBLIC_ORIGIN_URI` | `http://localhost:8000` | Browser origin for the callback and sign-out redirects. |
 | `SAMURAIBFF_AUTH_ALLOWED_ORIGINS` | empty | Extra browser origins, comma-separated. |
+| `SAMURAIBFF_WS_MAX_DURATION_S` | `14400` (4 h) | Longest time a recording WebSocket may stay open. |
+| `SAMURAIBFF_ACCESS_RECHECK_INTERVAL_S` | `30` | How often open sockets are re-checked, in one batched query cycle. |
+| `SAMURAIBFF_ACCESS_RECHECK_GRACE_S` | `120` | How long sockets stay open while the database cannot answer. |
+| `SAMURAIBFF_ACCESS_RECHECK_TIMEOUT_S` | `5` | Statement timeout of each re-check query. |
 | `SAMURAIBFF_KEYCLOAK_ADMIN_*` | empty | Optional Keycloak adapter for API keys. See [Keycloak setup](#keycloak-setup). |
 | `SAMURAIBFF_KEYCLOAK_USER_ADMIN_*` | off | Optional Keycloak adapter for **Add person**. See [Keycloak setup](#keycloak-setup). |
 
@@ -162,9 +166,21 @@ provider. A suspended person loses access on their next request. With a
 provider other than Keycloak, suspension does not disable their account at the
 provider.
 
-### 5. Sign out
+### 5. Stay signed in, and sign out
 
-**Sign out** clears the Nanosamurai cookie. When discovery lists an
+While you use the app, it refreshes your session in the background with the
+provider's refresh token (kept in an HttpOnly cookie that only the refresh
+endpoint receives). Your provider's session settings decide how long you stay
+signed in. If the provider issues no refresh token, the app signs you in again
+when the access token expires, silently while the provider session lasts.
+
+A recording keeps running when the access token expires: the token is checked
+only when the recording starts. Nanosamurai re-checks open recordings against
+its database and stops them when your access is removed, or after
+`SAMURAIBFF_WS_MAX_DURATION_S` (4 hours by default). The app then tells you
+why.
+
+**Sign out** clears the Nanosamurai cookies. When discovery lists an
 `end_session_endpoint`, it also ends the session at your provider. The browser
 client must allow `<origin>/` as a post-logout redirect URI; otherwise the
 provider shows an error page.
@@ -334,8 +350,9 @@ users.
 - Local mode has no sign-in. Use it only on `127.0.0.1`.
 - Tokens must be RS256 JWTs. Nanosamurai checks them locally; it does not ask
   the provider whether a token was revoked. Use short token lifetimes.
-- Browser and Electron sessions do not refresh tokens. A long recording stops
-  when the token expires; sign in again and start a new recording.
+- To end someone's access, suspend them in **People**. That stops their open
+  recordings within about a minute. Disabling them only at the provider stops
+  new sign-ins, but an open recording continues until the maximum duration.
 - Electron sign-out clears only the Nanosamurai cookie.
 - In-app **Add person**, and creating and rotating keys in the app, need the
   Keycloak adapters.
