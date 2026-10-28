@@ -1,507 +1,335 @@
-# Authentication and bring-your-own Keycloak
+# Sign-in and access control
 
-The Nanosamurai Compose stack does not include or provision an identity
-provider. Authentication is disabled in the default evaluator so that a
-localhost-only checkout can be opened immediately. An authenticated deployment
-must supply, configure, secure, and operate its own Keycloak instance.
+Nanosamurai starts in **local mode**: no sign-in, one user, everything on
+`127.0.0.1`. You can turn on sign-in later with your own OpenID Connect
+(OIDC) identity provider. This repository does not include or run an identity
+provider for you.
 
-Keycloak is the only identity provider supported end to end today. Parts of the
-token-validation path use standard OpenID Connect (OIDC), so some other
-providers can work in limited scenarios. See
-[Using another identity provider](#using-another-identity-provider) before
-assuming that a generic OIDC provider is a drop-in replacement.
+- [Local mode (default)](#local-mode-default)
+- [Roles and sharing](#roles-and-sharing)
+- [Turn on sign-in](#turn-on-sign-in)
+- [API keys](#api-keys)
+- [Keycloak setup](#keycloak-setup)
+- [Other identity providers](#other-identity-providers)
+- [Check your setup](#check-your-setup)
+- [Troubleshooting](#troubleshooting)
+- [Limits](#limits)
 
-## Authentication modes
+## Local mode (default)
 
-The effective default in `docker-compose.yml` is:
+`docker compose up -d` starts with:
 
 ```text
 SAMURAIBFF_AUTH_REQUIRED=false
 SAMURAIBFF_AUTH_GUEST_TENANT_ID=00000000-0000-0000-0000-000000000000
 ```
 
-In this evaluator mode, SamuraiBFF accepts browser and API requests without a
-token and assigns persisted sessions to the seeded development tenant. This is
-safe only with the default `127.0.0.1` host binding and development data.
+Open <http://127.0.0.1:8000/live> and record. There is no login page. The top
+bar shows **Local mode** and **Sign-in is off**.
 
-When `SAMURAIBFF_AUTH_REQUIRED=true`:
+In local mode you are the Admin of one local organization:
 
-- Browser users sign in through `GET /auth/login`. SamuraiBFF uses OAuth 2.0
-  Authorization Code with PKCE and stores the returned access token in an
-  HttpOnly, SameSite=Lax cookie.
-- REST clients send `Authorization: Bearer <access-token>`.
-- `/ws/audio` and `/ws/events` authenticate before upgrading the connection.
-  Browser connections can use the access-token cookie; non-browser clients can
-  use an `Authorization: Bearer <access-token>` header.
-- `/api/*` requests and WebSocket sessions are scoped to the tenant UUID in the
-  token. A session created by one tenant cannot be opened by another tenant.
-- Machine-to-machine (M2M) clients use OAuth 2.0 `client_credentials`. They can
-  be provisioned externally or, with optional Keycloak Admin API credentials,
-  managed through SamuraiBFF.
+- You record, open, play and delete your sessions.
+- You manage speakers, workflows, webhooks and defaults (where enabled).
+- Sharing, the colleague list, **People** and **API Credentials** are hidden.
+  There is nobody to share with, and the API needs no key.
 
-The token lookup order is bearer header, then cookie. The `token` and
-`access_token` query parameters are not accepted for authentication.
+The database seed creates this local user (the "guest"). Every request without
+a token runs as the guest. This is safe only on `127.0.0.1` with development
+data. Never expose local mode on a LAN or the internet.
 
-REST token validation allows 30 seconds of clock skew. Authenticated WebSockets
-require a future token expiry and close at expiry with code 1008. Browser and
-Electron login do not refresh tokens automatically; sign in again and start a
-new recording after expiry.
+### Upgrading an existing install
 
-`POST /auth/logout` clears the SamuraiBFF cookie only. It does not end the
-Keycloak single-sign-on session or call an OIDC end-session endpoint.
+`db_migrate` applies new migrations on the next `docker compose up -d`.
+Migrations `022`–`024` add access control. Your existing sessions become the
+guest's sessions (`023`), so they stay visible. No action is needed.
 
-## Keycloak provisioning checklist
+## Roles and sharing
 
-The examples below use:
+These rules apply when sign-in is on.
 
-```text
-Public Nanosamurai origin: https://nanosamurai.example.com
-Keycloak issuer:           https://keycloak.example.com/realms/nanosamurai
-Browser client ID:         bff-web
-Tenant claim:              tenant_id
-```
-
-Replace all example hosts and UUIDs with values owned by your deployment.
-
-### 1. Create the realm and browser client
-
-Create a realm and note its exact issuer URL. The configured issuer must match
-the `iss` claim in access tokens byte for byte, including any trailing slash.
-SamuraiBFF removes a trailing slash only while constructing Keycloak endpoint
-URLs; token issuer verification uses the configured value exactly.
-
-Create an OpenID Connect browser client with these properties:
-
-- Client ID `bff-web`, or another value used consistently for both the BFF
-  client ID and expected audience.
-- Client authentication off (a public client); SamuraiBFF does not send a
-  browser client secret during the code exchange.
-- Standard/authorization-code flow enabled.
-- PKCE enabled or required with method S256.
-- Valid redirect URI
-  `https://nanosamurai.example.com/auth/callback`.
-- Allowed web origin `https://nanosamurai.example.com`.
-- Scopes `openid`, `email`, and `profile` available to the client.
-
-Direct Access Grants and service accounts are not required for the browser
-client.
-
-SamuraiBFF currently builds the authorization and token URLs using Keycloak's
-realm layout:
-
-```text
-{issuer}/protocol/openid-connect/auth
-{issuer}/protocol/openid-connect/token
-```
-
-OIDC discovery and key retrieval use:
-
-```text
-{issuer}/.well-known/openid-configuration
-```
-
-The discovery document must contain `jwks_uri`, and the BFF container must be
-able to reach both URLs over the deployment network.
-
-### 2. Configure access-token claims
-
-Every accepted access token must provide:
-
-| Claim | Requirement |
+| Role | Can |
 | --- | --- |
-| `iss` | Exactly the configured issuer. |
-| `sub` | A non-empty subject identifying the user or service account. |
-| `exp` | A valid token expiry time. |
-| `nbf` | If supplied, the token must not be used before this time, subject to clock skew. |
-| `aud` or `azp` | `aud` contains the configured audience, or Keycloak `azp` equals it. |
-| `tenant_id` | A string UUID identifying the Nanosamurai tenant. |
+| Member | Record with all settings, share own sessions, use published workflows and webhooks. |
+| Builder | Member rights, plus personal workflows, webhooks and personal API keys. |
+| Admin | Builder rights, plus **People**, publishing, organization defaults and all API keys. |
 
-SamuraiBFF currently accepts only RS256-signed tokens. Configure a Keycloak
-protocol mapper that copies the user's `tenant_id` attribute into the access
-token as a string. Do not rely on the ID token: SamuraiBFF authorizes requests
-with the access token.
+- Every session has one owner. Nobody reads another person's private session,
+  not even an Admin.
+- The owner chooses who can see a session: **Private** (default), **Selected
+  people** or **Everyone in the organization**. Shared access is read-only.
+- A person belongs to one organization (tenant).
+- Roles and suspension are stored in PostgreSQL, not in the identity provider.
+  A valid login alone gives no access: an Admin or operator must add the
+  person first.
 
-Although `SAMURAIBFF_AUTH_TENANT_CLAIM` is configurable, the current HTTP and
-WebSocket paths do not apply renamed claims consistently. Emit `tenant_id` in
-all access tokens, including service-account tokens, for reliable REST and
-WebSocket tenant isolation.
+## Turn on sign-in
 
-For a browser token, Keycloak normally sets `azp` to the browser client ID. You
-can instead add an audience mapper so `aud` explicitly contains `bff-web`. For
-an M2M client whose own client ID differs from `bff-web`, add an audience mapper
-that includes `bff-web` in `aud`.
+### 1. Check that your provider fits
 
-### 3. Provision matching database tenants
+Any OIDC provider works if it offers the items in this table. Keycloak is the
+provider we test end to end.
 
-Authentication does not create tenant or user rows. Each UUID emitted as
-`tenant_id` must already exist in PostgreSQL because `sessions.tenant_id` has a
-foreign-key reference to `tenants.id`.
+| Need | Detail |
+| --- | --- |
+| Discovery | `{issuer}/.well-known/openid-configuration` with the same `issuer`, plus `jwks_uri`, `authorization_endpoint` and `token_endpoint`. `end_session_endpoint` is optional; without it, sign-out only clears the Nanosamurai cookie. |
+| Browser client | A public client (no secret) with Authorization Code + PKCE (S256). Redirect URI `<origin>/auth/callback`. Post-logout redirect URI `<origin>/`. Scopes `openid email profile`. |
+| Access tokens | JWT signed with RS256, with `iss`, `sub`, `exp` and the audience (`bff-web` by default) in `aud` or `azp`. |
+| Tenant claim | A string UUID in `tenant_id` (or the claim you set in `SAMURAIBFF_AUTH_TENANT_CLAIM`) on every access token. |
+| API keys (optional) | The `client_credentials` grant, with the client id in `azp` (or the claim you set in `SAMURAIBFF_AUTH_CLIENT_CLAIM`). |
 
-For example:
+Nanosamurai reads the login, token and logout URLs from discovery. It does not
+assume Keycloak's URL layout.
 
-```sql
-INSERT INTO tenants (id, name)
-VALUES ('11111111-1111-4111-8111-a1b2c3d4e5f6', 'Example tenant')
-ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name;
-```
+Make the tenant claim an attribute that only administrators can change.
 
-An `app_users` row is optional because `sessions.user_id` is nullable. When
-present, set `app_users.external_id` to the token's `sub` and use the same
-tenant UUID. SamuraiBFF looks up that row for attribution but does not create it
-automatically.
+### 2. Configure Nanosamurai
 
-## SamuraiBFF authentication settings
-
-The values shown are the effective defaults of this repository's base Compose
-stack. Defaults inside a standalone SamuraiBFF deployment can differ.
-
-| Environment variable | Compose default | Purpose |
-| --- | --- | --- |
-| `SAMURAIBFF_AUTH_REQUIRED` | `false` | Enforce authentication for the API and WebSockets. Set `true` outside the localhost evaluator. |
-| `SAMURAIBFF_AUTH_GUEST_TENANT_ID` | All-zero UUID | Tenant used only while authentication is disabled. |
-| `SAMURAIBFF_AUTH_ISSUER` | `https://auth.nanosamur.ai/realms/nanosamurai` | Exact realm issuer used for discovery, signature verification, and Keycloak endpoint construction. The default is not a bundled identity service; set your own issuer when enabling auth. |
-| `SAMURAIBFF_AUTH_AUDIENCE` | `bff-web` | Required `aud` value, with Keycloak `azp` accepted as a fallback. |
-| `SAMURAIBFF_AUTH_CLIENT_ID` | `bff-web` | Public client used by browser Authorization Code with PKCE. Defaults to the audience inside SamuraiBFF if omitted. |
-| `SAMURAIBFF_AUTH_COOKIE_NAME` | `access_token` | HttpOnly access-token cookie name. Not exposed by the base Compose file. |
-| `SAMURAIBFF_AUTH_TENANT_CLAIM` | `tenant_id` | Preferred tenant-claim name for HTTP. Keep `tenant_id` because WebSocket handling is not fully configurable today. Not exposed by the base Compose file. |
-| `SAMURAIBFF_ORIGIN_URI` | `http://localhost:8000` | Internal BFF origin and fallback browser origin. The base Compose file currently fixes this value. |
-| `SAMURAIBFF_PUBLIC_ORIGIN_URI` | unset | Recommended external browser origin behind ingress or a reverse proxy. Takes precedence when constructing the callback URI. Not exposed by the base Compose file. |
-
-When no public origin is configured, SamuraiBFF can derive it from
-`Forwarded` or `X-Forwarded-Proto` and `X-Forwarded-Host`, then falls back to
-`SAMURAIBFF_ORIGIN_URI`. Configure the public origin explicitly behind a load
-balancer and make sure untrusted clients cannot forge proxy headers.
-
-### Base `.env` values
-
-The base Compose file already passes through the primary authentication
-settings, so these values can be added to the uncommitted `.env` file:
+Add your values to the uncommitted `.env` file:
 
 ```dotenv
-SAMURAIBFF_AUTH_REQUIRED=true
-SAMURAIBFF_AUTH_ISSUER=https://keycloak.example.com/realms/nanosamurai
+SAMURAIBFF_AUTH_ISSUER=https://id.example.com/realms/acme
 SAMURAIBFF_AUTH_AUDIENCE=bff-web
 SAMURAIBFF_AUTH_CLIENT_ID=bff-web
+SAMURAIBFF_PUBLIC_ORIGIN_URI=http://localhost:8000
 ```
 
-Do not commit `.env`, client secrets, admin tokens, or user access tokens.
-
-### Compose override for advanced settings
-
-The base Compose file intentionally keeps the evaluator small. It does not pass
-through the cookie, configurable tenant claim, public origin, or Keycloak Admin
-API settings, and it fixes `SAMURAIBFF_ORIGIN_URI` to localhost. Create a local
-`docker-compose.auth.yml` override when those settings are needed:
-
-```yaml
-services:
-  samuraibff:
-    environment:
-      SAMURAIBFF_ORIGIN_URI: ${SAMURAIBFF_ORIGIN_URI:-http://localhost:8000}
-      SAMURAIBFF_PUBLIC_ORIGIN_URI: ${SAMURAIBFF_PUBLIC_ORIGIN_URI:-http://localhost:8000}
-      SAMURAIBFF_AUTH_COOKIE_NAME: ${SAMURAIBFF_AUTH_COOKIE_NAME:-access_token}
-      SAMURAIBFF_AUTH_TENANT_CLAIM: ${SAMURAIBFF_AUTH_TENANT_CLAIM:-tenant_id}
-      SAMURAIBFF_KEYCLOAK_ADMIN_ISSUER: ${SAMURAIBFF_KEYCLOAK_ADMIN_ISSUER:-}
-      SAMURAIBFF_KEYCLOAK_ADMIN_REALM: ${SAMURAIBFF_KEYCLOAK_ADMIN_REALM:-}
-      SAMURAIBFF_KEYCLOAK_ADMIN_CLIENT_ID: ${SAMURAIBFF_KEYCLOAK_ADMIN_CLIENT_ID:-}
-      SAMURAIBFF_KEYCLOAK_ADMIN_CLIENT_SECRET: ${SAMURAIBFF_KEYCLOAK_ADMIN_CLIENT_SECRET:-}
-```
-
-For a remote deployment, set at least:
-
-```dotenv
-SAMURAIBFF_ORIGIN_URI=https://nanosamurai.example.com
-SAMURAIBFF_PUBLIC_ORIGIN_URI=https://nanosamurai.example.com
-```
-
-Render and start the merged configuration with:
+Start the stack with the sign-in override:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.auth.yml config
-docker compose -f docker-compose.yml -f docker-compose.auth.yml up -d
+docker compose -f docker-compose.yml -f docker-compose.sign-in.yml up -d
 ```
 
-This override does not change `COMPOSE_BIND_IP`; published ports remain bound
-to `127.0.0.1` unless an operator explicitly changes that separate setting.
-Use ingress or a reverse proxy with TLS instead of publishing the evaluator
-directly on a LAN or WAN interface.
+[`docker-compose.sign-in.yml`](../docker-compose.sign-in.yml) turns sign-in on
+and passes these settings to SamuraiBFF:
 
-## Optional Keycloak-managed M2M credentials
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `SAMURAIBFF_AUTH_ISSUER` | none (required) | Exact issuer URL, including any trailing slash. |
+| `SAMURAIBFF_AUTH_AUDIENCE` | `bff-web` | Audience every access token must carry. |
+| `SAMURAIBFF_AUTH_CLIENT_ID` | `bff-web` | Browser client id. |
+| `SAMURAIBFF_AUTH_TENANT_CLAIM` | `tenant_id` | Claim with the tenant UUID. |
+| `SAMURAIBFF_AUTH_CLIENT_CLAIM` | `azp` | Claim with the client id of machine tokens (Okta: `cid`). |
+| `SAMURAIBFF_PUBLIC_ORIGIN_URI` | `http://localhost:8000` | Browser origin for the callback and sign-out redirects. |
+| `SAMURAIBFF_AUTH_ALLOWED_ORIGINS` | empty | Extra browser origins, comma-separated. |
+| `SAMURAIBFF_KEYCLOAK_ADMIN_*` | empty | Optional Keycloak adapter for API keys. See [Keycloak setup](#keycloak-setup). |
+| `SAMURAIBFF_KEYCLOAK_USER_ADMIN_*` | off | Optional Keycloak adapter for **Add person**. See [Keycloak setup](#keycloak-setup). |
 
-The browser UI and bearer-token validation do not require Keycloak Admin API
-access. Admin access is needed only for SamuraiBFF's tenant-scoped credential
-management endpoints:
+The override does not change `COMPOSE_BIND_IP`. Ports stay on `127.0.0.1`.
+For remote access, put a reverse proxy with TLS in front, and set
+`SAMURAIBFF_PUBLIC_ORIGIN_URI` to the public `https://` origin.
 
-```text
-GET    /api/api-credentials
-POST   /api/api-credentials
-POST   /api/api-credentials/{id}/rotate
-DELETE /api/api-credentials/{id}
-```
+Do not commit `.env`, client secrets, admin tokens or user tokens.
 
-### Configure the Keycloak admin client
+### 3. Create the organization and the first Admin
 
-In the same realm as `bff-web`, create a separate confidential OpenID Connect
-client, commonly named `bff-admin`. This client is SamuraiBFF's machine identity
-for the Keycloak Admin API; it is not the browser client and must never be
-exposed to browser users.
+Nanosamurai never makes the first login an Admin and never matches accounts by
+email. Create the first Admin with the operator command. You need:
 
-In the Keycloak Admin Console:
-
-1. Go to **Clients**, choose **Create client**, select **OpenID Connect**, and
-   set the client ID to `bff-admin`.
-2. Turn **Client authentication** on.
-3. Turn **Service accounts roles** on. Standard flow and Direct Access Grants
-   are not required for this client.
-4. Save the client and copy its secret from the **Credentials** tab into the
-   deployment's secret store.
-5. Open **Service account roles**, choose **Assign role**, expose client roles,
-   and assign `realm-management` roles `view-clients` and `manage-clients`.
-
-Those are the permissions used by the tested setup. They allow SamuraiBFF to
-create and find clients, generate and rotate secrets, configure protocol
-mappers, and disable clients. Do not grant broad realm-administration roles.
-
-Pass the admin client to SamuraiBFF through the Compose override described
-above:
-
-```dotenv
-SAMURAIBFF_KEYCLOAK_ADMIN_ISSUER=https://keycloak.example.com/realms/nanosamurai
-SAMURAIBFF_KEYCLOAK_ADMIN_REALM=nanosamurai
-SAMURAIBFF_KEYCLOAK_ADMIN_CLIENT_ID=bff-admin
-SAMURAIBFF_KEYCLOAK_ADMIN_CLIENT_SECRET=<secret-from-your-secret-store>
-```
-
-Restart SamuraiBFF after changing these values. A correctly configured startup
-logs `Keycloak admin client initialized`; missing values log that the admin
-client is disabled.
-
-### Create a credential in the BFF UI
-
-The API Credentials page requires an authenticated deployment and a signed-in
-human user whose access token contains a valid `tenant_id` matching a database
-tenant.
-
-1. Sign in to the Nanosamurai browser UI.
-2. Choose **API Credentials** in the sidebar, or open
-   `https://nanosamurai.example.com/api-credentials`.
-3. Enter a descriptive name such as `reporting-sdk` and choose **Create**.
-4. Copy both the displayed `client_id` and `client_secret` immediately and
-   store them in a secret manager. Closing the dialog permanently removes the
-   secret from the UI; if it is lost, rotate it.
-
-SamuraiBFF uses `bff-admin` to create a new confidential Keycloak client with a
-service account. It adds a hard-coded `tenant_id` claim for the signed-in
-user's tenant and an audience mapper for `SAMURAIBFF_AUTH_AUDIENCE`. The new
-client is therefore tenant-bound even though its token is obtained without a
-human user.
-
-The generated secret is returned only on creation or rotation. PostgreSQL
-stores the Keycloak client ID and audit metadata, not the secret. Currently,
-API credential management is tenant-scoped but not role-scoped: every
-authenticated user in a tenant can list, create, rotate, and revoke that
-tenant's credentials. Account for that boundary before granting users access
-to a tenant.
-
-### Exchange the credential for an API access token
-
-The API Credentials page creates an OAuth client ID and secret; it does not
-mint a long-lived Nanosamurai API key. Keycloak issues the actual short-lived
-bearer access token through its token endpoint. Never send the client secret to
-a SamuraiBFF `/api/*` endpoint.
-
-Using Bash:
+- the tenant UUID that your provider puts in the tenant claim,
+- the person's subject (`sub` claim) at your provider.
 
 ```bash
-export NANOSAMURAI_ISSUER=https://keycloak.example.com/realms/nanosamurai
-export NANOSAMURAI_CLIENT_ID='<client-id-copied-from-the-ui>'
-export NANOSAMURAI_CLIENT_SECRET='<client-secret-copied-from-the-ui>'
-
-curl --fail-with-body --request POST \
-  "${NANOSAMURAI_ISSUER}/protocol/openid-connect/token" \
-  --header "Content-Type: application/x-www-form-urlencoded" \
-  --data-urlencode "grant_type=client_credentials" \
-  --data-urlencode "client_id=${NANOSAMURAI_CLIENT_ID}" \
-  --data-urlencode "client_secret=${NANOSAMURAI_CLIENT_SECRET}"
+docker compose exec samuraibff java -cp /app/samuraibff.jar clojure.main \
+  -m samuraibff.tools.principals provision \
+  --tenant 11111111-4111-8111-a111-111111111111 --tenant-name "Acme" \
+  --issuer https://id.example.com/realms/acme --subject <sub> \
+  --role admin --name "Ada Admin" --email ada@example.com
 ```
 
-The JSON response contains `access_token`, `expires_in`, and the token type.
-Use the access token, not the client secret, to call SamuraiBFF:
+`--issuer` must equal `SAMURAIBFF_AUTH_ISSUER` exactly. `--tenant-name`
+also creates the tenant if it does not exist. The command prints ids and
+roles, never emails or secrets, and writes an audit event.
+
+Other commands: `set-role`, `set-status`, `list`, `register-key` (see
+[API keys](#api-keys)), `legacy-report` and `assign-owner`.
+
+### 4. Add more people
+
+- **With the Keycloak user adapter:** an Admin opens **Administration →
+  People → Add person**. Keycloak sends a setup email. The person becomes
+  active after their first login with a verified email.
+- **With any provider:** create the account at your provider, then run
+  `provision` with its `sub` (usually with `--role member`). In the app,
+  **Add person** is off and tells the Admin to ask the operator.
+
+Admins change roles and suspend or reactivate people in **People** with any
+provider. A suspended person loses access on their next request. With a
+provider other than Keycloak, suspension does not disable their account at the
+provider.
+
+### 5. Sign out
+
+**Sign out** clears the Nanosamurai cookie. When discovery lists an
+`end_session_endpoint`, it also ends the session at your provider. The browser
+client must allow `<origin>/` as a post-logout redirect URI; otherwise the
+provider shows an error page.
+
+## API keys
+
+API keys let scripts and the [Python SDK](apis-and-extension-points.md#python-sdk-and-cli)
+call Nanosamurai. A key is an OAuth client at your provider (client id and
+secret). The SDK exchanges it for short-lived access tokens with the
+`client_credentials` grant. Nanosamurai never stores the secret.
+
+| | Personal key | Organization key |
+| --- | --- | --- |
+| Who creates it | Builder or Admin, for themselves | Admin |
+| Acts as | Its owner | Itself |
+| Sessions it records | Belong to the owner, marked "via API key" | Belong to the key; visible to its manager, or to everyone, as set on the key |
+| Reads | Only the sessions it recorded (default), or everything the owner can read | Only its own sessions |
+| Managed in the UI by | The owner | The key's manager, or Admins |
+
+Keys never manage people, keys, publishing or defaults. When an owner loses the
+Builder role, their personal keys stop working, and the organization keys they
+managed pass to the Admins.
+
+How you create a key depends on the provider:
+
+- **With the Keycloak admin adapter:** **API Credentials → Create** creates
+  the Keycloak client and shows the secret once. **Rotate** and **Revoke**
+  work in the app.
+- **With any provider:** at your provider, create a confidential client with
+  the `client_credentials` grant, the tenant claim and the BFF audience. Then
+  register it as an organization key:
+
+  ```bash
+  docker compose exec samuraibff java -cp /app/samuraibff.jar clojure.main \
+    -m samuraibff.tools.principals register-key \
+    --tenant <tenant UUID> --issuer https://id.example.com/realms/acme \
+    --subject <client's sub> --client-id <client id> --name "Reporting" \
+    --audience tenant
+  ```
+
+  `--audience` is `tenant` (everyone in the organization) or `private` (only
+  the manager). Add `--manager <person id>` to make a Builder or Admin the
+  manager; without it, Admins manage the key. Admins then see the key in
+  **API Credentials**, can change its manager and audience, and can revoke it.
+  Rotate the secret at your provider. **Revoke** blocks the key in
+  Nanosamurai at once; also disable the client at your provider.
+
+Use the access token, never the client secret, to call the API:
 
 ```bash
-export NANOSAMURAI_ACCESS_TOKEN='<access-token-from-keycloak>'
-
 curl --fail-with-body \
   --header "Authorization: Bearer ${NANOSAMURAI_ACCESS_TOKEN}" \
-  https://nanosamurai.example.com/api/me
+  http://127.0.0.1:8000/api/me
 ```
 
-Windows PowerShell:
+Get the token from your provider's `token_endpoint` (listed in discovery). The
+SDK does this for you from the issuer, client id and secret.
 
-```powershell
-$env:NANOSAMURAI_ISSUER = "https://keycloak.example.com/realms/nanosamurai"
-$env:NANOSAMURAI_CLIENT_ID = "<client-id-copied-from-the-ui>"
-$env:NANOSAMURAI_CLIENT_SECRET = "<client-secret-copied-from-the-ui>"
+## Keycloak setup
 
-$tokenResponse = Invoke-RestMethod -Method Post `
-  -Uri "$env:NANOSAMURAI_ISSUER/protocol/openid-connect/token" `
-  -ContentType "application/x-www-form-urlencoded" `
-  -Body @{
-    grant_type = "client_credentials"
-    client_id = $env:NANOSAMURAI_CLIENT_ID
-    client_secret = $env:NANOSAMURAI_CLIENT_SECRET
-  }
+Keycloak is optional. Use this checklist if you choose it. Replace the example
+hosts and UUIDs with your own.
 
-Invoke-RestMethod -Uri "https://nanosamurai.example.com/api/me" `
-  -Headers @{Authorization = "Bearer $($tokenResponse.access_token)"}
-```
+1. **Realm.** Create a realm. The issuer is
+   `https://keycloak.example.com/realms/<realm>`.
+2. **Browser client `bff-web`.** OpenID Connect, client authentication off,
+   standard flow on, PKCE S256. Valid redirect URI
+   `https://nanosamurai.example.com/auth/callback`, valid post-logout redirect
+   URI `https://nanosamurai.example.com/` (or `+`), web origin
+   `https://nanosamurai.example.com`.
+3. **Tenant claim.** Give each user a `tenant_id` attribute that only
+   administrators can edit. Add a protocol mapper that copies it into the
+   access token as a string.
+4. **Audience.** Browser tokens carry `azp=bff-web`. For machine clients, add
+   an audience mapper that puts `bff-web` in `aud`.
+5. **Optional: API keys in the app.** Create a confidential client
+   `bff-admin` with service accounts on. Give its service account only the
+   `realm-management` roles `view-clients` and `manage-clients`. Set:
 
-The [Python SDK and CLI](apis-and-extension-points.md#python-sdk-and-cli)
-perform discovery, obtain and cache the access token, and refresh it when
-needed after receiving the same issuer, client ID, and client secret.
+   ```dotenv
+   SAMURAIBFF_KEYCLOAK_ADMIN_ISSUER=https://keycloak.example.com/realms/<realm>
+   SAMURAIBFF_KEYCLOAK_ADMIN_REALM=<realm>
+   SAMURAIBFF_KEYCLOAK_ADMIN_CLIENT_ID=bff-admin
+   SAMURAIBFF_KEYCLOAK_ADMIN_CLIENT_SECRET=<from your secret store>
+   ```
 
-Inspect a newly issued token locally before distributing the credential. It
-must contain the correct UUID `tenant_id`, the BFF audience in `aud`, and an
-RS256 signature accepted by SamuraiBFF. Protocol-mapper creation is best effort
-in the current implementation, so successful credential creation alone does
-not prove the resulting token is usable.
+6. **Optional: Add person in the app.** Create a separate confidential client
+   (for example `bff-user-admin`) limited to user management in this realm,
+   and configure SMTP for the realm. Set
+   `SAMURAIBFF_KEYCLOAK_USER_ADMIN_ENABLED=true` and the matching
+   `SAMURAIBFF_KEYCLOAK_USER_ADMIN_ISSUER`, `_REALM`, `_CLIENT_ID`,
+   `_CLIENT_SECRET`, `_SETUP_CLIENT_ID` (`bff-web`) and
+   `_SETUP_REDIRECT_URI` (`<origin>/`).
 
-### Rotate, revoke, and troubleshoot credentials
+Restart SamuraiBFF after you change these values. Without step 5 or 6, that
+feature is off, and the app tells the user to ask the operator.
 
-**Rotate** generates and displays a new secret; the old secret stops working.
-Update consumers immediately. **Revoke** attempts to disable the Keycloak
-client and marks the database record revoked.
+## Other identity providers
 
-If the admin configuration is absent, the server still starts: list operations
-remain database-backed, while create and rotate return
-`503 keycloak-admin-unavailable`. Revocation without a working admin client can
-still mark the database row revoked without disabling the corresponding client
-in Keycloak, so verify the client is disabled there during credential
-containment. A `502 keycloak-admin-error` during creation normally indicates an
-incorrect issuer, realm, secret, or missing client-management permissions.
+Nanosamurai uses standard OIDC for sign-in, sign-out, REST and WebSockets.
+Check these points for your provider:
 
-## Validate an authenticated deployment
+- **Tenant claim.** Most providers need a custom claim or attribute mapping
+  for `tenant_id`. Use `SAMURAIBFF_AUTH_TENANT_CLAIM` if your claim has
+  another name. The value must be a UUID string.
+- **Audience.** Configure the provider to put the BFF audience in `aud`, or set
+  `SAMURAIBFF_AUTH_AUDIENCE` to the audience it issues.
+- **Machine client id.** If machine tokens do not carry `azp`, set
+  `SAMURAIBFF_AUTH_CLIENT_CLAIM` (for example `cid` for Okta).
+- **Signing.** Tokens must use RS256.
+- **People and API keys.** Use `provision` and `register-key`. The in-app
+  **Add person** and **Create** key buttons need the Keycloak adapters.
 
-### Check OIDC discovery
+We have not tested every provider. Run the checks below before you invite
+users.
 
-```bash
-curl --fail --show-error \
-  https://keycloak.example.com/realms/nanosamurai/.well-known/openid-configuration
-```
+## Check your setup
 
-Confirm that the returned `issuer` matches
-`SAMURAIBFF_AUTH_ISSUER` and that `jwks_uri` is reachable from the SamuraiBFF
-container.
+1. Discovery:
 
-### Check the browser redirect
+   ```bash
+   curl --fail --show-error https://id.example.com/realms/acme/.well-known/openid-configuration
+   ```
 
-```bash
-curl --include --max-redirs 0 \
-  "http://127.0.0.1:8000/auth/login?next=%2Flive"
-```
+   `issuer` must equal `SAMURAIBFF_AUTH_ISSUER`.
 
-The `Location` header should point to the expected Keycloak realm and include
-`client_id=bff-web`, an S256 PKCE challenge, and
-`redirect_uri=https://nanosamurai.example.com/auth/callback` for the example
-remote deployment.
+2. Login redirect:
 
-### Check a bearer token
+   ```bash
+   curl --include --max-redirs 0 "http://127.0.0.1:8000/auth/login?next=%2Flive"
+   ```
 
-Inspect tokens locally; do not paste production tokens into public JWT tools.
-Confirm `alg=RS256` and the required claims, then call:
+   `Location` must point to your provider's `authorization_endpoint` with
+   `client_id=bff-web`, `code_challenge_method=S256` and your callback URL.
+   `503 identity-provider-unavailable` means the BFF cannot read discovery.
 
-```bash
-curl --fail --show-error \
-  -H "Authorization: Bearer ${ACCESS_TOKEN}" \
-  https://nanosamurai.example.com/api/me
-```
+3. Sign in as the first Admin. The top bar shows your name and role. Record a
+   session, then open **People**.
 
-A successful response reports `authenticated: true`, the tenant ID, and basic
-subject information. Then create a session and test both WebSocket upgrades;
-HTTP success alone does not prove that a renamed tenant claim works on the
-WebSocket path.
+4. Check a token. Inspect tokens locally; never paste production tokens into
+   public JWT tools.
+
+   ```bash
+   curl --fail --show-error -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+     http://127.0.0.1:8000/api/me
+   ```
 
 ## Troubleshooting
 
-### Keycloak reports an invalid redirect URI
+| Symptom | Check |
+| --- | --- |
+| The provider rejects the redirect URI | The callback in the `Location` header of `/auth/login` must match the client's redirect URIs. Check `SAMURAIBFF_PUBLIC_ORIGIN_URI` and proxy headers. |
+| `/auth/login` returns 503 | The BFF container cannot reach `{issuer}/.well-known/openid-configuration`, or its `issuer` differs from `SAMURAIBFF_AUTH_ISSUER`. |
+| Signed in, but "Your account is not set up" | No person matches this issuer and `sub`, or the tenant claim does not match their tenant. Run `provision`. |
+| "Finish setting up your account" | The person was added with **Add person** and has not verified their email yet. |
+| An API key gets `403 access-not-provisioned` | Register the client with `register-key`, and check that its client id is in `azp` (or in `SAMURAIBFF_AUTH_CLIENT_CLAIM`). |
+| Sign-out ends on a provider error page | Add `<origin>/` as a post-logout redirect URI. |
+| Tokens fail after a signing-key rotation | Keys are cached for up to five minutes. Keep the old and new keys published together during rotation. |
 
-Compare the callback in `/auth/login`'s `Location` header with the client's
-Valid Redirect URIs. Check `SAMURAIBFF_PUBLIC_ORIGIN_URI`, forwarded scheme and
-host headers, TLS termination, and the exact `/auth/callback` path.
+## Limits
 
-### The BFF reports an invalid issuer or audience
+- Local mode has no sign-in. Use it only on `127.0.0.1`.
+- Tokens must be RS256 JWTs. Nanosamurai checks them locally; it does not ask
+  the provider whether a token was revoked. Use short token lifetimes.
+- Browser and Electron sessions do not refresh tokens. A long recording stops
+  when the token expires; sign in again and start a new recording.
+- Electron sign-out clears only the Nanosamurai cookie.
+- In-app **Add person**, and creating and rotating keys in the app, need the
+  Keycloak adapters.
 
-- Compare the token's `iss` exactly with `SAMURAIBFF_AUTH_ISSUER`.
-- Confirm `aud` contains `SAMURAIBFF_AUTH_AUDIENCE`, or that Keycloak `azp`
-  equals it.
-- For M2M clients, add an audience mapper for `bff-web`; the M2M client's own
-  client ID is normally different.
-
-### Login succeeds but API or WebSocket access fails
-
-- Confirm the access token, rather than only the ID token, contains a string
-  `tenant_id` UUID.
-- Confirm the same tenant UUID exists in the `tenants` table.
-- Keep the claim name `tenant_id`; custom names are not applied consistently by
-  current WebSocket authentication.
-- Verify that the token is RS256-signed and its signing key appears in the
-  issuer's JWKS.
-
-### Signing-key rotation causes token failures
-
-SamuraiBFF caches discovery metadata and JWKS for at most five minutes. An
-unknown signing key can trigger an earlier refresh; refresh attempts share a
-30-second cooldown. Failed refreshes do not extend key trust. Plan rotations
-so that old and new verification keys overlap.
-
-### M2M management returns `503 keycloak-admin-unavailable`
-
-Check that all four `SAMURAIBFF_KEYCLOAK_ADMIN_*` values reach the container.
-The base Compose file does not pass them through without an override. Also
-verify that the admin service account can obtain a token and has the required
-realm-management client permissions.
-
-## Using another identity provider
-
-OIDC compatibility is partial. Keycloak remains the only supported end-to-end
-configuration.
-
-| Capability | Works without SamuraiBFF changes? | Conditions or required changes |
-| --- | --- | --- |
-| Externally minted bearer token for REST | Conditionally | The provider must expose discovery and JWKS, sign with RS256, and emit matching `iss`, `aud` or `azp`, non-empty `sub`, valid `exp` and optional `nbf`, and UUID `tenant_id` claims. |
-| Bearer or cookie token for WebSockets | Conditionally | The same token requirements apply. Emit `tenant_id`; a custom configured claim name is not reliably honored by WebSockets. |
-| Externally provisioned M2M client used by the Python SDK | Conditionally | The provider's discovery document must advertise `token_endpoint`, support `client_credentials`, and issue a compatible BFF access token. The SDK discovers the token endpoint. |
-| Browser login through `/auth/login` | Usually not | SamuraiBFF constructs Keycloak-specific `/protocol/openid-connect/auth` and `/token` URLs instead of using discovery endpoints. A non-Keycloak provider works unchanged only if it deliberately implements that URL layout and the same public-client PKCE behavior. |
-| Create, rotate, or revoke M2M credentials through SamuraiBFF | No | These operations call the Keycloak Admin REST API and create Keycloak protocol mappers. Provision credentials externally or add a provider-specific admin adapter to SamuraiBFF. |
-
-To support another provider as a first-class replacement, SamuraiBFF would need
-changes to:
-
-1. Use `authorization_endpoint` and `token_endpoint` from OIDC discovery for
-   browser login and code exchange, and define provider-neutral logout behavior.
-2. Apply `SAMURAIBFF_AUTH_TENANT_CLAIM` consistently to HTTP and WebSocket
-   requests.
-3. Introduce a provider-neutral credential-management interface, implement an
-   adapter for the selected provider, and migrate Keycloak-specific persistence
-   names if necessary; alternatively, disable the management endpoints and
-   manage all M2M credentials externally.
-4. Add an explicit, safe signing-algorithm allowlist if the provider cannot use
-   RS256.
-5. Add provider integration tests for browser PKCE, bearer REST, WebSockets,
-   tenant isolation, and M2M tokens before claiming support.
-
-These are SamuraiBFF implementation changes, not settings that can be solved in
-this Compose repository.
-
-## Current security limitations
-
-- Authentication is disabled by default for the localhost evaluator.
-- Token verification accepts RS256 only.
-- Local token validation does not provide immediate account or token revocation.
-  Existing WebSockets keep their original token expiry after signing-key removal.
-- Logout clears only the local cookie.
-- Custom tenant-claim configuration is not applied consistently to WebSockets.
-- Authorization is tenant-scoped, not role- or per-user-scoped.
-
-Before exposing Nanosamurai beyond localhost, also follow
+Before you expose Nanosamurai beyond localhost, also read
 [Deployment and security boundaries](deployment-and-security.md).

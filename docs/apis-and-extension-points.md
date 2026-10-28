@@ -58,13 +58,13 @@ python -m pip install "git+https://github.com/nanosamurai/nanosamurai-sdk.git@ec
 Pin deployments to a reviewed commit or release tag rather than a mutable
 branch. Do not install similarly named packages from PyPI.
 
-The SDK currently targets authenticated machine-to-machine integrations. In an
-authentication-enabled SamuraiBFF deployment, create a credential from the
-browser UI's **API Credentials** page and copy the show-once client secret. The
-page creates a Keycloak OAuth client; Keycloak then issues short-lived bearer
-tokens through `client_credentials`. See
-[Create a credential in the BFF UI](authentication.md#create-a-credential-in-the-bff-ui)
-for the required Keycloak admin setup and complete flow. Then set:
+The SDK targets deployments with sign-in on. It needs an API key: an OAuth
+client (id and secret) at your identity provider that can use
+`client_credentials`. With the Keycloak admin adapter, create it on the
+**API Credentials** page and copy the secret, which is shown once. With any
+other provider, create the client there and register it with
+`register-key`. A personal key acts as you; an organization key owns what it
+records. See [API keys](authentication.md#api-keys). Then set:
 
 ```bash
 export NANOSAMURAI_API_URL=https://your-nanosamurai.example
@@ -92,14 +92,10 @@ The helper validates mono 16-bit PCM WAV input. The complete installation,
 Python, CLI, and stream-control examples live in the
 [Nanosamurai SDK repository](https://github.com/nanosamurai/nanosamurai-sdk).
 
-The default Compose evaluator disables authentication for a quick localhost
-evaluation and does not provision M2M credentials. Use the browser or public
-smoke-test clients for that configuration; do not pretend production
-credentials exist in the evaluator stack. Authenticated deployments must bring
-their own Keycloak; see
-[Authentication and bring-your-own Keycloak](authentication.md) for browser
-client setup, required token claims, M2M provisioning, and the limitations of
-other OIDC providers.
+In local mode (the default) the API needs no key, so there are no API keys.
+Use the browser or the public smoke-test clients. To use the SDK, turn on
+sign-in with your own OIDC provider; see
+[Sign-in and access control](authentication.md).
 
 ## Agentic workflow and webhook contracts
 

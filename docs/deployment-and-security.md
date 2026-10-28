@@ -76,16 +76,16 @@ deployment, enable authentication, replace credentials, add TLS, restrict
 probes and metrics, select and secure production storage and secrets backends,
 and define network policy. Object storage can target an S3-compatible provider;
 see [Replaceable object storage](architecture.md#replaceable-object-storage).
-The stack does not ship an identity provider; follow [Authentication and
-bring-your-own Keycloak](authentication.md) to connect an operator-owned
-Keycloak instance.
+The stack does not ship an identity provider; follow [Sign-in and access
+control](authentication.md) to connect an OIDC provider that you run, such as
+Keycloak.
 
 ## Production secret management
 
 There are two distinct kinds of secrets in this architecture:
 
 1. Deployment secrets, such as database passwords, Hugging Face tokens,
-   object-storage credentials, and the optional Keycloak admin client secret,
+   object-storage credentials, and the optional Keycloak adapter secrets,
    are passed to containers as configuration. The SamuraiBFF secret-store
    adapter does not manage them.
 2. Tenant webhook credentials are accepted as write-only API inputs when the

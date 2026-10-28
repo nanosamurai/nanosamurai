@@ -224,7 +224,7 @@ docker compose ps --all
 ```
 
 Open <http://127.0.0.1:8000/live>, select **Microphone**, and choose
-**Record now**. Realtime results appear first; refined and final results arrive
+**Record now**. There is no sign-in: the top bar shows **Local mode**. Realtime results appear first; refined and final results arrive
 asynchronously.
 
 Model downloads and cold initialization can take several minutes. The speech
@@ -263,7 +263,7 @@ endpoints, available signals, trace behavior, and current limitations.
 - [Transcription lifecycle](docs/transcription-lifecycle.md)
 - [APIs and extension points](docs/apis-and-extension-points.md)
 - [Architecture and Community Edition boundary](docs/architecture.md)
-- [Authentication and bring-your-own Keycloak](docs/authentication.md)
+- [Sign-in and access control](docs/authentication.md)
 - [Operations and observability](docs/operations-and-observability.md)
 - [Deployment and security boundaries](docs/deployment-and-security.md)
 - [Smoke tests and release rehearsal](docs/smoke-tests.md)
@@ -288,11 +288,11 @@ See [Deployment and security boundaries](docs/deployment-and-security.md).
 
 - All published host ports bind to `127.0.0.1` by default through
   `COMPOSE_BIND_IP`.
-- The evaluator uses fixed development credentials and disables authentication
-  for quick local access.
-- Authenticated deployments must supply and operate their own Keycloak. See
-  [Authentication and bring-your-own Keycloak](docs/authentication.md) for the
-  required client, claims, tenant provisioning, and configuration.
+- The evaluator uses fixed development credentials and starts in local mode:
+  no sign-in, one local Admin.
+- To turn on sign-in, bring your own OpenID Connect provider, such as Keycloak.
+  See [Sign-in and access control](docs/authentication.md) for roles, sharing,
+  API keys, the first Admin, and provider setup.
 - Do not expose this configuration to a LAN or public interface unless you intentionally want to do that.
 - Never commit `.env`, tokens, recordings, transcripts, enrollment samples, or
   customer data.
