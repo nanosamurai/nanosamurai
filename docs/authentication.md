@@ -271,7 +271,12 @@ Check these points for your provider:
   for `tenant_id`. Use `SAMURAIBFF_AUTH_TENANT_CLAIM` if your claim has
   another name. The value must be a UUID string.
 - **Audience.** Configure the provider to put the BFF audience in `aud`, or set
-  `SAMURAIBFF_AUTH_AUDIENCE` to the audience it issues.
+  `SAMURAIBFF_AUTH_AUDIENCE` to the audience it issues. SamuraiBFF never
+  accepts an ID token as a credential. It recognizes Keycloak ID tokens by
+  their `typ` claim. Many other providers do not mark ID tokens, so give access
+  tokens their own API audience (not the browser client id) and set
+  `SAMURAIBFF_AUTH_AUDIENCE` to it and `SAMURAIBFF_AUTH_CLIENT_ID` to the
+  browser client id.
 - **Machine client id.** If machine tokens do not carry `azp`, set
   `SAMURAIBFF_AUTH_CLIENT_CLAIM` (for example `cid` for Okta).
 - **Signing.** Tokens must use RS256.
