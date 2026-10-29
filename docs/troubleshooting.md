@@ -32,6 +32,15 @@ Model downloads and cold initialization can take several minutes. Follow the
 service logs and retry only after initialization has completed. Increasing a
 test timeout does not fix a worker that has crashed or lost Kafka membership.
 
+## Realtime recording fails during admission
+
+The API reserves a realtime slot before it accepts audio. Each realtime ASR
+container accepts one session by default. If `/ws/audio` fails with
+`Timed out waiting for realtime admission`, check whether an `RTSERVICE_IMAGE`
+or `QWEN_RTSERVICE_IMAGE` override in `.env` selects an older image without
+admission support. Remove the override or select the default pin. If another
+recording is active on the same container, wait until it finishes and retry.
+
 ## Database migration fails on a reused volume
 
 Inspect `docker compose logs db_migrate`. Applied versions are recorded in
