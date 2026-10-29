@@ -41,8 +41,12 @@ data. Never expose local mode on a LAN or the internet.
 ### Upgrading an existing install
 
 `db_migrate` applies new migrations on the next `docker compose up -d`.
-Migrations `022`–`024` add access control. Your existing sessions become the
-guest's sessions (`023`), so they stay visible. No action is needed.
+Migrations `022` and `024` add access control. Your existing sessions stay
+visible and you manage them as before. No action is needed.
+
+If you later turn sign-in on, sessions recorded before the upgrade stay
+visible to everyone in the organization, as they were. See
+[Sessions recorded before access control](#sessions-recorded-before-access-control).
 
 ## Roles and sharing
 
@@ -54,14 +58,27 @@ These rules apply when sign-in is on.
 | Builder | Member rights, plus personal workflows, webhooks and personal API keys. |
 | Admin | Builder rights, plus **People**, publishing, organization defaults and all API keys. |
 
-- Every session has one owner. Nobody reads another person's private session,
-  not even an Admin.
+- Every new session has one owner. Nobody reads another person's private
+  session, not even an Admin.
 - The owner chooses who can see a session: **Private** (default), **Selected
   people** or **Everyone in the organization**. Shared access is read-only.
 - A person belongs to one organization (tenant).
 - Roles and suspension are stored in PostgreSQL, not in the identity provider.
   A valid login alone gives no access: an Admin or operator must add the
   person first.
+
+### Sessions recorded before access control
+
+Older versions did not store who recorded a session, and every signed-in
+person could read every session of their organization. On upgrade:
+
+- All existing sessions stay visible to everyone in their organization.
+- Sessions without a known owner show **Owner unknown**. Admins manage them:
+  rename, delete, share or make them Private (then only Admins read them).
+- An Admin can assign an owner in **Share** (an active person, or
+  themselves). After that the session behaves like any other.
+
+`legacy-report` counts sessions without an owner per organization.
 
 ## Turn on sign-in
 
@@ -150,7 +167,8 @@ also creates the tenant if it does not exist. The command prints ids and
 roles, never emails or secrets, and writes an audit event.
 
 Other commands: `set-role`, `set-status`, `list`, `register-key` (see
-[API keys](#api-keys)), `legacy-report` and `assign-owner`.
+[API keys](#api-keys)), `legacy-report` and `assign-owner` (see
+[Sessions recorded before access control](#sessions-recorded-before-access-control)).
 
 ### 4. Add more people
 
