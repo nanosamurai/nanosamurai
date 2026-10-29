@@ -188,7 +188,7 @@ services:
         condition: service_completed_successfully
 
   rtservice:
-    image: ${RTSERVICE_IMAGE:-ghcr.io/nanosamurai/xamurai-rtservice:sha-1de1f7de1c05b4f5d01da9e9792bdea542a51f86}
+    image: ${RTSERVICE_IMAGE:-ghcr.io/nanosamurai/xamurai-rtservice:sha-c3b6ee476908f7b0b13ba88a295b3b260e404863}
     restart: unless-stopped
     ports:
       - "${COMPOSE_BIND_IP:-127.0.0.1}:50052:50052"
@@ -220,7 +220,7 @@ services:
         condition: service_started
 
   whisperx_refinement:
-    image: ${WHISPERX_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-whisperx-worker:sha-1de1f7de1c05b4f5d01da9e9792bdea542a51f86}
+    image: ${WHISPERX_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-whisperx-worker:sha-c3b6ee476908f7b0b13ba88a295b3b260e404863}
     build:
       context: ${XAMURAI_SOURCE:-../xamurai}
       dockerfile: whisperx_worker/Dockerfile.refinement
@@ -250,7 +250,7 @@ services:
         condition: service_completed_successfully
 
   recorder_worker:
-    image: ${RECORDER_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-recorder-worker:sha-1de1f7de1c05b4f5d01da9e9792bdea542a51f86}
+    image: ${RECORDER_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-recorder-worker:sha-c3b6ee476908f7b0b13ba88a295b3b260e404863}
     restart: unless-stopped
     environment:
       KAFKA_BOOTSTRAP: broker:29092
@@ -273,7 +273,7 @@ services:
         condition: service_started
 
   whisperx_finalizer:
-    image: ${FINALIZER_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-finalizer-worker:sha-1de1f7de1c05b4f5d01da9e9792bdea542a51f86}
+    image: ${FINALIZER_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-finalizer-worker:sha-c3b6ee476908f7b0b13ba88a295b3b260e404863}
     build:
       context: ${XAMURAI_SOURCE:-../xamurai}
       dockerfile: whisperx_worker/Dockerfile.finalizer
