@@ -10,8 +10,11 @@
 -- Compatibility:
 -- - Existing app_users rows were created explicitly by operators. They keep
 --   access as active human members. No row becomes an Admin automatically.
--- - Existing sessions become private to their recorded owner. Sessions without
---   an owner stay stored but are not readable through ordinary user routes.
+-- - Existing sessions keep their audience: everyone in their tenant, as every
+--   signed-in person read every session of the tenant before. Recorded owners
+--   stay. The BFF never stored who recorded a session with sign-in, so those
+--   sessions have no owner; the tenant's Admins manage them and can assign one.
+--   New sessions start private to their owner.
 -- - Existing workflows, webhooks and API credentials become Admin-managed:
 --   published definitions without a human owner.
 -- - The local guest principal (auth disabled only) becomes the guest tenant Admin.
@@ -63,10 +66,13 @@ CREATE INDEX IF NOT EXISTS idx_app_users_tenant_directory
     ON app_users(tenant_id, principal_type, status, name);
 
 -- Sessions: immutable owner plus one constrained audience.
+-- Rows present now (recorded before access control) get 'tenant'; then the
+-- default becomes 'private' for every new session.
 ALTER TABLE sessions
-    ADD COLUMN IF NOT EXISTS visibility text NOT NULL DEFAULT 'private',
+    ADD COLUMN IF NOT EXISTS visibility text NOT NULL DEFAULT 'tenant',
     ADD COLUMN IF NOT EXISTS access_revision bigint NOT NULL DEFAULT 0,
     ADD COLUMN IF NOT EXISTS admission_snapshot jsonb;
+ALTER TABLE sessions ALTER COLUMN visibility SET DEFAULT 'private';
 
 ALTER TABLE sessions
     ADD CONSTRAINT sessions_visibility_check
