@@ -129,7 +129,7 @@ def main():
         (speech[:12 * 32000], True, False, "qwen"),
         (speech[:12 * 32000], False, True, "qwen"),
         (bytes(32000), True, True, "qwen"),
-        (bytes(32000), True, True, "whisperx"),
+        (bytes(32000), True, True, "parakeet"),
         (bytes(32000), True, True, None),
     ]:
         selected = s.new_session()
