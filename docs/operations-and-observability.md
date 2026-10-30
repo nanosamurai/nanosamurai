@@ -56,16 +56,18 @@ probes are unauthenticated and must remain network-restricted.
 
 ## Metrics
 
-Prometheus scrapes SamuraiBFF, Xamurai's realtime service, and NVIDIA DCGM
-Exporter in the supplied configuration.
+Prometheus scrapes SamuraiBFF, the optional Faster-Whisper realtime service,
+and NVIDIA DCGM Exporter in the supplied configuration. Nemotron does not expose
+Prometheus metrics yet, so the realtime-service target stays down without the
+Whisper overlay.
 
 Available signals include:
 
 - HTTP request counts and latency
 - JVM and process metrics
-- active realtime streams
-- audio, chunk, and stream counters
-- engine-feed, event-send, and VAD latency
+- Faster-Whisper active realtime streams
+- Faster-Whisper audio, chunk, and stream counters
+- Faster-Whisper engine-feed, event-send, and VAD latency
 - GPU utilization, framebuffer memory, temperature, and power (`DCGM_*`)
 
 DCGM Exporter is available only when Docker has access to an NVIDIA GPU. It is
@@ -94,8 +96,8 @@ messages carry W3C `traceparent` headers, allowing one session trace to include:
 
 - SamuraiBFF
 - recorder worker
-- WhisperX refinement worker
-- finalizer worker
+- Parakeet or WhisperX refinement worker
+- Parakeet or WhisperX finalizer worker
 - SamuraiPersistor
 - Kafka and database operations
 
@@ -155,10 +157,10 @@ docker compose logs --tail=100 samuraibff samuraipersistor
 For a speech worker:
 
 ```bash
-docker compose logs --tail=200 rtservice
-docker compose logs --tail=200 whisperx_refinement
+docker compose logs --tail=200 nemotron-rtservice
+docker compose logs --tail=200 parakeet-refinement
 docker compose logs --tail=200 recorder_worker
-docker compose logs --tail=200 whisperx_finalizer
+docker compose logs --tail=200 parakeet-finalizer
 docker compose -f docker-compose.yml -f docker-compose.observability.yml logs --tail=100 dcgm_exporter
 ```
 

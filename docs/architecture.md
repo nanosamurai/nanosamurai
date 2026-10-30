@@ -97,8 +97,8 @@ local data sources and a starter BFF dashboard.
 The BFF publishes each accepted chunk to Kafka once, irrespective of how many
 realtime tracks are configured. Each realtime track has an independent bounded
 queue and stream, so one failed or lagging peer does not stop the others. The
-base stack registers only Faster-Whisper; `docker-compose.qwen.yml` adds Qwen
-as a second internal peer. The live UI receives the configured stable track IDs
+base stack registers only Nemotron; `docker-compose.whisper.yml` and
+`docker-compose.qwen.yml` add Faster-Whisper or Qwen as further internal peers. The live UI receives the configured stable track IDs
 and lets each session select a non-empty subset. Omission selects all tracks for
 compatibility; simultaneous tracks are labelled and rendered side by side.
 Results remain independent rather than being automatically merged or voted on.
@@ -107,9 +107,9 @@ selection possible without duplicating client audio or the Kafka recording and
 refinement path. See the [model guides](models/README.md) for model choices
 and startup commands for each stage.
 
-The diagrams include optional providers: the Nemotron overlay adds a realtime
-peer, and the Parakeet overlay adds independently selected refinement and final
-tracks. See the [model matrix](../README.md#model-pipelines-in-the-supplied-stack)
+The diagrams include optional providers: the base stack runs Nemotron and
+Parakeet, and the Whisper and Qwen overlays add independently selected realtime,
+refinement and final tracks. See the [model matrix](../README.md#model-pipelines-in-the-supplied-stack)
 for model setup guides. WhisperX and Parakeet reuse shared
 refinement and finalization runtimes, with separate model processes and consumer
 groups. Parakeet refinement needs no recording-storage access; its finalizer
@@ -135,7 +135,7 @@ configuration groups consistent across every consumer:
 | Recordings and speaker-enrollment API access | SamuraiBFF | `SAMURAIBFF_S3_*`, including the recordings and enrollments bucket and prefix settings |
 | Recording writes | recorder worker | `RECORDING_STORAGE_BACKEND=s3`, `S3_ENDPOINT`, `S3_BUCKET`, `S3_REGION`, credentials, `S3_FORCE_PATH_STYLE`, and `S3_PREFIX` |
 | Recording reads | finalizer worker | `S3_ENDPOINT`, `S3_REGION`, credentials, and `S3_FORCE_PATH_STYLE`; the bucket and key come from the recording's `s3://` URL |
-| Speaker-enrollment reads | realtime, WhisperX, and finalizer workers | `ENROLL_BACKEND=s3_manifest` and `ENROLL_S3_*`, including bucket and prefix |
+| Speaker-enrollment reads | Nemotron (when enabled), Faster-Whisper, and WhisperX workers | `ENROLL_BACKEND=s3_manifest` and `ENROLL_S3_*`, including bucket and prefix |
 
 Use the endpoint and addressing style required by the selected provider. Use
 provider credentials only when needed; outside the evaluator, prefer the

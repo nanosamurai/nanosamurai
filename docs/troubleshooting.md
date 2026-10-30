@@ -22,9 +22,12 @@ but that is not a functional speech evaluation.
 
 ## Hugging Face model startup fails
 
-Check that `HF_TOKEN` is present in `.env`, has only the required model-read
-permissions, and has accepted any applicable gated-model terms. Inspect the
-specific container with `docker compose logs --tail=200 <service>`.
+The default Nemotron and Parakeet models need no token. They download pinned
+files and stop if a checksum does not match; retry after a network failure.
+The Whisper and Qwen overlays need `HF_TOKEN`. Check that it is present in
+`.env`, has only the required model-read permissions, and belongs to the account
+that accepted the pyannote terms. Inspect the specific container with
+`docker compose logs --tail=200 <service>`.
 
 ## A speech test times out during first start
 
@@ -38,11 +41,13 @@ The API reserves a realtime slot before it accepts audio. Each realtime ASR
 container accepts one session by default. If the `/ws/audio` handshake returns
 HTTP 500, run `docker compose logs --tail=200 samuraibff`:
 
-- `Timed out waiting for realtime admission`: an `RTSERVICE_IMAGE` or
-  `QWEN_RTSERVICE_IMAGE` override in `.env` selects an older image without
-  admission support. Remove the override or select the default pin.
+- `Timed out waiting for realtime admission`: a `NEMOTRON_RTSERVICE_IMAGE`,
+  `RTSERVICE_IMAGE`, or `QWEN_RTSERVICE_IMAGE` override in `.env` selects an
+  older image without admission support. Remove the override or select the
+  default pin.
 - `Realtime replica full`: another recording uses the same container. Wait
-  until it finishes and retry.
+  until it finishes and retry, or add a Nemotron replica with
+  `NEMOTRON_RTSERVICE_REPLICAS=2`.
 
 ## Database migration fails on a reused volume
 

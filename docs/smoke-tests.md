@@ -25,26 +25,28 @@ The [test scripts](../utilities/k8s_local_smoke_test/) check the API, live text,
 
 ```bash
 python utilities/k8s_local_smoke_test/tier1_bff_connectivity.py
-python utilities/k8s_local_smoke_test/tier2_realtime_asr.py --lang cs --require-final
-python utilities/k8s_local_smoke_test/tier3_kafka_audio_raw.py --lang cs --kafka-bootstrap 127.0.0.1:9092
-python utilities/k8s_local_smoke_test/tier4_async_pipeline.py --lang cs --kafka-bootstrap 127.0.0.1:9092 --signal recording-finished --timeout 180
+python utilities/k8s_local_smoke_test/tier2_realtime_asr.py --lang en --require-final
+python utilities/k8s_local_smoke_test/tier3_kafka_audio_raw.py --lang en --kafka-bootstrap 127.0.0.1:9092
+python utilities/k8s_local_smoke_test/tier4_async_pipeline.py --lang en --kafka-bootstrap 127.0.0.1:9092 --signal recording-finished --timeout 180
 ```
 
 Repeat the last command with `--signal refined`, then `--signal final`.
+The scripts use the synthetic English [test audio](../tests/data/README.md) by default.
 Allow more time for first-use model loading. Each command must exit successfully.
 Use `--help` for options. Check only the stages enabled in your test stack.
 After a UI or playback change, also record a session in the browser, open its saved results, and play the audio.
 
-## Check optional models
+## Check the models
 
 Start the models with their [setup guides](models/README.md). Keep the same Compose file list and image overrides for tests.
-Parakeet and Qwen worker comparisons require WhisperX in both stages and blank default-track settings.
-Set `XAMURAI_SOURCE` to the compatible source checkout; Qwen worker tests use its English audio fixture.
+The Parakeet tests compare with WhisperX, so they need the Whisper overlay and blank default-track settings.
+The Qwen worker test needs blank default-track settings.
+Set `XAMURAI_SOURCE` to the compatible source checkout; the tests mount its generated protobuf bindings.
 
-| Model | Test source | Compose overlay | Test service / profile |
+| Model | Test source | Compose files after `docker-compose.yml` | Test service / profile |
 | --- | --- | --- | --- |
-| Nemotron | [Replica and audio probe](https://github.com/nanosamurai/xamurai/blob/master/nemotron_rtservice/src/nemotron_rtservice/probe.py) | `docker-compose.nemotron.yml` | `nemotron-probe` / `nemotron-validation` |
-| Parakeet | [Final results](../smoke-tests/final-tracks/parakeet.py), [live refinement](../smoke-tests/refinement-tracks/smoke.py) | `docker-compose.parakeet.yml` | `parakeet-smoke`, `parakeet-refinement-smoke` / `validation` |
+| Nemotron | [Replica and audio probe](https://github.com/nanosamurai/xamurai/blob/master/nemotron_rtservice/src/nemotron_rtservice/probe.py) | `docker-compose.nemotron-smoke.yml` | `nemotron-probe` / `nemotron-validation` |
+| Parakeet | [Final results](../smoke-tests/final-tracks/parakeet.py), [live refinement](../smoke-tests/refinement-tracks/smoke.py) | `docker-compose.whisper.yml`, `docker-compose.parakeet-smoke.yml` | `parakeet-smoke`, `parakeet-refinement-smoke` / `validation` |
 | Qwen workers | [Refined/final results and recording completion](../smoke-tests/final-tracks/qwen.py) | `docker-compose.qwen-workers.yml` | `qwen-smoke` / `validation` |
 
 Build and run the test service. For example, with Qwen workers already running:
@@ -57,14 +59,17 @@ docker compose -f docker-compose.yml -f docker-compose.qwen-workers.yml --profil
 Use the overlay, service, and profile from the table for the other tests. Run each Parakeet test separately.
 Worker tests check separate model results, playback, replay, and tenant isolation. Nemotron checks replica connections and realtime audio.
 For custom WhisperX consumer groups, set `WHISPERX_REFINEMENT_GROUP` and `WHISPERX_FINALIZER_GROUP` on the probes, not the workers.
-Nemotron uses the service image, so skip the build step. Keep the configured replica count; use the probe's `--help` for speaker checks.
+Nemotron uses the service image, so skip the build step. The probe expects `NEMOTRON_RTSERVICE_REPLICAS` replicas, one by default.
+Use the probe's `--help` for speaker checks.
 
 For Qwen realtime, run Tier 2 with `--realtime-tracks qwen --require-tracks qwen --realtime-only --require-final --require-speakerless-finals`.
-Keep `--lang cs` for the Czech fixture. For supported English audio, use `--wav <path> --lang en --require-speaker-labels` instead of `--require-speakerless-finals`.
+With the English fixture, use `--require-speaker-labels` instead of `--require-speakerless-finals`.
+Use `--require-speakerless-finals` for a language that the Qwen aligner does not support.
 
 ## Tests for worker recovery and browser changes
 
 These tests use special fixtures and change the test stack configuration. Use them when you change model selection, worker retries, or the UI.
+They use WhisperX as the real worker, so apply each overlay after `docker-compose.yml` and `docker-compose.whisper.yml`.
 Inspect the linked test and overlay before running it; they are not checks for an ordinary installation.
 
 | Change to verify | Test source | Fixture configuration |

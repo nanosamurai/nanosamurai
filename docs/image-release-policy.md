@@ -10,10 +10,10 @@ release, or rollback; users do not need to set them for the normal quickstart.
 Keep local source-build image selections and enrollment calibration in the
 ignored `.env` or `docker-compose.local-asr.yml`, selected explicitly with `-f`.
 Do not commit these machine-local overrides or promote newly built images into
-the default pins as part of provider development. The base stack and optional
-Qwen override retain their existing release pins. Nemotron currently has only
-an opt-in source-build recipe, with no selected published-image pin; promoting
-it requires a separate release change after the checks below.
+the default pins as part of provider development. The base stack, the Whisper
+overlay, and the Qwen realtime overlay use release pins. The Qwen worker overlay
+has only a source-build recipe; promoting it requires a separate release change
+after the checks below.
 
 Before updating a default pin:
 
