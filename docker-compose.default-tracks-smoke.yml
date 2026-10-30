@@ -1,4 +1,4 @@
-# Apply after the Nemotron and Qwen-worker overlays and any local image override.
+# Apply after the Qwen-worker overlay and any local image override.
 services:
   samuraibff:
     image: samuraibff:default-tracks

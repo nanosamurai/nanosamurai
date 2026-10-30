@@ -1,0 +1,112 @@
+# Optional Whisper models: Faster-Whisper realtime, WhisperX refinement and
+# WhisperX final transcripts, next to the default Nemotron and Parakeet tracks.
+# Apply after docker-compose.yml. Requires HF_TOKEN with pyannote model access.
+services:
+  samuraibff:
+    environment:
+      SAMURAIBFF_GRPC_REALTIME_TRACKS: nemotron=nemotron-rtservice:50052,faster-whisper=rtservice:50052
+      SAMURAIBFF_REFINEMENT_TRACKS: parakeet,whisperx
+      SAMURAIBFF_FINAL_TRACKS: parakeet,whisperx
+      SAMURAIBFF_TRACK_LABELS: '{"refined":{"parakeet":"Parakeet TDT v3","whisperx":"WhisperX"},"final":{"parakeet":"Parakeet TDT v3","whisperx":"WhisperX"}}'
+
+  rtservice:
+    image: ${RTSERVICE_IMAGE:-ghcr.io/nanosamurai/xamurai-rtservice:sha-c3b6ee476908f7b0b13ba88a295b3b260e404863}
+    restart: unless-stopped
+    ports:
+      - "${COMPOSE_BIND_IP:-127.0.0.1}:50052:50052"
+    environment:
+      KAFKA_BOOTSTRAP: broker:29092
+      KAFKA_TOPIC_AUDIO: audio.raw
+      RT_GRPC_PORT: 50052
+      HF_TOKEN: ${HF_TOKEN:-}
+      HF_HOME: /data/hf_cache
+      ENROLL_BACKEND: s3_manifest
+      ENROLL_S3_ENDPOINT: http://localstack:4566
+      ENROLL_S3_BUCKET: ${NANOSAMURAI_ENROLLMENT_BUCKET:-nanosamurai-enrollment}
+      ENROLL_S3_PREFIX: enrollment
+      ENROLL_S3_REGION: us-east-1
+      ENROLL_S3_ACCESS_KEY: test
+      ENROLL_S3_SECRET_KEY: test
+      ENROLL_S3_FORCE_PATH_STYLE: "true"
+      RT_METRICS_ENABLE: "true"
+      RT_METRICS_PORT: 8008
+      RT_METRICS_ADDR: 0.0.0.0
+      RT_EMIT_EVERY_SEC: "${RT_EMIT_EVERY_SEC:-1.5}"
+    volumes:
+      - nanosamurai_hf_cache:/data/hf_cache
+    gpus: all
+    depends_on:
+      kafka_init:
+        condition: service_completed_successfully
+      localstack:
+        condition: service_started
+
+  whisperx_refinement:
+    image: ${WHISPERX_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-whisperx-worker:sha-c3b6ee476908f7b0b13ba88a295b3b260e404863}
+    build:
+      context: ${XAMURAI_SOURCE:-../xamurai}
+      dockerfile: whisperx_worker/Dockerfile.refinement
+    restart: unless-stopped
+    environment:
+      KAFKA_BOOTSTRAP: broker:29092
+      KAFKA_TOPIC_AUDIO: audio.raw
+      KAFKA_TOPIC_REFINED: transcripts.refined
+      KAFKA_GROUP_ID: whisperx-async
+      HF_TOKEN: ${HF_TOKEN:-}
+      HF_HOME: /data/hf_cache
+      WHISPERX_SLICE_SECONDS: "60.0"
+      WHISPERX_IDLE_SECONDS: "30.0"
+      ENROLL_BACKEND: s3_manifest
+      ENROLL_S3_ENDPOINT: http://localstack:4566
+      ENROLL_S3_BUCKET: ${NANOSAMURAI_ENROLLMENT_BUCKET:-nanosamurai-enrollment}
+      ENROLL_S3_PREFIX: enrollment
+      ENROLL_S3_REGION: us-east-1
+      ENROLL_S3_ACCESS_KEY: test
+      ENROLL_S3_SECRET_KEY: test
+      ENROLL_S3_FORCE_PATH_STYLE: "true"
+    volumes:
+      - nanosamurai_hf_cache:/data/hf_cache
+    gpus: all
+    depends_on:
+      kafka_init:
+        condition: service_completed_successfully
+
+  whisperx_finalizer:
+    image: ${FINALIZER_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-finalizer-worker:sha-c3b6ee476908f7b0b13ba88a295b3b260e404863}
+    build:
+      context: ${XAMURAI_SOURCE:-../xamurai}
+      dockerfile: whisperx_worker/Dockerfile.finalizer
+      additional_contexts:
+        whisperx-worker: service:whisperx_refinement
+    restart: unless-stopped
+    environment:
+      KAFKA_BOOTSTRAP: broker:29092
+      KAFKA_TOPIC_RECORDING_FINISHED: recordings.finished
+      KAFKA_TOPIC_TRANSCRIPTS_FINAL: transcripts.final
+      KAFKA_GROUP_ID_FINALIZER: finalizer-worker
+      HF_TOKEN: ${HF_TOKEN:-}
+      HF_HOME: /data/hf_cache
+      S3_ENDPOINT: http://localstack:4566
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: test
+      S3_SECRET_KEY: test
+      S3_FORCE_PATH_STYLE: "true"
+      ENROLL_BACKEND: s3_manifest
+      ENROLL_S3_ENDPOINT: http://localstack:4566
+      ENROLL_S3_BUCKET: ${NANOSAMURAI_ENROLLMENT_BUCKET:-nanosamurai-enrollment}
+      ENROLL_S3_PREFIX: enrollment
+      ENROLL_S3_REGION: us-east-1
+      ENROLL_S3_ACCESS_KEY: test
+      ENROLL_S3_SECRET_KEY: test
+      ENROLL_S3_FORCE_PATH_STYLE: "true"
+    volumes:
+      - nanosamurai_hf_cache:/data/hf_cache
+    gpus: all
+    depends_on:
+      kafka_init:
+        condition: service_completed_successfully
+      localstack:
+        condition: service_started
+
+volumes:
+  nanosamurai_hf_cache:

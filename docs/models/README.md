@@ -9,20 +9,40 @@ You can select different tracks for each stage:
 
 ## What starts by default
 
+The base `docker-compose.yml` runs NVIDIA Nemotron for realtime text and NVIDIA
+Parakeet for refined and final transcripts. They are fast and accurate in English,
+need no Hugging Face token, and use less GPU memory than the Whisper services.
+In the release rehearsal on a 24 GB laptop GPU, the three default model services
+used about 3.6 GB of GPU memory together after the smoke tests.
+The other families are optional overlays. You choose which setup runs.
+
 | Model family | Realtime | Refined | Final | Installation |
 | --- | --- | --- | --- | --- |
-| [Whisper](whisper.md) | Faster-Whisper | WhisperX | WhisperX | On by default; published images |
-| [Qwen](qwen.md) | Qwen3-ASR | Qwen3-ASR | Qwen3-ASR | Optional overlays; published images |
-| [Nemotron](nemotron.md) | Nemotron 3.5 ASR | — | — | Optional overlay; published image |
-| [Parakeet](parakeet.md) | — | Parakeet TDT | Parakeet TDT | Optional overlay; published images |
+| [Nemotron](nemotron.md) | Nemotron 3.5 ASR | — | — | On by default |
+| [Parakeet](parakeet.md) | — | Parakeet TDT v3 | Parakeet TDT v3 | On by default |
+| [Whisper](whisper.md) | Faster-Whisper | WhisperX | WhisperX | Optional overlay |
+| [Qwen](qwen.md) | Qwen3-ASR | Qwen3-ASR | Qwen3-ASR | Optional overlays |
 
 The base stack also starts the browser UI, API, database, message broker,
-recording service, and storage. Qwen, Nemotron, and Parakeet are off by default.
+recording service, and storage.
 
 All families have images in [GHCR](https://github.com/orgs/nanosamurai/packages?repo_name=xamurai).
-Each optional family also has a Compose overlay, linked from its guide.
-The Nemotron, Parakeet, and Qwen worker overlays currently default to local image names.
-Their guides show local builds. See [image choices](source-builds.md#published-images-and-compose-defaults) for the published-image settings.
+The base file, the Whisper overlay, and the Qwen realtime overlay select published images.
+The Qwen worker overlay defaults to local image names. Its guide shows a local build.
+See [image choices](source-builds.md#published-images-and-compose-defaults) for the published-image settings.
+
+## Choose a setup
+
+| Setup | Compose files |
+| --- | --- |
+| Default: Nemotron and Parakeet | `docker-compose.yml` |
+| Whisper next to the defaults, for example to compare results | `docker-compose.yml` and `docker-compose.whisper.yml` |
+| Whisper only | The Whisper files and [the replacement example](whisper.md#use-whisper-instead-of-nemotron-and-parakeet) |
+| Qwen next to the defaults | `docker-compose.yml` and [one or both Qwen overlays](qwen.md) |
+
+Nemotron and Parakeet also list other languages, including German.
+This stack tests them with English. Whisper covers more languages and can match enrolled speaker names.
+Compare the models with your own audio before you choose one for another language.
 
 ## Model sizes and variants
 
@@ -44,10 +64,6 @@ They do not select a model size from available GPU memory.
 4. If you select multiple final models, keep recording storage enabled.
 5. Start the session.
 
-Refined and final model selection requires newer service versions than the base image pins.
-Use compatible published images or the [local-build recipe](source-builds.md).
-Realtime selection works with the pinned base and Qwen realtime images.
-
 Session selection does not stop containers or release their model memory.
 Each running model process needs its own RAM and GPU memory.
 
@@ -58,9 +74,6 @@ It applies when that stage is enabled and the session has no explicit track sele
 An explicit selection takes priority, including a choice of multiple tracks.
 A default does not enable a disabled stage or change a session after audio starts.
 
-These settings require a BFF image with default-track support.
-The pinned base image predates this feature. Use a compatible published image or the [local-build recipe](source-builds.md).
-
 Set one track ID per stage in `.env`. Leave a value blank to use the behavior below:
 
 | Stage | Setting | Choice when blank |
@@ -69,25 +82,25 @@ Set one track ID per stage in `.env`. Leave a value blank to use the behavior be
 | Refined | `SAMURAIBFF_DEFAULT_REFINEMENT_TRACK` | First configured refined track |
 | Final | `SAMURAIBFF_DEFAULT_FINAL_TRACK` | First configured final track |
 
-Thus, the Qwen realtime overlay selects both Faster-Whisper and Qwen when no default is set.
-The Parakeet and Qwen worker overlays list WhisperX first, so it remains the initial choice.
+Thus, the Whisper and Qwen realtime overlays select two realtime models when no default is set.
+The Whisper and Qwen worker overlays list Parakeet first, so it remains the initial refined and final choice.
 
-For example, after you add [Qwen realtime](qwen.md#add-realtime-transcription), set these values in `.env`:
+For example, after you [add Whisper](whisper.md#add-whisper), set these values in `.env`:
 
 ```dotenv
-SAMURAIBFF_DEFAULT_REALTIME_TRACK=qwen
+SAMURAIBFF_DEFAULT_REALTIME_TRACK=faster-whisper
 SAMURAIBFF_DEFAULT_REFINEMENT_TRACK=whisperx
 SAMURAIBFF_DEFAULT_FINAL_TRACK=whisperx
 ```
 
-This selects Qwen for realtime text and WhisperX for refined and final output.
-Faster-Whisper remains available in **Session settings**, and its container continues to run.
+This selects Whisper for every stage.
+Nemotron and Parakeet remain available in **Session settings**, and their containers continue to run.
 
 Finish active sessions. Repeat your startup command to apply the settings.
 For this example:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.qwen.yml up -d --no-build --pull never
+docker compose -f docker-compose.yml -f docker-compose.whisper.yml up -d
 ```
 
 Include any other overlays from your existing file list.
@@ -106,10 +119,10 @@ An **overlay** is an extra Compose file that adds or changes services.
 Run commands from the repository root. Put `docker-compose.yml` first.
 Use the same file list for `up`, `ps`, `logs`, `stop`, and `down`.
 
-For example, this file list starts the base stack with Qwen realtime:
+For example, this file list starts the base stack with the Whisper models:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.qwen.yml up -d
+docker compose -f docker-compose.yml -f docker-compose.whisper.yml up -d
 ```
 
 You can append `-f docker-compose.observability.yml` before `up` to add monitoring.
@@ -123,10 +136,10 @@ Finish active sessions before you change the running models.
 To turn a model off for one session, clear its selection in **Session settings**.
 To release its memory, stop its container as well.
 
-For example, stop both WhisperX workers when you only need realtime text:
+For example, stop both Parakeet workers when you only need realtime text:
 
 ```bash
-docker compose -f docker-compose.yml stop whisperx_refinement whisperx_finalizer
+docker compose -f docker-compose.yml stop parakeet-refinement parakeet-finalizer
 ```
 
 Disable **Refined** and **Final** before the next session.
@@ -158,21 +171,46 @@ For example, add these settings to your last local overlay to offer all families
 services:
   samuraibff:
     environment:
-      SAMURAIBFF_GRPC_REALTIME_TRACKS: faster-whisper=rtservice:50052,qwen=qwen-rtservice:50052,nemotron=nemotron-rtservice:50052
-      SAMURAIBFF_REFINEMENT_TRACKS: whisperx,parakeet,qwen
-      SAMURAIBFF_FINAL_TRACKS: whisperx,parakeet,qwen
-      SAMURAIBFF_TRACK_LABELS: '{"refined":{"whisperx":"WhisperX","parakeet":"Parakeet TDT v3","qwen":"Qwen3-ASR"},"final":{"whisperx":"WhisperX","parakeet":"Parakeet TDT v3","qwen":"Qwen3-ASR"}}'
+      SAMURAIBFF_GRPC_REALTIME_TRACKS: nemotron=nemotron-rtservice:50052,faster-whisper=rtservice:50052,qwen=qwen-rtservice:50052
+      SAMURAIBFF_REFINEMENT_TRACKS: parakeet,whisperx,qwen
+      SAMURAIBFF_FINAL_TRACKS: parakeet,whisperx,qwen
+      SAMURAIBFF_TRACK_LABELS: '{"refined":{"parakeet":"Parakeet TDT v3","whisperx":"WhisperX","qwen":"Qwen3-ASR"},"final":{"parakeet":"Parakeet TDT v3","whisperx":"WhisperX","qwen":"Qwen3-ASR"}}'
 ```
 
-Include all four model overlays before this local file.
-Build their images before startup. Register only tracks whose services you run.
-With blank default settings, WhisperX stays selected because it is first in each worker track list.
+Include the Whisper overlay and both Qwen overlays before this local file.
+Build the Qwen worker images before startup. Register only tracks whose services you run.
+With blank default settings, Parakeet stays selected because it is first in each worker track list.
 Do not combine this example with settings that set those services to zero replicas.
 
 Check the configuration without printing token values:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.qwen.yml -f docker-compose.nemotron.yml -f docker-compose.parakeet.yml -f docker-compose.qwen-workers.yml -f docker-compose.local-asr.yml config --quiet
+docker compose -f docker-compose.yml -f docker-compose.whisper.yml -f docker-compose.qwen.yml -f docker-compose.qwen-workers.yml -f docker-compose.local-asr.yml config --quiet
 ```
 
 Start fewer model processes if your machine cannot hold them all in memory.
+
+## Upgrade from the Whisper default
+
+Earlier versions of this repository started Whisper by default, and
+`docker-compose.nemotron.yml` and `docker-compose.parakeet.yml` added the other models.
+Those files are now `docker-compose.nemotron-smoke.yml` and `docker-compose.parakeet-smoke.yml`.
+They hold only test services, because the models start with the base file.
+Nemotron also starts one replica instead of two.
+
+Finish active sessions. Choose one of these before your next `up -d`:
+
+- To keep Whisper, add `-f docker-compose.whisper.yml` after `docker-compose.yml` in every command.
+  Its services, track IDs, and model cache volume stay the same.
+- To stop Whisper, stop its containers with the Whisper file list first:
+
+  ```bash
+  docker compose -f docker-compose.yml -f docker-compose.whisper.yml stop rtservice whisperx_refinement whisperx_finalizer
+  ```
+
+  Then start the base stack. Saved Whisper transcripts stay available.
+
+Remove `docker-compose.nemotron.yml` and `docker-compose.parakeet.yml` from your file list.
+Also remove local settings that only repeat their old track lists.
+The Nemotron and Parakeet model caches use the same volumes as before.
+Clear any default track setting that names a model you no longer run.

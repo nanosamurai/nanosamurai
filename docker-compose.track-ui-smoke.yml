@@ -1,4 +1,5 @@
 # Local browser tests with synthetic transcript workers.
+# Apply after docker-compose.yml and docker-compose.whisper.yml.
 services:
   samuraibff:
     image: samuraibff:lean-tracks

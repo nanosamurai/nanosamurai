@@ -4,3 +4,19 @@ Copyright 2026 nanosamurai contributors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
+
+The default Docker Compose stack runs Xamurai images that download these
+unmodified model artifacts on first start. This repository does not include them.
+
+NVIDIA Nemotron 3.5 ASR Streaming 0.6B (Q8 GGUF)
+https://huggingface.co/nvidia/nemotron-3.5-asr-streaming-0.6b
+Provided by NVIDIA under the OpenMDW-1.1 license.
+
+NVIDIA Parakeet TDT 0.6B v3 (Q8 GGUF)
+https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3
+NVIDIA Streaming Sortformer 4-speaker v2 (Q8 GGUF)
+https://huggingface.co/nvidia/diar_streaming_sortformer_4spk-v2
+Provided by NVIDIA under Creative Commons Attribution 4.0 International.
+https://creativecommons.org/licenses/by/4.0/
+
+See the Xamurai NOTICE for the other model and runtime artifacts in those images.

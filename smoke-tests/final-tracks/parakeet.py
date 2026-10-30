@@ -13,9 +13,9 @@ def main():
     s.wait_for(lambda: {p.topic for p in s.CONSUMER.assignment()} == set(s.TOPICS),
                "Kafka observation ready", 30)
     s.wait_for(lambda: s.http("/health")[0] == 200, "BFF ready", 60)
-    with wave.open("/probe/test_cs.wav", "rb") as wav:
+    with wave.open("/probe/test_en.wav", "rb") as wav:
         assert (wav.getframerate(), wav.getnchannels(), wav.getsampwidth()) == (16000, 1, 2)
-        speech = wav.readframes(30 * 16000)
+        speech = wav.readframes(20 * 16000)
 
     session = s.new_session()
     try:

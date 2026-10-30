@@ -169,20 +169,19 @@ You can choose different models for each stage or use several models together.
 Each model returns a separate result from the same audio.
 This lets you compare live, refined, and final transcripts for your language and task.
 
-The default stack uses Faster-Whisper for live text and WhisperX for refined
-and final transcripts. You can add Qwen, Nemotron, or Parakeet when you need them.
-
-An optional [shared WhisperX track](docs/models/whisper.md#shared-whisperx-track)
-can reduce GPU memory use by running refinement and finalization together.
+The default stack uses NVIDIA Nemotron for live text and NVIDIA Parakeet for
+refined and final transcripts. They are fast and accurate in English and need no
+Hugging Face token. Add Whisper or Qwen with an overlay when you need more
+languages, enrolled speaker names, or a comparison on the same audio.
 
 ### Model pipelines in the supplied stack
 
 | Model family | Available output | Setup guide |
 | --- | --- | --- |
-| Whisper | Realtime, refined, and final; on by default | [Whisper](docs/models/whisper.md) |
-| Qwen | Realtime, refined, and final | [Qwen](docs/models/qwen.md) |
-| Nemotron | Realtime | [Nemotron](docs/models/nemotron.md) |
-| Parakeet | Refined and final | [Parakeet](docs/models/parakeet.md) |
+| Nemotron | Realtime; on by default | [Nemotron](docs/models/nemotron.md) |
+| Parakeet | Refined and final; on by default | [Parakeet](docs/models/parakeet.md) |
+| Whisper | Realtime, refined, and final; `docker-compose.whisper.yml` | [Whisper](docs/models/whisper.md) |
+| Qwen | Realtime, refined, and final; `docker-compose.qwen.yml`, `docker-compose.qwen-workers.yml` | [Qwen](docs/models/qwen.md) |
 
 The [model guide](docs/models/README.md) explains how to add, select, or stop each model.
 All model families have published container images. Each guide describes its setup.
@@ -201,7 +200,6 @@ Prerequisites:
 - Docker Compose v2
 - free disk space for the selected images and speech models
 - an NVIDIA container runtime and suitable GPU
-- a least-privilege `HF_TOKEN` for required gated models
 
 Create the local environment file:
 
@@ -215,7 +213,7 @@ Windows PowerShell:
 Copy-Item .env.example .env
 ```
 
-Set `HF_TOKEN` in `.env`, then start the complete evaluator stack:
+Start the complete evaluator stack:
 
 ```bash
 docker compose pull
@@ -229,7 +227,8 @@ asynchronously.
 
 Model downloads and cold initialization can take several minutes. The speech
 services request `gpus: all`; the default stack requires an NVIDIA GPU available
-to Docker.
+to Docker. The Whisper and Qwen overlays also need a least-privilege `HF_TOKEN`
+in `.env` for the gated pyannote models.
 
 See
 [Getting started](docs/getting-started.md) for success checks,

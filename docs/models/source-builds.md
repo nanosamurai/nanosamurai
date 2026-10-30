@@ -1,25 +1,29 @@
 # Prepare source-built models
 
-This guide builds the service images locally.
-The Nemotron, Parakeet, and Qwen worker guides use this path with their current Compose defaults.
-Published images are also available for these services.
+This guide builds the service images locally, for development or to test unreleased code.
+The Qwen worker guide uses this path with its current Compose defaults.
+Published images are available for every service.
 
-The optional worker overlays need newer API, UI, recorder, and persistence code
-than the pinned base images contain. Upgrade the related services together.
+Keep the API, UI, recorder, and persistence images compatible with the model images.
+Upgrade the related services together.
 The Compose image pins do not change when source code merges.
 
 ## Published images and Compose defaults
 
 All model families have published images in [GHCR](https://github.com/orgs/nanosamurai/packages?repo_name=xamurai).
-The base stack and Qwen realtime overlay select published image tags by default.
-The other model overlays include build settings and default to `:local` images.
-They also accept these image overrides in `.env`:
+The base stack, the Whisper overlay, and the Qwen realtime overlay select published image tags by default.
+The Qwen worker overlay includes build settings and defaults to `:local` images.
+Every model service accepts an image override in `.env`:
 
-| Compose overlay | Image setting | Package under `ghcr.io/nanosamurai/` |
+| Compose file | Image setting | Package under `ghcr.io/nanosamurai/` |
 | --- | --- | --- |
-| [`docker-compose.nemotron.yml`](../../docker-compose.nemotron.yml) | `NEMOTRON_RTSERVICE_IMAGE` | `xamurai-nemotron-rtservice` |
-| [`docker-compose.parakeet.yml`](../../docker-compose.parakeet.yml) | `PARAKEET_FINALIZER_IMAGE` | `xamurai-parakeet-finalizer` |
-| Same Parakeet overlay | `PARAKEET_REFINEMENT_IMAGE` | `xamurai-parakeet-refinement` |
+| [`docker-compose.yml`](../../docker-compose.yml) | `NEMOTRON_RTSERVICE_IMAGE` | `xamurai-nemotron-rtservice` |
+| Same base file | `PARAKEET_REFINEMENT_IMAGE` | `xamurai-parakeet-refinement` |
+| Same base file | `PARAKEET_FINALIZER_IMAGE` | `xamurai-parakeet-finalizer` |
+| [`docker-compose.whisper.yml`](../../docker-compose.whisper.yml) | `RTSERVICE_IMAGE` | `xamurai-rtservice` |
+| Same Whisper overlay | `WHISPERX_WORKER_IMAGE` | `xamurai-whisperx-worker` |
+| Same Whisper overlay | `FINALIZER_WORKER_IMAGE` | `xamurai-finalizer-worker` |
+| [`docker-compose.qwen.yml`](../../docker-compose.qwen.yml) | `QWEN_RTSERVICE_IMAGE` | `xamurai-qwen-rtservice` |
 | [`docker-compose.qwen-workers.yml`](../../docker-compose.qwen-workers.yml) | `QWEN_FINALIZER_IMAGE` | `xamurai-qwen-finalizer` |
 | Same Qwen worker overlay | `QWEN_REFINEMENT_IMAGE` | `xamurai-qwen-refinement` |
 
@@ -54,24 +58,26 @@ From the `nanosamurai` directory:
 docker build -t samuraibff:local ../samuraibff
 docker build -t samuraipersistor:local ../samuraipersistor
 cd ../xamurai
-docker buildx bake --load rtservice whisperx-worker recorder-worker finalizer-worker
+docker buildx bake --load recorder-worker nemotron-rtservice parakeet-finalizer parakeet-refinement
 cd ../nanosamurai
 ```
 
+For the Whisper overlay, also bake `rtservice whisperx-worker finalizer-worker`.
 Bake uses the `local` tag by default. If you set `TAG`, use that tag below.
 Set these image overrides in the ignored `.env`:
 
 ```dotenv
 SAMURAIBFF_IMAGE=samuraibff:local
 SAMURAIPERSISTOR_IMAGE=samuraipersistor:local
-RTSERVICE_IMAGE=xamurai-rtservice:local
-WHISPERX_WORKER_IMAGE=xamurai-whisperx-worker:local
 RECORDER_WORKER_IMAGE=xamurai-recorder-worker:local
-FINALIZER_WORKER_IMAGE=xamurai-finalizer-worker:local
+NEMOTRON_RTSERVICE_IMAGE=xamurai-nemotron-rtservice:local
+PARAKEET_REFINEMENT_IMAGE=xamurai-parakeet-refinement:local
+PARAKEET_FINALIZER_IMAGE=xamurai-parakeet-finalizer:local
 COMPOSE_BIND_IP=127.0.0.1
 ```
 
-Keep `HF_TOKEN` in `.env`. Do not pass it as a build argument.
+For Whisper, add `RTSERVICE_IMAGE`, `WHISPERX_WORKER_IMAGE`, and `FINALIZER_WORKER_IMAGE` with the same pattern.
+If you use Whisper or Qwen, keep `HF_TOKEN` in `.env`. Do not pass it as a build argument.
 If a local overlay sets `image` directly, update that setting too.
 It takes precedence over the base file's image variable.
 
@@ -94,7 +100,7 @@ Stop any optional model workers too.
 Then run the normal migration service with that same file list:
 
 ```bash
-docker compose -f docker-compose.yml stop samuraibff samuraipersistor rtservice whisperx_refinement recorder_worker whisperx_finalizer
+docker compose -f docker-compose.yml stop samuraibff samuraipersistor nemotron-rtservice parakeet-refinement recorder_worker parakeet-finalizer
 docker compose -f docker-compose.yml run --rm db_migrate
 ```
 
@@ -110,7 +116,7 @@ Do not run old and new workers against the same topics.
 
 ## Add your model
 
-Continue with [Nemotron](nemotron.md), [Parakeet](parakeet.md), or [Qwen workers](qwen.md#add-refined-and-final-transcription).
+Continue with [Whisper](whisper.md) or [Qwen workers](qwen.md#add-refined-and-final-transcription).
 Build the optional images, then use that guide's full-stack startup command.
 Use `up -d --no-build --pull never` after local builds to keep the selected local images.
 Check `ps --all` and the model logs before you send audio.

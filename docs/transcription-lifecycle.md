@@ -35,8 +35,8 @@ authoritative tuning reference is Xamurai's
 SamuraiBFF also publishes the session audio to Kafka topic `audio.raw`. Selected
 WhisperX, Parakeet, or Qwen workers use the shared refinement runtime to buffer
 configurable windows and publish track-labelled `RefinedEvent` messages on
-`transcripts.refined`. Optional overlays enable Parakeet and Qwen; WhisperX
-is the base default. See [Default tracks](models/README.md#set-default-tracks) for omitted selections.
+`transcripts.refined`. Parakeet is the base default; optional overlays enable
+WhisperX and Qwen. See [Default tracks](models/README.md#set-default-tracks) for omitted selections.
 
 A refined event may contain several speaker turns. SamuraiBFF fans those turns
 out to browser events, and SamuraiPersistor stores the underlying transcript

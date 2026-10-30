@@ -8,7 +8,7 @@ Use [Choose models](models/README.md) to add, replace, or stop model services.
 - [Docker Compose quickstart](../README.md#quickstart)
 - [Getting started](getting-started.md)
 - [Choose models](models/README.md)
-- [Whisper](models/whisper.md), [Qwen](models/qwen.md), [Nemotron](models/nemotron.md), and [Parakeet](models/parakeet.md)
+- [Nemotron](models/nemotron.md) and [Parakeet](models/parakeet.md) (default), [Whisper](models/whisper.md), and [Qwen](models/qwen.md)
 - [Architecture and Community Edition boundary](architecture.md)
 - [Transcription lifecycle](transcription-lifecycle.md)
 - [APIs and extension points](apis-and-extension-points.md)

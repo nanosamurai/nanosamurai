@@ -18,7 +18,7 @@ sessions = []
 with sync_playwright() as playwright:
     browser = playwright.chromium.launch(headless=True, args=[
         '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream',
-        f'--use-file-for-fake-audio-capture={Path("tests/data/test_cs.wav").resolve()}',
+        f'--use-file-for-fake-audio-capture={Path("tests/data/test_en.wav").resolve()}',
     ])
     try:
         context = browser.new_context(permissions=['microphone'], viewport={'width': 1440, 'height': 1000})

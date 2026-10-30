@@ -30,8 +30,8 @@ docker compose -f docker-compose.yml -f docker-compose.qwen.yml up -d
 docker compose -f docker-compose.yml -f docker-compose.qwen.yml logs --tail=100 qwen-rtservice
 ```
 
-The overlay adds `qwen-rtservice` and keeps the default Whisper services running.
-With no realtime default set, Faster-Whisper and Qwen are both selected.
+The overlay adds `qwen-rtservice` and keeps the default Nemotron service running.
+With no realtime default set, Nemotron and Qwen are both selected.
 In **Session settings**, select either model or both before you start audio.
 To make Qwen the initial choice, [set the realtime default](README.md#set-default-tracks) to `qwen`.
 
@@ -48,13 +48,13 @@ For languages supported by its forced aligner, Qwen adds segment timing and spea
 Other languages, including Czech, get text without speaker labels.
 Realtime output does not provide word timing.
 
-### Use Qwen instead of Faster-Whisper
+### Use Qwen instead of Nemotron
 
 Add this to your ignored `docker-compose.local-asr.yml`:
 
 ```yaml
 services:
-  rtservice:
+  nemotron-rtservice:
     deploy:
       replicas: 0
   samuraibff:
@@ -68,8 +68,8 @@ Apply it with the Qwen overlay:
 docker compose -f docker-compose.yml -f docker-compose.qwen.yml -f docker-compose.local-asr.yml up -d
 ```
 
-This stops Faster-Whisper and offers only Qwen for realtime output.
-WhisperX still provides refined and final output.
+This stops Nemotron and offers only Qwen for realtime output.
+Parakeet still provides refined and final output.
 Keep this file list for later commands.
 
 ## Add refined and final transcription
@@ -85,7 +85,7 @@ docker compose -f docker-compose.yml -f docker-compose.qwen-workers.yml logs --t
 ```
 
 The overlay adds Qwen to the **Refined** and **Final** model lists.
-With no defaults set, WhisperX remains selected. Select Qwen in each stage that you need.
+With no defaults set, Parakeet remains selected. Select Qwen in each stage that you need.
 To make Qwen the initial choice, set the [refined and final defaults](README.md#set-default-tracks) to `qwen`.
 Qwen realtime is independent; add its overlay if you also want that stage.
 
@@ -93,16 +93,16 @@ Qwen workers add speaker labels and word timing where alignment succeeds.
 They do not match enrolled speaker names. Labels restart for each refinement window or final recording.
 Final playback highlights words that have timing data.
 
-### Use Qwen instead of WhisperX
+### Use Qwen instead of Parakeet
 
 Add these settings to your local overlay:
 
 ```yaml
 services:
-  whisperx_refinement:
+  parakeet-refinement:
     deploy:
       replicas: 0
-  whisperx_finalizer:
+  parakeet-finalizer:
     deploy:
       replicas: 0
   samuraibff:
@@ -118,8 +118,8 @@ Apply it after the worker overlay:
 docker compose -f docker-compose.yml -f docker-compose.qwen-workers.yml -f docker-compose.local-asr.yml up -d --no-build --pull never
 ```
 
-This stops the WhisperX workers. Qwen becomes the only refined and final choice.
-Faster-Whisper still runs unless you also apply the realtime replacement above.
+This stops the Parakeet workers. Qwen becomes the only refined and final choice.
+Nemotron still runs unless you also apply the realtime replacement above.
 For all-Qwen processing, combine both YAML examples under one `services` map
 and include both Qwen overlays before the local file.
 
@@ -133,7 +133,7 @@ With the file list that started Qwen, stop `qwen-rtservice`, `qwen-refinement`,
 and `qwen-finalizer` as applicable. Remove their overlays from your file list.
 Clear any default track settings that name `qwen`.
 Remove any Qwen replacement settings from your local file, then start the base stack.
-This restores the Whisper defaults and retains model caches and saved data.
+This restores the Nemotron and Parakeet defaults and retains model caches and saved data.
 
 ## Checks and settings
 

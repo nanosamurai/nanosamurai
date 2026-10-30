@@ -1,0 +1,14 @@
+# Nemotron replica and audio probe. Apply after docker-compose.yml.
+services:
+  nemotron-probe:
+    image: ${NEMOTRON_RTSERVICE_IMAGE:-ghcr.io/nanosamurai/xamurai-nemotron-rtservice:sha-c3b6ee476908f7b0b13ba88a295b3b260e404863}
+    profiles: ["nemotron-validation"]
+    restart: "no"
+    entrypoint: ["python", "-m", "nemotron_rtservice.probe"]
+    command:
+      - --replicas
+      - "${NEMOTRON_RTSERVICE_REPLICAS:-1}"
+      - --wav
+      - /fixtures/test_en.wav
+    volumes:
+      - ./tests/data/test_en.wav:/fixtures/test_en.wav:ro
