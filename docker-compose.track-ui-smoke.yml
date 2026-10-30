@@ -27,7 +27,7 @@ services:
       FINALIZER_TRACK_ID: ui-shadow
       KAFKA_GROUP_ID_FINALIZER: finalizer.ui-ui-shadow
       WHISPERX_MODEL: synthetic-test-only
-      S3_ENDPOINT: http://localstack:4566
+      S3_ENDPOINT: http://s3:7070
       S3_REGION: us-east-1
       S3_ACCESS_KEY: test
       S3_SECRET_KEY: test

@@ -12,7 +12,7 @@ services:
       PGDATABASE: nanosamurai
       PGUSER: nanosamurai
       PGPASSWORD: nanosamurai
-      S3_ENDPOINT: http://localstack:4566
+      S3_ENDPOINT: http://s3:7070
       WHISPERX_FINALIZER_GROUP: ${WHISPERX_FINALIZER_GROUP:-finalizer-worker}
     volumes:
       - ./smoke-tests/final-tracks/parakeet.py:/probe/parakeet.py:ro

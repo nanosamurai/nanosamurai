@@ -30,7 +30,7 @@ services:
       XDG_CACHE_HOME: /data/huggingface/runtime-cache
       QWEN_BATCH_SIZE: ${QWEN_BATCH_SIZE:-4}
       QWEN_KV_CACHE_MIB: ${QWEN_KV_CACHE_MIB:-1024}
-      S3_ENDPOINT: http://localstack:4566
+      S3_ENDPOINT: http://s3:7070
       S3_REGION: us-east-1
       S3_ACCESS_KEY: test
       S3_SECRET_KEY: test
@@ -42,8 +42,8 @@ services:
     depends_on:
       kafka_init:
         condition: service_completed_successfully
-      localstack:
-        condition: service_started
+      s3_init:
+        condition: service_completed_successfully
 
   qwen-refinement:
     image: ${QWEN_REFINEMENT_IMAGE:-xamurai-qwen-refinement:local}
@@ -80,7 +80,7 @@ services:
       PGDATABASE: nanosamurai
       PGUSER: nanosamurai
       PGPASSWORD: nanosamurai
-      S3_ENDPOINT: http://localstack:4566
+      S3_ENDPOINT: http://s3:7070
     volumes:
       - ./smoke-tests/final-tracks/qwen.py:/probe/qwen.py:ro
       - ${XAMURAI_SOURCE:-../xamurai}/proto_gen:/probe/proto_gen:ro
