@@ -22,17 +22,20 @@ Its license is OpenMDW-1.1; see the model card.
 
 Nemotron transcribes the stream in chunks. A larger chunk gives the model more
 context: text appears in larger steps, but it is more accurate.
-`NEMOTRON_RNNT_RIGHT_CONTEXT` sets the chunk in 80 ms encoder frames:
+`NEMOTRON_RNNT_RIGHT_CONTEXT` sets the right context in 80 ms encoder frames.
+The chunk is one frame longer:
 
 | Value | Chunk | Result |
 | --- | --- | --- |
-| `-1` (default) | 1.12 s, the largest the model supports | Most accurate |
-| `6` | 560 ms | Faster text, slightly less accurate |
-| `1` | 160 ms | Fastest text, least accurate |
+| `6` (default) | 560 ms | Most accurate setting that the current image accepts |
+| `3` | 320 ms | Faster text, less accurate; the model file's own default (`-1`) |
+| `1` | 160 ms | Faster text, less accurate |
+| `0` | 80 ms | Fastest text, least accurate |
 
-The [model card](https://huggingface.co/nvidia/nemotron-3.5-asr-streaming-0.6b)
-lists the error rates for each chunk size. The service log shows the chunk size
-at startup, for example `step=1120ms`.
+The model was trained with these values. The [model card](https://huggingface.co/nvidia/nemotron-3.5-asr-streaming-0.6b)
+lists the error rates for each chunk size. It also lists a 1.12 s chunk (value `13`),
+but the current image accepts values only up to `8`.
+The service log shows the chunk size for the first stream, for example `step=560ms`.
 Set the value in `.env` and repeat your `up -d` command.
 
 ## Streams and replicas
