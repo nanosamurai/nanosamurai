@@ -17,17 +17,16 @@ jobs:
       - name: Validate Compose configurations
         run: |
           docker compose config --quiet
-          docker compose -f docker-compose.yml -f docker-compose.parakeet.yml config --quiet
-          HF_TOKEN=validation-placeholder docker compose -f docker-compose.yml -f docker-compose.qwen-workers.yml config --quiet
-          HF_TOKEN=validation-placeholder docker compose -f docker-compose.yml -f docker-compose.nemotron.yml -f docker-compose.qwen-workers.yml -f docker-compose.default-tracks-smoke.yml config --quiet
-          docker compose \
-            -f docker-compose.yml \
-            -f docker-compose.observability.yml \
-            config --quiet
+          docker compose -f docker-compose.yml -f docker-compose.nemotron-smoke.yml config --quiet
+          docker compose -f docker-compose.yml -f docker-compose.whisper.yml config --quiet
+          docker compose -f docker-compose.yml -f docker-compose.whisper.yml -f docker-compose.parakeet-smoke.yml config --quiet
+          HF_TOKEN=validation-placeholder docker compose -f docker-compose.yml -f docker-compose.qwen.yml -f docker-compose.qwen-workers.yml -f docker-compose.default-tracks-smoke.yml config --quiet
+          docker compose -f docker-compose.yml -f docker-compose.observability.yml config --quiet
+          docker compose -f docker-compose.yml -f docker-compose.whisper.yml -f docker-compose.observability.yml -f docker-compose.whisper-observability.yml config --quiet
 
       - name: Reject mutable latest tags
         run: |
-          images="$({ docker compose config --images; docker compose -f docker-compose.yml -f docker-compose.observability.yml config --images; } | sort -u)"
+          images="$({ docker compose config --images; docker compose -f docker-compose.yml -f docker-compose.whisper.yml config --images; docker compose -f docker-compose.yml -f docker-compose.observability.yml config --images; } | sort -u)"
           printf '%s\n' "$images"
           if printf '%s\n' "$images" | grep -E ':latest$'; then
             echo "Compose and workflow images must use explicit versions."
