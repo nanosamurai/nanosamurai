@@ -166,8 +166,6 @@ services:
         condition: service_started
       db_seed:
         condition: service_completed_successfully
-      nemotron-rtservice:
-        condition: service_healthy
 
   samuraipersistor:
     image: ${SAMURAIPERSISTOR_IMAGE:-ghcr.io/nanosamurai/samuraipersistor:sha-d492b0480bb54b595c1db8d250ef6fe2955bb58e}
