@@ -132,7 +132,10 @@ services:
       SAMURAIBFF_DB_USERNAME: nanosamurai
       SAMURAIBFF_DB_PASSWORD: nanosamurai
       SAMURAIBFF_KAFKA_BOOTSTRAP_SERVERS: broker:29092
-      SAMURAIBFF_GRPC_REALTIME_TRACKS: faster-whisper=rtservice:50052
+      SAMURAIBFF_GRPC_REALTIME_TRACKS: nemotron=nemotron-rtservice:50052
+      SAMURAIBFF_REFINEMENT_TRACKS: parakeet
+      SAMURAIBFF_FINAL_TRACKS: parakeet
+      SAMURAIBFF_TRACK_LABELS: '{"refined":{"parakeet":"Parakeet TDT v3"},"final":{"parakeet":"Parakeet TDT v3"}}'
       SAMURAIBFF_DEFAULT_REALTIME_TRACK: ${SAMURAIBFF_DEFAULT_REALTIME_TRACK:-}
       SAMURAIBFF_DEFAULT_REFINEMENT_TRACK: ${SAMURAIBFF_DEFAULT_REFINEMENT_TRACK:-}
       SAMURAIBFF_DEFAULT_FINAL_TRACK: ${SAMURAIBFF_DEFAULT_FINAL_TRACK:-}
@@ -163,9 +166,11 @@ services:
         condition: service_started
       db_seed:
         condition: service_completed_successfully
+      nemotron-rtservice:
+        condition: service_healthy
 
   samuraipersistor:
-    image: ${SAMURAIPERSISTOR_IMAGE:-ghcr.io/nanosamurai/samuraipersistor:sha-a81062859525200300c9f47c7e6e7ac082acede3}
+    image: ${SAMURAIPERSISTOR_IMAGE:-ghcr.io/nanosamurai/samuraipersistor:sha-d492b0480bb54b595c1db8d250ef6fe2955bb58e}
     restart: unless-stopped
     ports:
       - "${COMPOSE_BIND_IP:-127.0.0.1}:8010:8010"
@@ -185,68 +190,6 @@ services:
       kafka_init:
         condition: service_completed_successfully
       db_migrate:
-        condition: service_completed_successfully
-
-  rtservice:
-    image: ${RTSERVICE_IMAGE:-ghcr.io/nanosamurai/xamurai-rtservice:sha-c3b6ee476908f7b0b13ba88a295b3b260e404863}
-    restart: unless-stopped
-    ports:
-      - "${COMPOSE_BIND_IP:-127.0.0.1}:50052:50052"
-    environment:
-      KAFKA_BOOTSTRAP: broker:29092
-      KAFKA_TOPIC_AUDIO: audio.raw
-      RT_GRPC_PORT: 50052
-      HF_TOKEN: ${HF_TOKEN:-}
-      HF_HOME: /data/hf_cache
-      ENROLL_BACKEND: s3_manifest
-      ENROLL_S3_ENDPOINT: http://localstack:4566
-      ENROLL_S3_BUCKET: ${NANOSAMURAI_ENROLLMENT_BUCKET:-nanosamurai-enrollment}
-      ENROLL_S3_PREFIX: enrollment
-      ENROLL_S3_REGION: us-east-1
-      ENROLL_S3_ACCESS_KEY: test
-      ENROLL_S3_SECRET_KEY: test
-      ENROLL_S3_FORCE_PATH_STYLE: "true"
-      RT_METRICS_ENABLE: "true"
-      RT_METRICS_PORT: 8008
-      RT_METRICS_ADDR: 0.0.0.0
-      RT_EMIT_EVERY_SEC: "${RT_EMIT_EVERY_SEC:-1.5}"
-    volumes:
-      - nanosamurai_hf_cache:/data/hf_cache
-    gpus: all
-    depends_on:
-      kafka_init:
-        condition: service_completed_successfully
-      localstack:
-        condition: service_started
-
-  whisperx_refinement:
-    image: ${WHISPERX_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-whisperx-worker:sha-c3b6ee476908f7b0b13ba88a295b3b260e404863}
-    build:
-      context: ${XAMURAI_SOURCE:-../xamurai}
-      dockerfile: whisperx_worker/Dockerfile.refinement
-    restart: unless-stopped
-    environment:
-      KAFKA_BOOTSTRAP: broker:29092
-      KAFKA_TOPIC_AUDIO: audio.raw
-      KAFKA_TOPIC_REFINED: transcripts.refined
-      KAFKA_GROUP_ID: whisperx-async
-      HF_TOKEN: ${HF_TOKEN:-}
-      HF_HOME: /data/hf_cache
-      WHISPERX_SLICE_SECONDS: "60.0"
-      WHISPERX_IDLE_SECONDS: "30.0"
-      ENROLL_BACKEND: s3_manifest
-      ENROLL_S3_ENDPOINT: http://localstack:4566
-      ENROLL_S3_BUCKET: ${NANOSAMURAI_ENROLLMENT_BUCKET:-nanosamurai-enrollment}
-      ENROLL_S3_PREFIX: enrollment
-      ENROLL_S3_REGION: us-east-1
-      ENROLL_S3_ACCESS_KEY: test
-      ENROLL_S3_SECRET_KEY: test
-      ENROLL_S3_FORCE_PATH_STYLE: "true"
-    volumes:
-      - nanosamurai_hf_cache:/data/hf_cache
-    gpus: all
-    depends_on:
-      kafka_init:
         condition: service_completed_successfully
 
   recorder_worker:
@@ -272,36 +215,64 @@ services:
       localstack:
         condition: service_started
 
-  whisperx_finalizer:
-    image: ${FINALIZER_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-finalizer-worker:sha-c3b6ee476908f7b0b13ba88a295b3b260e404863}
-    build:
-      context: ${XAMURAI_SOURCE:-../xamurai}
-      dockerfile: whisperx_worker/Dockerfile.finalizer
-      additional_contexts:
-        whisperx-worker: service:whisperx_refinement
+  nemotron-rtservice:
+    image: ${NEMOTRON_RTSERVICE_IMAGE:-ghcr.io/nanosamurai/xamurai-nemotron-rtservice:sha-c3b6ee476908f7b0b13ba88a295b3b260e404863}
     restart: unless-stopped
     environment:
-      KAFKA_BOOTSTRAP: broker:29092
-      KAFKA_TOPIC_RECORDING_FINISHED: recordings.finished
-      KAFKA_TOPIC_TRANSCRIPTS_FINAL: transcripts.final
-      KAFKA_GROUP_ID_FINALIZER: finalizer-worker
-      HF_TOKEN: ${HF_TOKEN:-}
-      HF_HOME: /data/hf_cache
-      S3_ENDPOINT: http://localstack:4566
-      S3_REGION: us-east-1
-      S3_ACCESS_KEY: test
-      S3_SECRET_KEY: test
-      S3_FORCE_PATH_STYLE: "true"
-      ENROLL_BACKEND: s3_manifest
+      NEMOTRON_RTSERVICE_PORT: "50052"
+      NEMOTRON_GPU: "${NEMOTRON_GPU:-0}"
+      # -1 selects the model's largest streaming context: 1.12 s chunks,
+      # the most accurate setting. Lower values answer faster with lower accuracy.
+      NEMOTRON_RNNT_RIGHT_CONTEXT: "${NEMOTRON_RNNT_RIGHT_CONTEXT:--1}"
+      NEMOTRON_DIARIZATION: "${NEMOTRON_DIARIZATION:-false}"
+      ENROLL_BACKEND: "${NEMOTRON_ENROLL_BACKEND:-disabled}"
       ENROLL_S3_ENDPOINT: http://localstack:4566
       ENROLL_S3_BUCKET: ${NANOSAMURAI_ENROLLMENT_BUCKET:-nanosamurai-enrollment}
       ENROLL_S3_PREFIX: enrollment
       ENROLL_S3_REGION: us-east-1
       ENROLL_S3_ACCESS_KEY: test
       ENROLL_S3_SECRET_KEY: test
-      ENROLL_S3_FORCE_PATH_STYLE: "true"
+      ENROLL_SIM_THRESHOLD: "${NEMOTRON_ENROLL_SIM_THRESHOLD:-0.65}"
+      NEMOTRON_ENROLL_MATCH_MARGIN: "${NEMOTRON_ENROLL_MATCH_MARGIN:-0.1}"
+      RT_SERVING_MAX_SESSIONS: "${NEMOTRON_RT_SERVING_MAX_SESSIONS:-1}"
+      HF_HOME: /data/huggingface
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      DO_NOT_TRACK: "1"
     volumes:
-      - nanosamurai_hf_cache:/data/hf_cache
+      - nanosamurai_nemotron_hf_cache:/data/huggingface
+    gpus: all
+    deploy:
+      replicas: ${NEMOTRON_RTSERVICE_REPLICAS:-1}
+      endpoint_mode: dnsrr
+
+  parakeet-refinement:
+    image: ${PARAKEET_REFINEMENT_IMAGE:-ghcr.io/nanosamurai/xamurai-parakeet-refinement:sha-c3b6ee476908f7b0b13ba88a295b3b260e404863}
+    restart: unless-stopped
+    environment:
+      REFINEMENT_TRACK_ID: parakeet
+      KAFKA_BOOTSTRAP: broker:29092
+      KAFKA_GROUP_ID: refinement.parakeet
+    volumes:
+      - nanosamurai_parakeet_hf_cache:/data/huggingface
+    gpus: all
+    depends_on:
+      kafka_init:
+        condition: service_completed_successfully
+
+  parakeet-finalizer:
+    image: ${PARAKEET_FINALIZER_IMAGE:-ghcr.io/nanosamurai/xamurai-parakeet-finalizer:sha-c3b6ee476908f7b0b13ba88a295b3b260e404863}
+    restart: unless-stopped
+    environment:
+      FINALIZER_TRACK_ID: parakeet
+      KAFKA_BOOTSTRAP: broker:29092
+      KAFKA_GROUP_ID_FINALIZER: finalizer.parakeet
+      S3_ENDPOINT: http://localstack:4566
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: test
+      S3_SECRET_KEY: test
+      S3_FORCE_PATH_STYLE: "true"
+    volumes:
+      - nanosamurai_parakeet_hf_cache:/data/huggingface
     gpus: all
     depends_on:
       kafka_init:
@@ -312,4 +283,5 @@ services:
 volumes:
   nanosamurai_pgdata:
   nanosamurai_localstack:
-  nanosamurai_hf_cache:
+  nanosamurai_nemotron_hf_cache:
+  nanosamurai_parakeet_hf_cache:
