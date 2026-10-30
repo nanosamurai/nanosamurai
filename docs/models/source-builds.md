@@ -86,7 +86,7 @@ It takes precedence over the base file's image variable.
 For a new installation, pull the infrastructure images:
 
 ```bash
-docker compose -f docker-compose.yml pull broker kafka_init localstack postgres db_migrate db_seed
+docker compose -f docker-compose.yml pull broker kafka_init s3 s3_init localstack postgres db_migrate db_seed
 ```
 
 The normal startup command runs migrations automatically.
@@ -95,7 +95,7 @@ Back up the database and recording storage before an upgrade.
 Keep the existing project name, PostgreSQL major version, volumes, and worker consumer groups.
 
 Stop the application services with your existing Compose file list.
-Keep Postgres, Kafka, and LocalStack running.
+Keep Postgres, Kafka, `s3`, and LocalStack running.
 Stop any optional model workers too.
 Then run the normal migration service with that same file list:
 

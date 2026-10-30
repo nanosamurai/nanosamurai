@@ -158,3 +158,8 @@ Repeat your `up -d` command to restart.
 
 Do not add `-v` unless you intend to delete the stack's named volumes.
 That option deletes local transcripts, recordings, database state, and model caches.
+
+Sessions and transcripts are kept in the `nanosamurai_pgdata` volume.
+Recordings and speaker-enrollment audio are kept in the `nanosamurai_s3` volume.
+Earlier versions lost this data on restart. If you are upgrading from one, follow
+[Upgrade local storage](upgrade-local-storage.md) before you start this version.

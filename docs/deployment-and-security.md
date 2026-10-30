@@ -67,8 +67,9 @@ The evaluator configuration:
 
 - uses fixed development credentials
 - disables browser/API authentication for quick local access
-- uses LocalStack for S3-compatible object storage and exposes its Secrets
-  Manager endpoint to SamuraiBFF's normally idle webhook secret-store adapter
+- uses versitygw for S3-compatible object storage with fixed root credentials
+- exposes a LocalStack Secrets Manager endpoint to SamuraiBFF's normally idle
+  webhook secret-store adapter
 - exposes local diagnostic services
 
 Do not change the bind to `0.0.0.0` as a shortcut. Before any shared or remote
@@ -93,11 +94,10 @@ There are two distinct kinds of secrets in this architecture:
    OAuth client secrets. SamuraiBFF stores their values in its configured
    secret backend and stores only opaque references in PostgreSQL.
 
-The default Community Edition stack disables the webhook APIs, and its
-LocalStack initialization creates buckets only. A fresh evaluator therefore
-does not pre-populate or normally write any Secrets Manager entries. LocalStack
-is development infrastructure and must not be used to protect production
-secrets.
+The default Community Edition stack disables the webhook APIs and creates no
+secrets. A fresh evaluator therefore does not pre-populate or normally write any
+Secrets Manager entries. LocalStack is development infrastructure, keeps secrets
+only in memory, and must not be used to protect production secrets.
 
 For production, inject deployment secrets from an operator-managed facility,
 such as a cloud secrets manager or Kubernetes Secrets integrated with an
@@ -154,7 +154,9 @@ without supplying the external services does not create a working integration.
 - Treat Kafka headers, gRPC metadata, workflow results, and webhook inputs as
   untrusted data.
 - Keep health, readiness, metrics, Kafka, PostgreSQL, and object storage off
-  public interfaces.
+  public interfaces. The local object store publishes `127.0.0.1:7070` with the
+  fixed `test` / `test` root credentials, so any local process can read
+  recordings and enrollment audio through it.
 - Remove sensitive fields before posting logs or traces to a public issue.
 
 ## Known limitations

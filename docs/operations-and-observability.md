@@ -171,7 +171,8 @@ startup, gated models, cold starts, and migration failures.
 
 - The supplied stack runs one container per explicitly named service and is not
   a horizontal-scaling manifest.
-- LocalStack and fixed credentials are suitable only for localhost evaluation.
+- The local object store, LocalStack, and fixed credentials are suitable only
+  for localhost evaluation.
 - GPU telemetry requires the NVIDIA container runtime and grants the local
   DCGM exporter `SYS_ADMIN`; do not reuse that container definition across an
   untrusted multi-tenant Docker host.

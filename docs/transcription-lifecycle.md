@@ -53,8 +53,8 @@ public wire behavior is described by:
 
 When recording is enabled, the recorder worker consumes the same `audio.raw`
 stream and writes the completed session audio to the configured recording
-store. The evaluator stack supplies LocalStack as its S3-compatible
-implementation; LocalStack is not required by the application architecture.
+store. The evaluator stack supplies versitygw as its S3-compatible
+implementation; versitygw is not required by the application architecture.
 See [Replaceable object storage](architecture.md#replaceable-object-storage) for
 the consumers and configuration that must move together when selecting another
 provider.

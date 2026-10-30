@@ -20,6 +20,7 @@ Use [Choose models](models/README.md) to add, replace, or stop model services.
 - [Deployment and security boundaries](deployment-and-security.md)
 - [Developer smoke-test runbook](smoke-tests.md)
 - [Troubleshooting](troubleshooting.md)
+- [Upgrade local storage](upgrade-local-storage.md)
 - [Image release policy](image-release-policy.md)
 
 ## Component references
