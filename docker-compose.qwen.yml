@@ -1,7 +1,7 @@
 services:
   samuraibff:
     environment:
-      SAMURAIBFF_GRPC_REALTIME_TRACKS: faster-whisper=rtservice:50052,qwen=qwen-rtservice:50052
+      SAMURAIBFF_GRPC_REALTIME_TRACKS: nemotron=nemotron-rtservice:50052,qwen=qwen-rtservice:50052
     depends_on:
       qwen-rtservice:
         condition: service_healthy
