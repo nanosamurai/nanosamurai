@@ -159,7 +159,7 @@ stack. Defaults inside a standalone SamuraiBFF deployment can differ.
 | --- | --- | --- |
 | `SAMURAIBFF_AUTH_REQUIRED` | `false` | Enforce authentication for the API and WebSockets. Set `true` outside the localhost evaluator. |
 | `SAMURAIBFF_AUTH_GUEST_TENANT_ID` | All-zero UUID | Tenant used only while authentication is disabled. |
-| `SAMURAIBFF_AUTH_ISSUER` | `https://auth.nanosamur.ai/realms/nanosamurai` | Exact realm issuer used for discovery, signature verification, and Keycloak endpoint construction. The default is not a bundled identity service; set your own issuer when enabling auth. |
+| `SAMURAIBFF_AUTH_ISSUER` | unset | Exact realm issuer used for discovery, signature verification, and Keycloak endpoint construction. Required when `SAMURAIBFF_AUTH_REQUIRED=true`; set it to your own realm. |
 | `SAMURAIBFF_AUTH_AUDIENCE` | `bff-web` | Required `aud` value, with Keycloak `azp` accepted as a fallback. |
 | `SAMURAIBFF_AUTH_CLIENT_ID` | `bff-web` | Public client used by browser Authorization Code with PKCE. Defaults to the audience inside SamuraiBFF if omitted. |
 | `SAMURAIBFF_AUTH_COOKIE_NAME` | `access_token` | HttpOnly access-token cookie name. Not exposed by the base Compose file. |
