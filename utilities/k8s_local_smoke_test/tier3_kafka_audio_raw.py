@@ -49,7 +49,7 @@ def _make_consumer(bootstrap: str, group_id: str) -> Consumer:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--base-url", default=_lib.DEFAULT_BASE_URL)
-    ap.add_argument("--wav", default="tests/data/test_cs.wav")
+    ap.add_argument("--wav", default="tests/data/test_en.wav")
     ap.add_argument("--lang", default="en")
     ap.add_argument("--stream-seconds", type=float, default=2.0)
     ap.add_argument("--kafka-bootstrap", required=True, help="Kafka bootstrap as seen from your machine")

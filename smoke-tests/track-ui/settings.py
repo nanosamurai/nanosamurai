@@ -17,7 +17,7 @@ evidence.mkdir(parents=True, exist_ok=True)
 with sync_playwright() as playwright:
     browser = playwright.chromium.launch(headless=True, args=[
         '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream',
-        f'--use-file-for-fake-audio-capture={Path("tests/data/test_cs.wav").resolve()}',
+        f'--use-file-for-fake-audio-capture={Path("tests/data/test_en.wav").resolve()}',
     ])
     page = browser.new_page(permissions=['microphone'], viewport={'width': 1440, 'height': 1000})
     errors, events, sessions = [], [], []

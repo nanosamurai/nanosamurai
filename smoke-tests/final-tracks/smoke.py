@@ -121,7 +121,7 @@ def main():
     CONSUMER.subscribe(list(TOPICS))
     wait_for(lambda: {p.topic for p in CONSUMER.assignment()} == set(TOPICS), "Kafka observation ready", 30)
     wait_for(lambda: http("/health")[0] == 200, "BFF HTTP ready", 60)
-    with wave.open("/probe/test_cs.wav", "rb") as wav:
+    with wave.open("/probe/test_en.wav", "rb") as wav:
         assert (wav.getframerate(), wav.getnchannels(), wav.getsampwidth()) == (16000, 1, 2)
         speech = wav.readframes(12 * 16000)
 

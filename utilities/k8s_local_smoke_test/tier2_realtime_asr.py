@@ -29,7 +29,7 @@ from utilities.k8s_local_smoke_test import _lib
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--base-url", default=_lib.DEFAULT_BASE_URL)
-    ap.add_argument("--wav", default="tests/data/test_cs.wav")
+    ap.add_argument("--wav", default="tests/data/test_en.wav")
     ap.add_argument("--lang", default="en")
     # rtservice window defaults to ~10s in current deployments; stream a bit more
     # to reliably trigger at least one ASR event even when FINAL emission is window-based.

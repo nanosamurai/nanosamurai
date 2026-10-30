@@ -41,5 +41,5 @@ services:
     volumes:
       - ./smoke-tests/final-tracks:/probe/final:ro
       - ./smoke-tests/refinement-tracks:/probe/refinement:ro
-      - ./tests/data/test_cs.wav:/probe/test_cs.wav:ro
+      - ./tests/data/test_en.wav:/probe/test_en.wav:ro
       - ./docker/postgres/migrations:/migrations:ro

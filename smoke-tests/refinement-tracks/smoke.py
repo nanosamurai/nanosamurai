@@ -214,7 +214,7 @@ def main():
     f.CONSUMER.subscribe(list(f.TOPICS))
     f.wait_for(lambda: {p.topic for p in f.CONSUMER.assignment()} == set(f.TOPICS), 'Kafka observer ready', 40)
     f.wait_for(lambda: f.http('/ready')[0] == 200, 'BFF ready after rollout', 60)
-    with wave.open('/probe/test_cs.wav', 'rb') as wav:
+    with wave.open('/probe/test_en.wav', 'rb') as wav:
         assert (wav.getframerate(), wav.getnchannels(), wav.getsampwidth()) == (16000, 1, 2)
         fixture = wav.readframes(wav.getnframes())
     size = round(23.125 * 32000)

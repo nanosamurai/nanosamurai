@@ -69,7 +69,7 @@ services:
       RECORDINGS_BUCKET: ${NANOSAMURAI_RECORDINGS_BUCKET:-nanosamurai-recordings}
     volumes:
       - ${XAMURAI_SOURCE:-../xamurai}/proto_gen:/probe/proto_gen:ro
-      - ./tests/data/test_cs.wav:/probe/test_cs.wav:ro
+      - ./tests/data/test_en.wav:/probe/test_en.wav:ro
       - ./docker/postgres/migrations:/migrations:ro
       - final_track_faults:/faults
 

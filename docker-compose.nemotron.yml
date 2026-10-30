@@ -57,9 +57,9 @@ services:
       - --replicas
       - "${NEMOTRON_RTSERVICE_REPLICAS:-2}"
       - --wav
-      - /fixtures/test_cs.wav
+      - /fixtures/test_en.wav
     volumes:
-      - ./tests/data/test_cs.wav:/fixtures/test_cs.wav:ro
+      - ./tests/data/test_en.wav:/fixtures/test_en.wav:ro
 
 volumes:
   nanosamurai_nemotron_hf_cache:
