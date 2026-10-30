@@ -1,0 +1,31 @@
+# Parakeet results compared with WhisperX on the same audio.
+# Apply after docker-compose.yml and docker-compose.whisper.yml.
+services:
+  parakeet-smoke:
+    profiles: [validation]
+    build: ./smoke-tests/final-tracks
+    entrypoint: [python, -u, /probe/parakeet.py]
+    environment:
+      BFF_URL: http://samuraibff:8000
+      KAFKA_BOOTSTRAP: broker:29092
+      PGHOST: postgres
+      PGDATABASE: nanosamurai
+      PGUSER: nanosamurai
+      PGPASSWORD: nanosamurai
+      S3_ENDPOINT: http://localstack:4566
+      WHISPERX_FINALIZER_GROUP: ${WHISPERX_FINALIZER_GROUP:-finalizer-worker}
+    volumes:
+      - ./smoke-tests/final-tracks/parakeet.py:/probe/parakeet.py:ro
+      - ${XAMURAI_SOURCE:-../xamurai}/proto_gen:/probe/proto_gen:ro
+      - ./tests/data/test_en.wav:/probe/test_en.wav:ro
+
+  parakeet-refinement-smoke:
+    extends:
+      service: parakeet-smoke
+    entrypoint: [python, -u, /probe/refinement/smoke.py, --parakeet]
+    environment:
+      PYTHONPATH: /probe
+      WHISPERX_REFINEMENT_GROUP: ${WHISPERX_REFINEMENT_GROUP:-whisperx-async}
+    volumes:
+      - ./smoke-tests/refinement-tracks:/probe/refinement:ro
+      - ./smoke-tests/final-tracks:/probe/final:ro
