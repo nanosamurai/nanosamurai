@@ -12,6 +12,8 @@ You can select different tracks for each stage:
 The base `docker-compose.yml` runs NVIDIA Nemotron for realtime text and NVIDIA
 Parakeet for refined and final transcripts. They are fast and accurate in English,
 need no Hugging Face token, and use less GPU memory than the Whisper services.
+In the release rehearsal on a 24 GB laptop GPU, the three default model services
+used about 3.6 GB of GPU memory together after the smoke tests.
 The other families are optional overlays. You choose which setup runs.
 
 | Model family | Realtime | Refined | Final | Installation |

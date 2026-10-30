@@ -43,6 +43,7 @@ Their licenses are on the model cards:
 
 The default stack requires GPU access. It has no automatic CPU fallback.
 The release rehearsal used an RTX 5090 Laptop GPU with 24 GB of GPU memory.
+The default model services used about 3.6 GB of it after the smoke tests.
 This is a tested configuration, not a minimum requirement.
 More running model services need more RAM and GPU memory.
 
