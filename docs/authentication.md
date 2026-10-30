@@ -21,8 +21,12 @@ SAMURAIBFF_AUTH_GUEST_TENANT_ID=00000000-0000-0000-0000-000000000000
 ```
 
 In this evaluator mode, SamuraiBFF accepts browser and API requests without a
-token and assigns persisted sessions to the seeded development tenant. This is
-safe only with the default `127.0.0.1` host binding and development data.
+token. They run as the seeded guest principal (issuer `urn:nanosamurai:guest`),
+the Admin of the development tenant, and persisted sessions belong to it.
+Sharing, People and API Credentials are off in this mode (403): a single-user
+install has nobody to share with. If the guest row is missing, requests fail
+with 503 rather than fall back to another identity. This is safe only with the
+default `127.0.0.1` host binding and development data.
 
 When `SAMURAIBFF_AUTH_REQUIRED=true`:
 
@@ -35,6 +39,13 @@ When `SAMURAIBFF_AUTH_REQUIRED=true`:
   use an `Authorization: Bearer <access-token>` header.
 - `/api/*` requests and WebSocket sessions are scoped to the tenant UUID in the
   token. A session created by one tenant cannot be opened by another tenant.
+- Each person also needs an active principal in that tenant: an `app_users`
+  row with the token's issuer and `sub`, and a role (Member, Builder or
+  Admin). SamuraiBFF never creates one from a token; without it, `/api/me`
+  reports the access state `not_provisioned` and the API returns 403. See
+  [Provision people](#4-provision-people).
+- New sessions are private to the person who records them; they can share
+  them with colleagues or the whole tenant.
 - Machine-to-machine (M2M) clients use OAuth 2.0 `client_credentials`. They can
   be provisioned externally or, with optional Keycloak Admin API credentials,
   managed through SamuraiBFF.
@@ -43,9 +54,9 @@ The token lookup order is bearer header, then cookie. The `token` and
 `access_token` query parameters are not accepted for authentication.
 
 REST token validation allows 30 seconds of clock skew. Authenticated WebSockets
-require a future token expiry and close at expiry with code 1008. Browser and
-Electron login do not refresh tokens automatically; sign in again and start a
-new recording after expiry.
+require a future token expiry and close at expiry with code 1008. When the
+provider issues a refresh token, the browser UI renews the access token through
+`POST /auth/refresh` before it expires; otherwise sign in again after expiry.
 
 `POST /auth/logout` clears the SamuraiBFF cookie only. It does not end the
 Keycloak single-sign-on session or call an OIDC end-session endpoint.
@@ -145,10 +156,27 @@ VALUES ('11111111-1111-4111-8111-a1b2c3d4e5f6', 'Example tenant')
 ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name;
 ```
 
-An `app_users` row is optional because `sessions.user_id` is nullable. When
-present, set `app_users.external_id` to the token's `sub` and use the same
-tenant UUID. SamuraiBFF looks up that row for attribution but does not create it
-automatically.
+### 4. Provision people
+
+Authentication does not create people either. Provision the first Admin with
+the operator command in the SamuraiBFF image. It reads the database settings
+from the container environment and prints ids and roles, never emails or
+secrets. `--issuer` must equal `SAMURAIBFF_AUTH_ISSUER` exactly, and
+`--subject` is the user's `sub` in the access token:
+
+```bash
+docker compose exec samuraibff java -cp /app/samuraibff.jar clojure.main   -m samuraibff.tools.principals provision   --tenant <tenant UUID> --tenant-name "Example tenant"   --issuer <SAMURAIBFF_AUTH_ISSUER> --subject <user sub>   --role admin --name "Ada" --email ada@example.com
+```
+
+In Git Bash on Windows, set `MSYS_NO_PATHCONV=1` so the `/app/...` path is not
+rewritten. The Admin can then manage roles and suspension under **People**.
+Adding people from the UI needs optional Keycloak user-management credentials;
+otherwise create the account in Keycloak and run `provision` with its `sub`.
+The command also has `set-role`, `set-status`, `list`, `legacy-report` and
+`assign-owner`; see the SamuraiBFF security documentation.
+
+Sessions recorded before this access model have no owner. They stay visible to
+everyone in their tenant, and the tenant's Admins can assign an owner.
 
 ## SamuraiBFF authentication settings
 
@@ -297,11 +325,12 @@ client is therefore tenant-bound even though its token is obtained without a
 human user.
 
 The generated secret is returned only on creation or rotation. PostgreSQL
-stores the Keycloak client ID and audit metadata, not the secret. Currently,
-API credential management is tenant-scoped but not role-scoped: every
-authenticated user in a tenant can list, create, rotate, and revoke that
-tenant's credentials. Account for that boundary before granting users access
-to a tenant.
+stores the Keycloak client ID and audit metadata, not the secret. API
+credential management is role-scoped: Admins see and manage every credential
+of their tenant, Builders only the ones they manage, and Members none (403).
+Each credential gets its own service principal in `app_users`; tokens of a
+client without one get `403 access-not-provisioned`. Clients created outside
+SamuraiBFF are registered with the operator command's `register-key`.
 
 ### Exchange the credential for an API access token
 
@@ -442,6 +471,9 @@ host headers, TLS termination, and the exact `/auth/callback` path.
 - Confirm the access token, rather than only the ID token, contains a string
   `tenant_id` UUID.
 - Confirm the same tenant UUID exists in the `tenants` table.
+- Confirm the person has an active principal in that tenant: `/api/me` shows
+  the access state. `not_provisioned` means no `app_users` row matches the
+  token's issuer and `sub`; provision one as described above.
 - Keep the claim name `tenant_id`; custom names are not applied consistently by
   current WebSocket authentication.
 - Verify that the token is RS256-signed and its signing key appears in the
@@ -501,7 +533,8 @@ this Compose repository.
   Existing WebSockets keep their original token expiry after signing-key removal.
 - Logout clears only the local cookie.
 - Custom tenant-claim configuration is not applied consistently to WebSockets.
-- Authorization is tenant-scoped, not role- or per-user-scoped.
+- Roles and suspension live in PostgreSQL. Suspending a person in SamuraiBFF
+  does not disable the account in Keycloak.
 
 Before exposing Nanosamurai beyond localhost, also follow
 [Deployment and security boundaries](deployment-and-security.md).
