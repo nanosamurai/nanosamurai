@@ -14,7 +14,8 @@ scrape_configs:
     static_configs:
       - targets: ["samuraibff:8000"]
 
-  # rtservice can expose /metrics when RT_METRICS_* env vars are enabled.
+  # The optional Whisper rtservice exposes /metrics when RT_METRICS_* env vars
+  # are enabled. Without docker-compose.whisper.yml this target stays down.
   - job_name: rtservice
     metrics_path: /metrics
     static_configs:

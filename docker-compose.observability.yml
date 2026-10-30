@@ -39,22 +39,6 @@ services:
       otel_javaagent_init:
         condition: service_completed_successfully
 
-  rtservice:
-    environment:
-      <<: *python-otel-environment
-      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME_RTSERVICE:-rtservice}
-    depends_on:
-      otel_collector:
-        condition: service_started
-
-  whisperx_refinement:
-    environment:
-      <<: *python-otel-environment
-      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME_WHISPERX_WORKER:-whisperx-worker}
-    depends_on:
-      otel_collector:
-        condition: service_started
-
   recorder_worker:
     environment:
       <<: *python-otel-environment
@@ -63,10 +47,18 @@ services:
       otel_collector:
         condition: service_started
 
-  whisperx_finalizer:
+  parakeet-refinement:
     environment:
       <<: *python-otel-environment
-      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME_FINALIZER_WORKER:-finalizer-worker}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME_PARAKEET_REFINEMENT:-parakeet-refinement}
+    depends_on:
+      otel_collector:
+        condition: service_started
+
+  parakeet-finalizer:
+    environment:
+      <<: *python-otel-environment
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME_PARAKEET_FINALIZER:-parakeet-finalizer}
     depends_on:
       otel_collector:
         condition: service_started

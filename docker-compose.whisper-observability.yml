@@ -1,0 +1,32 @@
+# Traces for the optional Whisper services. Apply after docker-compose.whisper.yml
+# and docker-compose.observability.yml.
+x-python-otel-environment: &python-otel-environment
+  OTEL_TRACES_EXPORTER: ${OTEL_TRACES_EXPORTER:-otlp}
+  OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL:-grpc}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel_collector:4317}
+  OTEL_RESOURCE_ATTRIBUTES: ${OTEL_RESOURCE_ATTRIBUTES:-service.namespace=nanosamurai,deployment.environment=local}
+
+services:
+  rtservice:
+    environment:
+      <<: *python-otel-environment
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME_RTSERVICE:-rtservice}
+    depends_on:
+      otel_collector:
+        condition: service_started
+
+  whisperx_refinement:
+    environment:
+      <<: *python-otel-environment
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME_WHISPERX_WORKER:-whisperx-worker}
+    depends_on:
+      otel_collector:
+        condition: service_started
+
+  whisperx_finalizer:
+    environment:
+      <<: *python-otel-environment
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME_FINALIZER_WORKER:-finalizer-worker}
+    depends_on:
+      otel_collector:
+        condition: service_started
