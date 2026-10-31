@@ -176,7 +176,8 @@ flags.
 
 ## Security boundary
 
-Compose uses fixed development credentials and disables authentication by
-default for a quick localhost evaluation. All host ports use
+Compose uses fixed development credentials and starts in local mode, without
+sign-in, for a quick localhost evaluation. See
+[Sign-in and access control](authentication.md). All host ports use
 `COMPOSE_BIND_IP=127.0.0.1` by default. Do not expose this configuration to a
 LAN, public interface, or production environment.

@@ -22,6 +22,8 @@ jobs:
           docker compose -f docker-compose.yml -f docker-compose.whisper.yml -f docker-compose.parakeet-smoke.yml config --quiet
           HF_TOKEN=validation-placeholder docker compose -f docker-compose.yml -f docker-compose.qwen.yml -f docker-compose.qwen-workers.yml -f docker-compose.default-tracks-smoke.yml config --quiet
           docker compose -f docker-compose.yml -f docker-compose.observability.yml config --quiet
+          SAMURAIBFF_AUTH_ISSUER=https://id.example.com/realms/validation docker compose -f docker-compose.yml -f docker-compose.sign-in.yml config --quiet
+          if docker compose -f docker-compose.yml -f docker-compose.sign-in.yml config --quiet 2>/dev/null; then echo "sign-in override must require SAMURAIBFF_AUTH_ISSUER"; exit 1; fi
           docker compose -f docker-compose.yml -f docker-compose.whisper.yml -f docker-compose.observability.yml -f docker-compose.whisper-observability.yml config --quiet
 
       - name: Reject mutable latest tags

@@ -98,6 +98,9 @@ If a service exits or repeatedly restarts, see [Troubleshooting](troubleshooting
 ## 3. Make a transcript
 
 1. Open [the local browser UI](http://127.0.0.1:8000/live).
+   There is no sign-in. The top bar shows **Local mode**: you are the only
+   user and the Admin. To add people, roles and sharing, see
+   [Sign-in and access control](authentication.md).
 2. Select **Microphone**.
 3. Select English, or keep automatic language detection.
 4. Open **Session settings**.
