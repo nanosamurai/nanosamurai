@@ -36,7 +36,7 @@ services:
       PGDATABASE: nanosamurai
       PGUSER: nanosamurai
       PGPASSWORD: nanosamurai
-      S3_ENDPOINT: http://localstack:4566
+      S3_ENDPOINT: http://s3:7070
       RECORDINGS_BUCKET: ${NANOSAMURAI_RECORDINGS_BUCKET:-nanosamurai-recordings}
       WHISPERX_IDLE_SECONDS: "3"
     volumes:

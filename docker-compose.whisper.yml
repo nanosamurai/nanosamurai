@@ -21,7 +21,7 @@ services:
       HF_TOKEN: ${HF_TOKEN:-}
       HF_HOME: /data/hf_cache
       ENROLL_BACKEND: s3_manifest
-      ENROLL_S3_ENDPOINT: http://localstack:4566
+      ENROLL_S3_ENDPOINT: http://s3:7070
       ENROLL_S3_BUCKET: ${NANOSAMURAI_ENROLLMENT_BUCKET:-nanosamurai-enrollment}
       ENROLL_S3_PREFIX: enrollment
       ENROLL_S3_REGION: us-east-1
@@ -38,8 +38,8 @@ services:
     depends_on:
       kafka_init:
         condition: service_completed_successfully
-      localstack:
-        condition: service_started
+      s3_init:
+        condition: service_completed_successfully
 
   whisperx_refinement:
     image: ${WHISPERX_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-whisperx-worker:sha-c3b6ee476908f7b0b13ba88a295b3b260e404863}
@@ -57,7 +57,7 @@ services:
       WHISPERX_SLICE_SECONDS: "60.0"
       WHISPERX_IDLE_SECONDS: "30.0"
       ENROLL_BACKEND: s3_manifest
-      ENROLL_S3_ENDPOINT: http://localstack:4566
+      ENROLL_S3_ENDPOINT: http://s3:7070
       ENROLL_S3_BUCKET: ${NANOSAMURAI_ENROLLMENT_BUCKET:-nanosamurai-enrollment}
       ENROLL_S3_PREFIX: enrollment
       ENROLL_S3_REGION: us-east-1
@@ -86,13 +86,13 @@ services:
       KAFKA_GROUP_ID_FINALIZER: finalizer-worker
       HF_TOKEN: ${HF_TOKEN:-}
       HF_HOME: /data/hf_cache
-      S3_ENDPOINT: http://localstack:4566
+      S3_ENDPOINT: http://s3:7070
       S3_REGION: us-east-1
       S3_ACCESS_KEY: test
       S3_SECRET_KEY: test
       S3_FORCE_PATH_STYLE: "true"
       ENROLL_BACKEND: s3_manifest
-      ENROLL_S3_ENDPOINT: http://localstack:4566
+      ENROLL_S3_ENDPOINT: http://s3:7070
       ENROLL_S3_BUCKET: ${NANOSAMURAI_ENROLLMENT_BUCKET:-nanosamurai-enrollment}
       ENROLL_S3_PREFIX: enrollment
       ENROLL_S3_REGION: us-east-1
@@ -105,8 +105,8 @@ services:
     depends_on:
       kafka_init:
         condition: service_completed_successfully
-      localstack:
-        condition: service_started
+      s3_init:
+        condition: service_completed_successfully
 
 volumes:
   nanosamurai_hf_cache:

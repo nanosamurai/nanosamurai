@@ -12,7 +12,7 @@ source code remains in the related repositories.
    service using the common `RealtimeASR` API.
 3. Audio and session events are published to Kafka with W3C trace context.
 4. The recorder writes completed session audio to S3-compatible object
-   storage; the evaluator supplies LocalStack for this role.
+   storage; the evaluator supplies versitygw for this role.
 5. Selected refinement services process audio windows
    and produce separate track-labelled events on `transcripts.refined`.
 6. Selected finalizers read the completed recording and produce separate
@@ -54,7 +54,7 @@ flowchart LR
     end
 
     subgraph Storage["Storage"]
-        ObjectStore[("S3-compatible object storage<br/>(Ceph etc., LocalStack in the local setup)")]
+        ObjectStore[("S3-compatible object storage<br/>(Ceph etc., versitygw in the local setup)")]
         Postgres[(PostgreSQL)]
     end
 
@@ -118,14 +118,16 @@ reads the shared recording. Neither Parakeet worker matches enrolled speakers.
 ## Replaceable object storage
 
 Object storage is a configured service boundary, not a requirement to deploy
-LocalStack. The supplied Compose file uses LocalStack because it provides a
-small, reproducible localhost evaluator. The application services communicate
-through the S3 API and can instead target AWS S3 or an S3-compatible
-implementation such as Ceph RADOS Gateway or MinIO.
+versitygw. The supplied Compose file uses versitygw because it is a small,
+Apache-2.0 S3 gateway that keeps each object as a file in the `nanosamurai_s3`
+volume, so objects survive container restarts. An `s3_init` job creates the
+buckets. The application services communicate through the S3 API and can
+instead target AWS S3 or an S3-compatible implementation such as Ceph RADOS
+Gateway or MinIO.
 
-The base Compose file is the tested public path and hardcodes its LocalStack
-endpoint, development credentials, region, and path-style addressing in the
-service containers. Only the bucket names are parameterized there. To use an
+The base Compose file is the tested public path and hardcodes its versitygw
+endpoint (`http://s3:7070`), development credentials, region, and path-style
+addressing in the service containers. Only the bucket names are parameterized there. To use an
 external object store, supply a Compose override or equivalent deployment
 configuration and provision the buckets outside this repository. Keep these
 configuration groups consistent across every consumer:
@@ -143,10 +145,11 @@ provider's workload-identity or default credential chain where the owning
 service supports it. Recording and enrollment bucket names and prefixes must
 match between writers and readers.
 
-LocalStack also exposes a Secrets Manager endpoint, and the evaluator configures
-SamuraiBFF's webhook secret-store adapter to use it. The initialization script
-does not create any secrets, and the webhook APIs that would write them are
-disabled in default Community Edition mode. This role is therefore normally
+A separate LocalStack container exposes a Secrets Manager endpoint, and the
+evaluator configures SamuraiBFF's webhook secret-store adapter to use it.
+LocalStack Community keeps secrets only in memory, so they don't survive a
+restart. The evaluator does not create any secrets, and the webhook APIs that
+would write them are disabled in default Community Edition mode. This role is therefore normally
 idle in the supplied evaluator. Ceph RADOS Gateway, MinIO, or another
 S3-compatible store replaces only object storage; it does not provide an AWS
 Secrets Manager API. See [Production secret management](deployment-and-security.md#production-secret-management)

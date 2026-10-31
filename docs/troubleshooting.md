@@ -56,6 +56,27 @@ Inspect `docker compose logs db_migrate`. Applied versions are recorded in
 disposable, `docker compose down -v` provides a clean reset but permanently
 deletes local database, recording, and model-cache volumes.
 
+## Sessions or recordings disappeared after a restart
+
+Earlier versions kept the database in an anonymous volume and recordings only in
+LocalStack memory. Your sessions are usually still in an older anonymous volume.
+Do not run `docker volume prune` yet. Follow
+[Recover a database after a restart](upgrade-local-storage.md#recover-a-database-after-a-restart).
+Recordings stored before LocalStack restarted cannot be recovered.
+
+## Postgres keeps restarting after an upgrade
+
+If `docker compose logs postgres` says that there appears to be PostgreSQL data
+in `/var/lib/postgresql`, the `nanosamurai_pgdata` volume holds PostgreSQL 17
+or older files. Follow
+[A named volume has PostgreSQL 17 or older data](upgrade-local-storage.md#a-named-volume-has-postgresql-17-or-older-data).
+
+## A service cannot reach S3
+
+Check `docker compose ps --all s3 s3_init`. `s3` should be healthy and `s3_init`
+should have exited with code 0. Overlays from earlier versions may still point
+at `http://localstack:4566`; change them to `http://s3:7070`.
+
 ## Collecting diagnostics
 
 Useful, non-sensitive diagnostics are `docker compose ps --all`, the failing

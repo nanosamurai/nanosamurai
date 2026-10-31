@@ -92,7 +92,7 @@ flowchart LR
     end
 
     subgraph Storage["Storage"]
-        ObjectStore[("S3-compatible object storage<br/>(Ceph etc., LocalStack in the local setup)")]
+        ObjectStore[("S3-compatible object storage<br/>(Ceph etc., versitygw in the local setup)")]
         Postgres[(PostgreSQL)]
     end
 
@@ -149,7 +149,7 @@ The stack consists of:
   SDK and CLI
 
 Kafka carries audio and transcript events. PostgreSQL stores session and
-transcript data. The evaluator uses LocalStack for S3-compatible recording and
+transcript data. The evaluator uses versitygw for S3-compatible recording and
 speaker-enrollment storage; deployments can configure another S3-compatible
 provider, such as AWS S3, Ceph RADOS Gateway, or MinIO.
 
@@ -268,6 +268,7 @@ endpoints, available signals, trace behavior, and current limitations.
 - [Deployment and security boundaries](docs/deployment-and-security.md)
 - [Smoke tests and release rehearsal](docs/smoke-tests.md)
 - [Troubleshooting](docs/troubleshooting.md)
+- [Upgrade local storage](docs/upgrade-local-storage.md)
 - [Image release policy](docs/image-release-policy.md)
 
 Detailed API, WebSocket, SDK, speech-service, and persistence contracts remain
