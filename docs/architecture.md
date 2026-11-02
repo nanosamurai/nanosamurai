@@ -12,7 +12,7 @@ source code remains in the related repositories.
    service using the common `RealtimeASR` API.
 3. Audio and session events are published to Kafka with W3C trace context.
 4. The recorder writes completed session audio to S3-compatible object
-   storage; the evaluator supplies LocalStack for this role.
+   storage; the evaluator supplies SeaweedFS for this role.
 5. Selected refinement services process audio windows
    and produce separate track-labelled events on `transcripts.refined`.
 6. Selected finalizers read the completed recording and produce separate
@@ -54,7 +54,7 @@ flowchart LR
     end
 
     subgraph Storage["Storage"]
-        ObjectStore[("S3-compatible object storage<br/>(Ceph etc., LocalStack in the local setup)")]
+        ObjectStore[("S3-compatible object storage<br/>(Ceph etc., SeaweedFS in the local setup)")]
         Postgres[(PostgreSQL)]
     end
 
@@ -118,15 +118,30 @@ reads the shared recording. Neither Parakeet worker matches enrolled speakers.
 ## Replaceable object storage
 
 Object storage is a configured service boundary, not a requirement to deploy
-LocalStack. The supplied Compose file uses LocalStack because it provides a
-small, reproducible localhost evaluator. The application services communicate
-through the S3 API and can instead target AWS S3 or an S3-compatible
-implementation such as Ceph RADOS Gateway or MinIO.
+a specific store. The supplied Compose file runs SeaweedFS (`weed mini`, one
+container) as the local S3 store. It keeps objects in the named volume
+`nanosamurai_s3`, so they survive container restarts and `down`; only
+`down -v` deletes them. The application services communicate through the S3
+API and can instead target AWS S3 or another S3-compatible implementation
+such as Ceph RADOS Gateway or MinIO.
 
-The base Compose file is the tested public path and hardcodes its LocalStack
-endpoint, development credentials, region, and path-style addressing in the
-service containers. Only the bucket names are parameterized there. To use an
-external object store, supply a Compose override or equivalent deployment
+The local SeaweedFS:
+
+- creates the enrollment and recordings buckets on every start, if they are
+  missing;
+- has one admin S3 identity with the development credentials (`test`), so
+  anonymous requests get `403`;
+- publishes only the S3 port `8333`, on `COMPOSE_BIND_IP` (default
+  `127.0.0.1`). Its other ports stay inside the Compose network.
+
+The base Compose file is the tested public path. One setting,
+`NANOSAMURAI_S3_ENDPOINT` (default `http://seaweedfs:8333`), sets the S3
+endpoint of every service. Development credentials, region, and path-style
+addressing are fixed in the service containers. Only the endpoint and bucket
+names are parameterized there. Setting `NANOSAMURAI_S3_ENDPOINT` to
+`http://localstack:4566` gives the previous behavior: LocalStack creates the
+same buckets, but Community keeps them in memory only. To use an external
+object store, supply a Compose override or equivalent deployment
 configuration and provision the buckets outside this repository. Keep these
 configuration groups consistent across every consumer:
 
@@ -143,8 +158,9 @@ provider's workload-identity or default credential chain where the owning
 service supports it. Recording and enrollment bucket names and prefixes must
 match between writers and readers.
 
-LocalStack also exposes a Secrets Manager endpoint, and the evaluator configures
-SamuraiBFF's webhook secret-store adapter to use it. The initialization script
+LocalStack stays in the stack for its Secrets Manager endpoint. The evaluator
+configures SamuraiBFF's webhook secret-store adapter to use it
+(`SAMURAIBFF_SECRETS_AWS_ENDPOINT`, not changed by `NANOSAMURAI_S3_ENDPOINT`). The initialization script
 does not create any secrets, and the webhook APIs that would write them are
 disabled in default Community Edition mode. This role is therefore normally
 idle in the supplied evaluator. Ceph RADOS Gateway, MinIO, or another

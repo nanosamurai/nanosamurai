@@ -159,13 +159,31 @@ Use the same file list that started the stack, including any model or monitoring
 The command retains the database and model caches.
 Repeat your `up -d` command to restart.
 
-The local S3 service (LocalStack Community) keeps objects only in memory.
-When the `localstack` container stops or restarts, recordings and speaker
-enrollment samples are lost. Transcripts and speaker names stay in the database.
+Recordings and speaker enrollment samples are stored in the `seaweedfs`
+service (S3 API) in the named volume `nanosamurai_s3`. The database is in
+`nanosamurai_pgdata`. Both keep their data:
+
+| Command | Database and S3 objects |
+| --- | --- |
+| `restart`, `stop` + `start`, `up -d` (also with a new container) | kept |
+| `down`, then `up -d` | kept |
+| Docker or host restart | kept |
+| `down -v`, or `docker volume rm` | deleted |
+
+LocalStack still runs. It provides the Secrets Manager API for webhook
+secrets; LocalStack Community keeps that data in memory only. Older installs
+stored S3 objects in LocalStack, also in memory only. These objects are not
+copied to SeaweedFS. After the upgrade, earlier recordings have no audio and
+earlier enrolled speakers have no samples; enroll them again.
+
+To use LocalStack for S3 again, for example to compare results, set
+`NANOSAMURAI_S3_ENDPOINT=http://localstack:4566` in `.env`. All services then
+use that endpoint, and the objects are again lost when LocalStack restarts.
 
 If your install is older than the Postgres volume fix, move the database into
 the named volume before you start the new version. See
 [Database is empty after an upgrade or `down`](troubleshooting.md#database-is-empty-after-an-upgrade-or-down).
 
 Do not add `-v` unless you intend to delete the stack's named volumes.
-That option deletes local transcripts, recordings, database state, and model caches.
+That option deletes local transcripts, recordings, enrollment samples, database
+state, and model caches.

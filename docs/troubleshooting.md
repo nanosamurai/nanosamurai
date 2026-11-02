@@ -128,6 +128,25 @@ Inspect `docker compose logs db_migrate`. Applied versions are recorded in
 disposable, `docker compose down -v` provides a clean reset but permanently
 deletes local database, recording, and model-cache volumes.
 
+## Recording audio or enrollment samples are missing
+
+Since recordings and enrollment samples moved to SeaweedFS, they survive
+container restarts and `down`. Check these points:
+
+- The session was recorded before the upgrade. Its audio was in LocalStack
+  memory and was not copied. Enroll such speakers again.
+- `NANOSAMURAI_S3_ENDPOINT` is set to `http://localstack:4566` in `.env`. The
+  services then use LocalStack, which loses all objects when it restarts.
+  Remove the setting to use SeaweedFS.
+- `docker compose ps seaweedfs` does not show `healthy`. Services that use S3
+  wait for it. Read `docker compose logs --tail=100 seaweedfs`. The health
+  check sends a signed `HEAD` request to every bucket.
+- The volume was deleted (`down -v`). The buckets are created again on start,
+  but they are empty.
+
+An S3 client that sends no signature, or other credentials, gets `403`. The
+local credentials are the `test` values in `docker-compose.yml`.
+
 ## Collecting diagnostics
 
 Useful, non-sensitive diagnostics are `docker compose ps --all`, the failing
