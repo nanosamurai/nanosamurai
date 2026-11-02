@@ -49,6 +49,78 @@ HTTP 500, run `docker compose logs --tail=200 samuraibff`:
   until it finishes and retry, or add a Nemotron replica with
   `NEMOTRON_RTSERVICE_REPLICAS=2`.
 
+## Database is empty after an upgrade or `down`
+
+PostgreSQL 18 keeps its data in `/var/lib/postgresql/18/docker`. Older versions
+of `docker-compose.yml` mounted the named volume `nanosamurai_pgdata` one level
+too deep, at `/var/lib/postgresql/data`. The database then lived in an anonymous
+volume. It survived `restart`, `stop` and `start`, and `up -d`, but
+`docker compose down` followed by `up` started with an empty database. The old
+data stays on disk in a dangling volume.
+
+The current file mounts the named volume at `/var/lib/postgresql`. Existing
+installs must copy their database into it once.
+
+### Move the database before you upgrade
+
+Run this with the old files still checked out, and with the same file list
+that started the stack (here only `docker-compose.yml`).
+
+Bash (in Git Bash on Windows, run `export MSYS_NO_PATHCONV=1` first):
+
+```bash
+docker compose -f docker-compose.yml stop
+pg=$(docker compose -f docker-compose.yml ps -a -q postgres)
+old=$(docker inspect "$pg" --format '{{range .Mounts}}{{if eq .Destination "/var/lib/postgresql"}}{{.Name}}{{end}}{{end}}')
+new="$(docker inspect "$pg" --format '{{index .Config.Labels "com.docker.compose.project"}}')_nanosamurai_pgdata"
+echo "copy $old -> $new"
+docker run --rm -v "$old":/from:ro -v "$new":/to alpine:3.20 sh -c 'test ! -e /to/18 && cp -a /from/18 /to/'
+```
+
+PowerShell:
+
+```powershell
+docker compose -f docker-compose.yml stop
+$pg = docker compose -f docker-compose.yml ps -a -q postgres
+$info = docker inspect $pg | ConvertFrom-Json
+$old = ($info.Mounts | Where-Object Destination -eq '/var/lib/postgresql').Name
+$new = $info.Config.Labels.'com.docker.compose.project' + '_nanosamurai_pgdata'
+"copy $old -> $new"
+docker run --rm -v "${old}:/from:ro" -v "${new}:/to" alpine:3.20 sh -c 'test ! -e /to/18 && cp -a /from/18 /to/'
+```
+
+If `old` is empty, the stack already uses the named volume and needs no copy.
+If the copy command fails, the named volume already holds a database; do not
+overwrite it, and check which one has your data first.
+
+Then update the files and repeat your `up -d` command. The old anonymous volume
+is no longer used. Remove it with `docker volume rm` once you have checked your
+sessions.
+
+### Recover a database after `down`
+
+If you already ran `down` and `up`, or started the new version without the
+copy, the previous database is in a dangling volume. List the candidates:
+
+```bash
+for v in $(docker volume ls -q -f dangling=true); do
+  docker run --rm -v "$v":/v:ro alpine:3.20 sh -c "test -f /v/18/docker/PG_VERSION && echo $v \$(du -sh /v | cut -f1)"
+done
+```
+
+Pick the volume with your data; `docker volume inspect` shows when each one
+was created. Stop the stack, keep the current database aside, and copy the old
+one in:
+
+```bash
+docker compose -f docker-compose.yml stop
+docker run --rm -v <old volume>:/from:ro -v nanosamurai_nanosamurai_pgdata:/to alpine:3.20 \
+  sh -c 'mv /to/18 /to/18.before-restore && cp -a /from/18 /to/'
+```
+
+Replace `nanosamurai_nanosamurai_pgdata` if your Compose project has another
+name. Repeat your `up -d` command; `db_migrate` applies any newer migrations.
+
 ## Database migration fails on a reused volume
 
 Inspect `docker compose logs db_migrate`. Applied versions are recorded in

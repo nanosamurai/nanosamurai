@@ -156,8 +156,16 @@ docker compose -f docker-compose.yml down
 ```
 
 Use the same file list that started the stack, including any model or monitoring overlays.
-The command retains saved data and model caches.
+The command retains the database and model caches.
 Repeat your `up -d` command to restart.
+
+The local S3 service (LocalStack Community) keeps objects only in memory.
+When the `localstack` container stops or restarts, recordings and speaker
+enrollment samples are lost. Transcripts and speaker names stay in the database.
+
+If your install is older than the Postgres volume fix, move the database into
+the named volume before you start the new version. See
+[Database is empty after an upgrade or `down`](troubleshooting.md#database-is-empty-after-an-upgrade-or-down).
 
 Do not add `-v` unless you intend to delete the stack's named volumes.
 That option deletes local transcripts, recordings, database state, and model caches.

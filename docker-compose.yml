@@ -78,7 +78,9 @@ services:
     ports:
       - "${COMPOSE_BIND_IP:-127.0.0.1}:5432:5432"
     volumes:
-      - nanosamurai_pgdata:/var/lib/postgresql/data
+      # PostgreSQL 18 keeps its data in /var/lib/postgresql/18/docker.
+      # Mount the parent so the data lands in the named volume.
+      - nanosamurai_pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
