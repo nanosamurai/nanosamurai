@@ -100,6 +100,8 @@ This calls `POST /api/sessions/upload`. The BFF stores the file unchanged and
 `recorder_worker` converts it with FFmpeg; the session then follows the normal
 final-transcript path, with the same owner and audience as a recorded session.
 Files up to 128 MiB are accepted by default (`SAMURAIBFF_UPLOAD_MAX_BYTES`).
+In the browser, choose **Upload** in the navigation to pick a file, its
+language and the final transcripts to create.
 
 The complete installation,
 Python, CLI, and stream-control examples live in the
