@@ -49,8 +49,10 @@ pinned by source SHA.
 - optional Grafana, Prometheus, Tempo, Loki, and Alloy stack
 - public smoke tests and trace-context audit
 
+An optional overlay runs workflows, such as meeting summaries, on finished
+recordings with a local LLM; see [Local LLM workflows](docs/local-llm-workflows.md).
 The public code also includes agentic-workflow and webhook contracts.
-Community Edition does not currently ship workflow execution or webhook delivery
+Community Edition does not ship automatic workflow routing or webhook delivery
 services, but you are free to implement your own workflows / webhook services and plug them in.
 <br clear="right">
 

@@ -135,6 +135,12 @@ To add or replace a model, use its guide:
 The guides show how to stop the default model services and replace their track settings.
 For file order, combined models, and memory use, see [Choose models](models/README.md).
 
+## Add local LLM workflows
+
+The optional `docker-compose.llm.yml` overlay runs workflows, such as a meeting
+summary, on a finished recording with a local model. No transcript leaves your
+machine. See [Local LLM workflows](local-llm-workflows.md).
+
 ## Add monitoring
 
 The optional monitoring stack shows logs, metrics, and traces:

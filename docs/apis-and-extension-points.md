@@ -140,9 +140,10 @@ sign-in with your own OIDC provider; see
 ## Agentic workflow and webhook contracts
 
 The public code contains contracts and integration points for external agentic
-workflow and webhook services. Community Edition does not ship those execution
-or delivery services, and its default feature flags keep the corresponding
-runtime lanes disabled.
+workflow and webhook services. Community Edition does not ship automatic
+workflow routing or webhook delivery services, and its default feature flags
+keep the corresponding runtime lanes disabled. An optional overlay adds
+[on-demand local LLM workflows](#local-llm-workflows).
 
 This boundary lets users implement compatible services without making a
 nonexistent runner part of the default evaluator experience.
@@ -156,6 +157,21 @@ SamuraiPersistor can store workflow result and outcome records.
 
 The owning public description is
 [SamuraiBFF webhooks and workflows](https://github.com/nanosamurai/samuraibff/blob/master/docs/features-webhooks-workflows.md).
+
+### Local LLM workflows
+
+The optional `docker-compose.llm.yml` overlay supplies a workflow runner and a
+local Ollama model. You start a workflow on a finished recording with
+`POST /api/recordings/{id}/workflows/{workflow_id}/runs`; the BFF writes the
+job to `workflow.dispatch`. The runner calls the model and writes
+`workflow.result` and `workflow.outcome`. It retries through
+`workflow.dispatch.retry.10s`, `.2m`, `.10m` and `.2h`, and writes permanent
+failures to `workflow.dispatch.dlq`.
+
+Workflow definitions use provider type `openai_compatible` and a model ID from
+the runner's allow-list. The endpoint URL is runner configuration, never part
+of a definition. Workflows do not run automatically during a recording in
+Community Edition. See [Local LLM workflows](local-llm-workflows.md).
 
 ### Webhook integration
 

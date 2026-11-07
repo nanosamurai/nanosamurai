@@ -12,6 +12,7 @@ Use [Choose models](models/README.md) to add, replace, or stop model services.
 - [Architecture and Community Edition boundary](architecture.md)
 - [Transcription lifecycle](transcription-lifecycle.md)
 - [APIs and extension points](apis-and-extension-points.md)
+- [Local LLM workflows](local-llm-workflows.md) (optional)
 
 ## Validate and operate
 

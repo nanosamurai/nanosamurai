@@ -163,9 +163,14 @@ Included by default:
 - public smoke tests and Kafka trace-context audit
 - local Grafana, Prometheus, Tempo, and Loki stack
 
+Optional:
+
+- on-demand workflows with a local LLM, added by `docker-compose.llm.yml`
+  ([Local LLM workflows](local-llm-workflows.md))
+
 Not included or enabled:
 
-- workflow execution services
+- automatic, event-triggered workflow routing
 - webhook delivery services
 - production Kubernetes and cloud infrastructure automation
 - production identity integration, managed hosting, or operational support
