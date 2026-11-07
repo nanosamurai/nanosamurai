@@ -1,0 +1,90 @@
+# Optional local LLM workflows: Ollama plus the workflow runner. Apply after
+# docker-compose.yml and any model overlays. See docs/local-llm-workflows.md.
+#
+# Neither service publishes a host port. The runner joins only the internal
+# `workflow` network, so it reaches Kafka and Ollama but not the internet.
+# Ollama also joins the default network, because it downloads models.
+services:
+  samuraibff:
+    environment:
+      # Workflows are off in Community Edition mode.
+      SAMURAIBFF_CE_MODE: "false"
+      # Provider types offered in the workflow editor.
+      SAMURAIBFF_WORKFLOW_PROVIDER_TYPES: openai_compatible
+
+  samuraipersistor:
+    environment:
+      SAMURAIPERSISTOR_CE_MODE: "false"
+      SP_WORKFLOW_RESULT_ENABLED: "true"
+      SP_WORKFLOW_OUTCOME_ENABLED: "true"
+      # Community Edition ships no webhook delivery service.
+      SP_WEBHOOK_OUTCOME_ENABLED: "false"
+
+  broker:
+    networks:
+      - default
+      - workflow
+
+  ollama:
+    image: ${OLLAMA_IMAGE:-ollama/ollama:0.40.15}
+    restart: unless-stopped
+    environment:
+      # Keep prompts on this machine: no Ollama cloud models or web search.
+      OLLAMA_NO_CLOUD: "1"
+      # Fixed context (tokens) so long transcripts are not cut to a small default.
+      OLLAMA_CONTEXT_LENGTH: "${OLLAMA_CONTEXT_LENGTH:-16384}"
+      # How long an idle model stays in GPU memory.
+      OLLAMA_KEEP_ALIVE: "${OLLAMA_KEEP_ALIVE:-5m}"
+    volumes:
+      - nanosamurai_ollama_models:/root/.ollama
+    # Uses the GPU when it has free memory; otherwise Ollama runs on the CPU.
+    gpus: all
+    networks:
+      - default
+      - workflow
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+
+  # One-shot: download the workflow model unless it is already in the volume.
+  ollama_pull:
+    image: ${OLLAMA_IMAGE:-ollama/ollama:0.40.15}
+    restart: "no"
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      WORKFLOW_LLM_MODEL: ${WORKFLOW_LLM_MODEL:-qwen2.5:7b-instruct}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - ollama show "$$WORKFLOW_LLM_MODEL" >/dev/null 2>&1 || ollama pull "$$WORKFLOW_LLM_MODEL"
+    depends_on:
+      ollama:
+        condition: service_healthy
+
+  workflow-runner:
+    # Placeholder until the first release image is published; see
+    # docs/image-release-policy.md. Set WORKFLOW_RUNNER_IMAGE to a built image.
+    image: ${WORKFLOW_RUNNER_IMAGE:-ghcr.io/nanosamurai/workflow-runner:sha-unpublished}
+    restart: unless-stopped
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: broker:29092
+      KAFKA_CONSUMER_GROUP_ID: workflow-runner
+      WORKFLOW_RUNNER_PROVIDERS: openai_compatible
+      WORKFLOW_RUNNER_OPENAI_BASE_URL: http://ollama:11434/v1
+      WORKFLOW_RUNNER_OPENAI_MODELS: ${WORKFLOW_LLM_MODEL:-qwen2.5:7b-instruct}
+      WORKFLOW_RUNNER_OPENAI_TIMEOUT_S: "${WORKFLOW_RUNNER_OPENAI_TIMEOUT_S:-300}"
+    networks:
+      - workflow
+    depends_on:
+      kafka_init:
+        condition: service_completed_successfully
+      ollama_pull:
+        condition: service_completed_successfully
+
+networks:
+  workflow:
+    internal: true
+
+volumes:
+  nanosamurai_ollama_models:
