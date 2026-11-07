@@ -7,8 +7,9 @@
 services:
   samuraibff:
     environment:
-      # Workflows are off in Community Edition mode.
-      SAMURAIBFF_CE_MODE: "false"
+      # Turns on workflow definitions and on-demand runs in Community Edition
+      # mode; webhooks stay off.
+      SAMURAIBFF_WORKFLOWS_ENABLED: "true"
       # Provider types offered in the workflow editor.
       SAMURAIBFF_WORKFLOW_PROVIDER_TYPES: openai_compatible
 

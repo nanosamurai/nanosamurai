@@ -64,7 +64,7 @@ download. Use the same file list for `down` and later `up -d` commands.
 
 ## Create a workflow
 
-1. Open the workflows settings in the browser UI.
+1. Open the **Workflows** page in the browser UI.
 2. Create a workflow:
    - Source: the final transcript, track `parakeet` (or another final track
      you run).
@@ -81,7 +81,11 @@ any model that is not `WORKFLOW_LLM_MODEL`.
 ## Run it on a recording
 
 1. Open a saved session with a final transcript.
-2. Choose **Run workflow** and select your workflow.
+2. In its **Workflows** panel, pick your workflow under **Run workflow**.
+   The transcript source defaults to the workflow's own track; you can pick
+   another stored track, for example to run a refined-transcript workflow on
+   the final transcript.
+3. Choose **Run**.
 
 The result appears in the session when the model finishes. API clients can
 start the same run with
@@ -110,6 +114,6 @@ Failed attempts are retried and then written to Kafka topic
   workflow definitions. A workflow cannot point the runner at another URL.
 - Treat model output as untrusted text. The UI renders results as Markdown
   without raw HTML. Check results before you act on them.
-- The overlay turns off Community Edition mode in the BFF so workflows are
-  available. Webhook settings may then appear in the UI, but Community
-  Edition does not deliver webhooks.
+- The overlay sets `SAMURAIBFF_WORKFLOWS_ENABLED=true`. This turns on
+  workflow definitions and on-demand runs while the BFF stays in Community
+  Edition mode, so webhooks stay off.
