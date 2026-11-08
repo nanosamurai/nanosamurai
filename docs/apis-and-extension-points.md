@@ -103,6 +103,14 @@ Files up to 128 MiB are accepted by default (`SAMURAIBFF_UPLOAD_MAX_BYTES`).
 In the browser, choose **Upload** in the navigation to pick a file, its
 language and the final transcripts to create.
 
+An uploaded session shows **Processing** while the file is converted and
+transcribed, and **Finalized** when the final transcript is ready. If
+`recorder_worker` cannot convert the file (unreadable, no audio, or over a size
+or length limit), it publishes `recordings.upload_failed` and the session
+becomes **Failed** (`status: "failed"` in `GET /api/recordings/{session_id}`).
+Check that the file is a readable audio or video file with sound, then upload
+it again.
+
 The complete installation,
 Python, CLI, and stream-control examples live in the
 [Nanosamurai SDK repository](https://github.com/nanosamurai/nanosamurai-sdk).
