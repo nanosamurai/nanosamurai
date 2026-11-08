@@ -88,7 +88,30 @@ Transcribe a compatible WAV file:
 nanosamurai transcribe wav path/to/audio.wav --lang en --sample-rate 16000
 ```
 
-The helper validates mono 16-bit PCM WAV input. The complete installation,
+The helper validates mono 16-bit PCM WAV input. To transcribe an existing
+audio or video file (MP3, M4A, WAV, FLAC, Ogg/Opus, WebM, MP4 and other common
+containers), upload it and wait for the final transcript:
+
+```bash
+nanosamurai transcribe file path/to/interview.m4a --lang en
+```
+
+This calls `POST /api/sessions/upload`. The BFF stores the file unchanged and
+`recorder_worker` converts it with FFmpeg; the session then follows the normal
+final-transcript path, with the same owner and audience as a recorded session.
+Files up to 128 MiB are accepted by default (`SAMURAIBFF_UPLOAD_MAX_BYTES`).
+In the browser, choose **Upload** in the navigation to pick a file, its
+language and the final transcripts to create.
+
+An uploaded session shows **Processing** while the file is converted and
+transcribed, and **Finalized** when the final transcript is ready. If
+`recorder_worker` cannot convert the file (unreadable, no audio, or over a size
+or length limit), it publishes `recordings.upload_failed` and the session
+becomes **Failed** (`status: "failed"` in `GET /api/recordings/{session_id}`).
+Check that the file is a readable audio or video file with sound, then upload
+it again.
+
+The complete installation,
 Python, CLI, and stream-control examples live in the
 [Nanosamurai SDK repository](https://github.com/nanosamurai/nanosamurai-sdk).
 
