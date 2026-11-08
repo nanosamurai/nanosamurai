@@ -111,6 +111,23 @@ becomes **Failed** (`status: "failed"` in `GET /api/recordings/{session_id}`).
 Check that the file is a readable audio or video file with sound, then upload
 it again.
 
+Applications that use the OpenAI transcription API can use
+`POST /v1/audio/transcriptions` instead. `model` selects a configured final
+track (`whisper-1` = the default final track), and the response waits for the
+final transcript. In local mode any API key value works:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(base_url="http://127.0.0.1:8000/v1", api_key="local")
+with open("interview.m4a", "rb") as audio:
+    print(client.audio.transcriptions.create(model="whisper-1", file=audio, response_format="srt"))
+```
+
+With sign-in on, send an access token as the API key. Supported fields,
+limits and differences from the OpenAI API are in the
+[SamuraiBFF API documentation](https://github.com/nanosamurai/samuraibff/blob/master/docs/api.md#openai-compatible-transcription).
+
 The complete installation,
 Python, CLI, and stream-control examples live in the
 [Nanosamurai SDK repository](https://github.com/nanosamurai/nanosamurai-sdk).
