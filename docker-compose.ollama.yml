@@ -1,26 +1,12 @@
-# Optional local LLM workflows: Ollama plus the workflow runner. Apply after
-# docker-compose.yml and any model overlays. See docs/local-llm-workflows.md.
+# Optional: run Ollama inside the stack for on-demand workflows, instead of
+# an Ollama on the host. Apply after docker-compose.yml and any model
+# overlays. See docs/local-llm-workflows.md.
 #
-# Neither service publishes a host port. The runner joins only the internal
-# `workflow` network, so it reaches Kafka and Ollama but not the internet.
-# Ollama also joins the default network, because it downloads models.
+# Neither Ollama nor the workflow runner publishes a host port. With this
+# overlay the runner joins only the internal `workflow` network, so it reaches
+# Kafka and Ollama but not the host or the internet. Ollama also joins the
+# default network, because it downloads models.
 services:
-  samuraibff:
-    environment:
-      # Turns on workflow definitions and on-demand runs in Community Edition
-      # mode; webhooks stay off.
-      SAMURAIBFF_WORKFLOWS_ENABLED: "true"
-      # Provider types offered in the workflow editor.
-      SAMURAIBFF_WORKFLOW_PROVIDER_TYPES: openai_compatible
-
-  samuraipersistor:
-    environment:
-      SAMURAIPERSISTOR_CE_MODE: "false"
-      SP_WORKFLOW_RESULT_ENABLED: "true"
-      SP_WORKFLOW_OUTCOME_ENABLED: "true"
-      # Community Edition ships no webhook delivery service.
-      SP_WEBHOOK_OUTCOME_ENABLED: "false"
-
   broker:
     networks:
       - default
@@ -64,22 +50,11 @@ services:
         condition: service_healthy
 
   workflow-runner:
-    # Placeholder until the first release image is published; see
-    # docs/image-release-policy.md. Set WORKFLOW_RUNNER_IMAGE to a built image.
-    image: ${WORKFLOW_RUNNER_IMAGE:-ghcr.io/nanosamurai/workflow-runner:sha-unpublished}
-    restart: unless-stopped
     environment:
-      KAFKA_BOOTSTRAP_SERVERS: broker:29092
-      KAFKA_CONSUMER_GROUP_ID: workflow-runner
-      WORKFLOW_RUNNER_PROVIDERS: openai_compatible
       WORKFLOW_RUNNER_OPENAI_BASE_URL: http://ollama:11434/v1
-      WORKFLOW_RUNNER_OPENAI_MODELS: ${WORKFLOW_LLM_MODEL:-qwen2.5:7b-instruct}
-      WORKFLOW_RUNNER_OPENAI_TIMEOUT_S: "${WORKFLOW_RUNNER_OPENAI_TIMEOUT_S:-300}"
     networks:
       - workflow
     depends_on:
-      kafka_init:
-        condition: service_completed_successfully
       ollama_pull:
         condition: service_completed_successfully
 

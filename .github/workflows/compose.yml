@@ -25,10 +25,12 @@ jobs:
           SAMURAIBFF_AUTH_ISSUER=https://id.example.com/realms/validation docker compose -f docker-compose.yml -f docker-compose.sign-in.yml config --quiet
           if docker compose -f docker-compose.yml -f docker-compose.sign-in.yml config --quiet 2>/dev/null; then echo "sign-in override must require SAMURAIBFF_AUTH_ISSUER"; exit 1; fi
           docker compose -f docker-compose.yml -f docker-compose.whisper.yml -f docker-compose.observability.yml -f docker-compose.whisper-observability.yml config --quiet
+          docker compose -f docker-compose.yml -f docker-compose.ollama.yml config --quiet
+          docker compose -f docker-compose.yml -f docker-compose.whisper.yml -f docker-compose.ollama.yml config --quiet
 
       - name: Reject mutable latest tags
         run: |
-          images="$({ docker compose config --images; docker compose -f docker-compose.yml -f docker-compose.whisper.yml config --images; docker compose -f docker-compose.yml -f docker-compose.observability.yml config --images; } | sort -u)"
+          images="$({ docker compose config --images; docker compose -f docker-compose.yml -f docker-compose.whisper.yml config --images; docker compose -f docker-compose.yml -f docker-compose.observability.yml config --images; docker compose -f docker-compose.yml -f docker-compose.ollama.yml config --images; } | sort -u)"
           printf '%s\n' "$images"
           if printf '%s\n' "$images" | grep -E ':latest$'; then
             echo "Compose and workflow images must use explicit versions."
