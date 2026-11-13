@@ -168,6 +168,11 @@ services:
       SAMURAIBFF_SECRETS_AWS_ENDPOINT: http://localstack:4566
       SAMURAIBFF_SECRETS_AWS_ACCESS_KEY: test
       SAMURAIBFF_SECRETS_AWS_SECRET_KEY: test
+      # On-demand workflows on finished recordings, run by workflow-runner.
+      # Automatic event-triggered workflows and webhooks stay off.
+      SAMURAIBFF_WORKFLOWS_ENABLED: "${SAMURAIBFF_WORKFLOWS_ENABLED:-true}"
+      # Provider types offered in the workflow editor.
+      SAMURAIBFF_WORKFLOW_PROVIDER_TYPES: openai_compatible
     depends_on:
       kafka_init:
         condition: service_completed_successfully
@@ -193,10 +198,43 @@ services:
       SP_KAFKA_TOPIC_WORKFLOW_RESULT: workflow.result
       SP_KAFKA_TOPIC_WORKFLOW_OUTCOME: workflow.outcome
       SP_KAFKA_TOPIC_DLQ: transcripts.persistor.dlq
+      # Store workflow results and attempt outcomes. CE mode would turn these
+      # consumers off; webhook outcomes stay off because the stack ships no
+      # webhook delivery service.
+      SAMURAIPERSISTOR_CE_MODE: "false"
+      SP_WORKFLOW_RESULT_ENABLED: "true"
+      SP_WORKFLOW_OUTCOME_ENABLED: "true"
+      SP_WEBHOOK_OUTCOME_ENABLED: "false"
     depends_on:
       kafka_init:
         condition: service_completed_successfully
       db_migrate:
+        condition: service_completed_successfully
+
+  # Runs on-demand workflows with an OpenAI-compatible model server. By default
+  # it calls Ollama on the host (see docs/local-llm-workflows.md); the
+  # docker-compose.ollama.yml overlay runs Ollama in the stack instead. It
+  # starts without a model server; runs then fail and are retried.
+  workflow-runner:
+    image: ${WORKFLOW_RUNNER_IMAGE:-ghcr.io/nanosamurai/workflow-runner:sha-4c72fedd8977ec6492ef9bf0ec7f34337e987f1b}
+    restart: unless-stopped
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: broker:29092
+      KAFKA_CONSUMER_GROUP_ID: workflow-runner
+      WORKFLOW_RUNNER_PROVIDERS: openai_compatible
+      WORKFLOW_RUNNER_OPENAI_BASE_URL: ${WORKFLOW_LLM_BASE_URL:-http://host.docker.internal:11434/v1}
+      # The only model ids the runner accepts (comma list).
+      WORKFLOW_RUNNER_OPENAI_MODELS: ${WORKFLOW_LLM_MODEL:-qwen2.5:7b-instruct}
+      WORKFLOW_RUNNER_OPENAI_TIMEOUT_S: "${WORKFLOW_RUNNER_OPENAI_TIMEOUT_S:-300}"
+      # 3 attempts (retries after 10 s and 2 min), so a missing model server
+      # shows up as a failed run within minutes instead of hours.
+      WORKFLOW_MAX_ATTEMPTS: "${WORKFLOW_MAX_ATTEMPTS:-3}"
+    extra_hosts:
+      # Docker Desktop resolves this name itself; Docker Engine on Linux needs
+      # the mapping.
+      - host.docker.internal:host-gateway
+    depends_on:
+      kafka_init:
         condition: service_completed_successfully
 
   recorder_worker:
