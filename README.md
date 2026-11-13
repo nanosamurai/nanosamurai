@@ -92,7 +92,7 @@ flowchart LR
     end
 
     subgraph Storage["Storage"]
-        ObjectStore[("S3-compatible object storage<br/>(Ceph etc., LocalStack in the local setup)")]
+        ObjectStore[("S3-compatible object storage<br/>(Ceph etc., SeaweedFS in the local setup)")]
         Postgres[(PostgreSQL)]
     end
 
@@ -149,8 +149,9 @@ The stack consists of:
   SDK and CLI
 
 Kafka carries audio and transcript events. PostgreSQL stores session and
-transcript data. The evaluator uses LocalStack for S3-compatible recording and
-speaker-enrollment storage; deployments can configure another S3-compatible
+transcript data. The evaluator uses SeaweedFS for S3-compatible recording and
+speaker-enrollment storage, kept in a named volume, and LocalStack for the
+Secrets Manager API; deployments can configure another S3-compatible
 provider, such as AWS S3, Ceph RADOS Gateway, or MinIO.
 
 See the [architecture guide](docs/architecture.md) for the request flow and

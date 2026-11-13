@@ -70,6 +70,36 @@ services:
       - nanosamurai_localstack:/var/lib/localstack
       - ./docker/localstack/init:/etc/localstack/init/ready.d:ro
 
+  # S3 for recordings and enrollment audio. LocalStack Community keeps S3 in
+  # memory only, so the objects live here, in the nanosamurai_s3 volume.
+  seaweedfs:
+    image: ${SEAWEEDFS_IMAGE:-chrislusf/seaweedfs:4.51}
+    restart: unless-stopped
+    command:
+      - mini
+      - -dir=/data
+      - -master.telemetry=false
+      - -webdav=false
+      - -admin.ui=false
+      - -s3.port.iceberg=0
+      - -s3.port.lance=0
+    ports:
+      - "${COMPOSE_BIND_IP:-127.0.0.1}:8333:8333"
+    environment:
+      # Admin S3 identity. Without an identity, SeaweedFS allows anonymous access.
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      # weed mini creates the missing buckets on every start.
+      S3_BUCKET: ${NANOSAMURAI_ENROLLMENT_BUCKET:-nanosamurai-enrollment},${XAMURAI_ENROLLMENT_BUCKET:-xamurai-enrollment},${NANOSAMURAI_RECORDINGS_BUCKET:-nanosamurai-recordings}
+    volumes:
+      - nanosamurai_s3:/data
+    healthcheck:
+      # Healthy when every bucket answers a signed HEAD request.
+      test: ["CMD-SHELL", "for b in $$(echo \"$$S3_BUCKET\" | tr , ' '); do curl -fs -o /dev/null -I --aws-sigv4 aws:amz:us-east-1:s3 --user \"$$AWS_ACCESS_KEY_ID:$$AWS_SECRET_ACCESS_KEY\" \"http://127.0.0.1:8333/$$b\" || exit 1; done"]
+      interval: 5s
+      timeout: 10s
+      retries: 24
+
   postgres:
     image: postgres:18.1-alpine
     restart: unless-stopped
@@ -150,7 +180,7 @@ services:
       SAMURAIBFF_AUTH_CLIENT_ID: ${SAMURAIBFF_AUTH_CLIENT_ID:-bff-web}
       SAMURAIBFF_ORIGIN_URI: http://localhost:8000
       SAMURAIBFF_S3_REGION: us-east-1
-      SAMURAIBFF_S3_ENDPOINT: http://localstack:4566
+      SAMURAIBFF_S3_ENDPOINT: ${NANOSAMURAI_S3_ENDPOINT:-http://seaweedfs:8333}
       SAMURAIBFF_S3_ACCESS_KEY: test
       SAMURAIBFF_S3_SECRET_KEY: test
       SAMURAIBFF_S3_FORCE_PATH_STYLE: "true"
@@ -168,6 +198,8 @@ services:
         condition: service_completed_successfully
       localstack:
         condition: service_started
+      seaweedfs:
+        condition: service_healthy
       db_seed:
         condition: service_completed_successfully
 
@@ -204,7 +236,7 @@ services:
       KAFKA_GROUP_ID_RECORDER: recorder-worker
       RECORDER_IDLE_SECONDS: "30.0"
       RECORDING_STORAGE_BACKEND: s3
-      S3_ENDPOINT: http://localstack:4566
+      S3_ENDPOINT: ${NANOSAMURAI_S3_ENDPOINT:-http://seaweedfs:8333}
       S3_BUCKET: ${NANOSAMURAI_RECORDINGS_BUCKET:-nanosamurai-recordings}
       S3_REGION: us-east-1
       S3_ACCESS_KEY: test
@@ -214,8 +246,8 @@ services:
     depends_on:
       kafka_init:
         condition: service_completed_successfully
-      localstack:
-        condition: service_started
+      seaweedfs:
+        condition: service_healthy
 
   nemotron-rtservice:
     image: ${NEMOTRON_RTSERVICE_IMAGE:-ghcr.io/nanosamurai/xamurai-nemotron-rtservice:sha-c3b6ee476908f7b0b13ba88a295b3b260e404863}
@@ -228,7 +260,7 @@ services:
       NEMOTRON_RNNT_RIGHT_CONTEXT: "${NEMOTRON_RNNT_RIGHT_CONTEXT:-6}"
       NEMOTRON_DIARIZATION: "${NEMOTRON_DIARIZATION:-false}"
       ENROLL_BACKEND: "${NEMOTRON_ENROLL_BACKEND:-disabled}"
-      ENROLL_S3_ENDPOINT: http://localstack:4566
+      ENROLL_S3_ENDPOINT: ${NANOSAMURAI_S3_ENDPOINT:-http://seaweedfs:8333}
       ENROLL_S3_BUCKET: ${NANOSAMURAI_ENROLLMENT_BUCKET:-nanosamurai-enrollment}
       ENROLL_S3_PREFIX: enrollment
       ENROLL_S3_REGION: us-east-1
@@ -243,6 +275,9 @@ services:
     volumes:
       - nanosamurai_nemotron_hf_cache:/data/huggingface
     gpus: all
+    depends_on:
+      seaweedfs:
+        condition: service_healthy
     deploy:
       replicas: ${NEMOTRON_RTSERVICE_REPLICAS:-1}
       endpoint_mode: dnsrr
@@ -268,7 +303,7 @@ services:
       FINALIZER_TRACK_ID: parakeet
       KAFKA_BOOTSTRAP: broker:29092
       KAFKA_GROUP_ID_FINALIZER: finalizer.parakeet
-      S3_ENDPOINT: http://localstack:4566
+      S3_ENDPOINT: ${NANOSAMURAI_S3_ENDPOINT:-http://seaweedfs:8333}
       S3_REGION: us-east-1
       S3_ACCESS_KEY: test
       S3_SECRET_KEY: test
@@ -279,11 +314,12 @@ services:
     depends_on:
       kafka_init:
         condition: service_completed_successfully
-      localstack:
-        condition: service_started
+      seaweedfs:
+        condition: service_healthy
 
 volumes:
   nanosamurai_pgdata:
   nanosamurai_localstack:
+  nanosamurai_s3:
   nanosamurai_nemotron_hf_cache:
   nanosamurai_parakeet_hf_cache:
