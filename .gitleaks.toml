@@ -31,5 +31,5 @@ regex = '''(?i)(%USERPROFILE%|[A-Z]:[\\/]+Users[\\/]+[^\\/\s]+)'''
 
 [[rules]]
 id = "private-deployment-repository"
-description = "Private deployment repositories must not be linked from public content"
-regex = '''github\.com/(mikub/)?(nanodeploy|nanplatform)'''
+description = "Private repositories and issues must not be linked from public content"
+regex = '''(?i)github\.com/mikub/'''
