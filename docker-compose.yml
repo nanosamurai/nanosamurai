@@ -238,7 +238,7 @@ services:
         condition: service_completed_successfully
 
   recorder_worker:
-    image: ${RECORDER_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-recorder-worker:sha-c3b6ee476908f7b0b13ba88a295b3b260e404863}
+    image: ${RECORDER_WORKER_IMAGE:-ghcr.io/nanosamurai/xamurai-recorder-worker:sha-8a3c620f3b49539e6160ac35148668e5bdf8f623}
     restart: unless-stopped
     environment:
       KAFKA_BOOTSTRAP: broker:29092
