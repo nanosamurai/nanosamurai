@@ -1,0 +1,4 @@
+# Reviewed historical findings. Rewriting public history is out of scope, so
+# only these exact commits and lines are ignored; new occurrences still fail.
+260e40ba1cc5dbb5b1b21c3fe6819cd4feee099e:README.md:private-deployment-repository:233
+260e40ba1cc5dbb5b1b21c3fe6819cd4feee099e:README.md:private-deployment-repository:234

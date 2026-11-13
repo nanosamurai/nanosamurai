@@ -22,7 +22,6 @@ build/
 # OS/editor
 .idea/
 .tmp/
-.pulumi-home/
 tmp.rendered.yaml
 .tmp.rendered.yaml
 .vscode/
