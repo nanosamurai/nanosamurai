@@ -142,11 +142,11 @@ sign-in with your own OIDC provider; see
 The public code contains contracts and integration points for external agentic
 workflow and webhook services. Community Edition does not ship automatic
 workflow routing or webhook delivery services, and its default feature flags
-keep the corresponding runtime lanes disabled. An optional overlay adds
-[on-demand local LLM workflows](#local-llm-workflows).
+keep the corresponding runtime lanes disabled. It does run
+[on-demand workflows](#on-demand-workflows) with its own workflow runner.
 
-This boundary lets users implement compatible services without making a
-nonexistent runner part of the default evaluator experience.
+This boundary lets users implement compatible services without making
+nonexistent services part of the default evaluator experience.
 
 ### Workflow integration
 
@@ -158,14 +158,16 @@ SamuraiPersistor can store workflow result and outcome records.
 The owning public description is
 [SamuraiBFF webhooks and workflows](https://github.com/nanosamurai/samuraibff/blob/master/docs/features-webhooks-workflows.md).
 
-### Local LLM workflows
+### On-demand workflows
 
-The optional `docker-compose.llm.yml` overlay supplies a workflow runner and a
-local Ollama model. You start a workflow on a finished recording with
+The default stack runs `workflow-runner` with an OpenAI-compatible model
+server, by default Ollama on your computer. You start a workflow on a finished
+recording with
 `POST /api/recordings/{id}/workflows/{workflow_id}/runs`; the BFF writes the
 job to `workflow.dispatch`. The runner calls the model and writes
-`workflow.result` and `workflow.outcome`. It retries through
-`workflow.dispatch.retry.10s`, `.2m`, `.10m` and `.2h`, and writes permanent
+`workflow.result` and `workflow.outcome`, which SamuraiPersistor stores. It
+retries through `workflow.dispatch.retry.10s`, `.2m`, `.10m` and `.2h` (the
+stack allows 3 attempts, so it uses the first two), and writes permanent
 failures to `workflow.dispatch.dlq`.
 
 Workflow definitions use provider type `openai_compatible` and a model ID from
@@ -193,9 +195,11 @@ SAMURAIBFF_CE_MODE=false
 SAMURAIPERSISTOR_CE_MODE=false
 ```
 
-Setting these flags does not install a workflow runner or webhook dispatcher.
-It enables the BFF APIs, routing consumers, and persistence consumers that are
-disabled in the default Community Edition mode.
+Setting these flags does not install an automatic workflow router or webhook
+dispatcher. It enables the BFF APIs, routing consumers, and persistence
+consumers that are disabled in the default Community Edition mode. The default
+stack already sets `SAMURAIPERSISTOR_CE_MODE=false` with webhook outcomes off,
+so that the persistor stores on-demand workflow results.
 
 SamuraiPersistor also supports per-consumer controls outside CE mode:
 

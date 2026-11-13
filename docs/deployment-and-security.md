@@ -125,9 +125,6 @@ Included in the public evaluator:
 - Python SDK and CLI source
 - public smoke tests
 - optional local metrics, traces, and logs
-
-Optional overlay:
-
 - on-demand workflows on finished recordings with a local LLM
   ([Local LLM workflows](local-llm-workflows.md))
 

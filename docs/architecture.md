@@ -160,13 +160,14 @@ Included by default:
 - local browser UI and BFF API
 - realtime, refined, and final speech processing
 - transcript persistence and local recording storage
+- on-demand workflows on finished recordings, run by `workflow-runner` with an
+  OpenAI-compatible model server ([Local LLM workflows](local-llm-workflows.md))
 - public smoke tests and Kafka trace-context audit
 - local Grafana, Prometheus, Tempo, and Loki stack
 
 Optional:
 
-- on-demand workflows with a local LLM, added by `docker-compose.llm.yml`
-  ([Local LLM workflows](local-llm-workflows.md))
+- Ollama inside the stack for workflows, added by `docker-compose.ollama.yml`
 
 Not included or enabled:
 
@@ -176,8 +177,8 @@ Not included or enabled:
 - production identity integration, managed hosting, or operational support
 
 Workflow and webhook contracts can remain visible in service source code, but
-the corresponding runtime consumers are disabled by Community Edition feature
-flags.
+automatic workflow routing and webhook delivery are disabled by Community
+Edition feature flags.
 
 ## Security boundary
 
