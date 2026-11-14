@@ -183,7 +183,7 @@ services:
         condition: service_completed_successfully
 
   samuraipersistor:
-    image: ${SAMURAIPERSISTOR_IMAGE:-ghcr.io/nanosamurai/samuraipersistor:sha-d492b0480bb54b595c1db8d250ef6fe2955bb58e}
+    image: ${SAMURAIPERSISTOR_IMAGE:-ghcr.io/nanosamurai/samuraipersistor:sha-362f4941ca7279aa9f0a3261accc879e5470b112}
     restart: unless-stopped
     ports:
       - "${COMPOSE_BIND_IP:-127.0.0.1}:8010:8010"
@@ -199,13 +199,11 @@ services:
       SP_KAFKA_TOPIC_WORKFLOW_RESULT: workflow.result
       SP_KAFKA_TOPIC_WORKFLOW_OUTCOME: workflow.outcome
       SP_KAFKA_TOPIC_DLQ: transcripts.persistor.dlq
-      # Store workflow results and attempt outcomes. CE mode would turn these
-      # consumers off; webhook outcomes stay off because the stack ships no
+      # Store workflow results and attempt outcomes. Webhook outcomes
+      # (SP_WEBHOOK_OUTCOME_ENABLED) stay off because the stack ships no
       # webhook delivery service.
-      SAMURAIPERSISTOR_CE_MODE: "false"
       SP_WORKFLOW_RESULT_ENABLED: "true"
       SP_WORKFLOW_OUTCOME_ENABLED: "true"
-      SP_WEBHOOK_OUTCOME_ENABLED: "false"
     depends_on:
       kafka_init:
         condition: service_completed_successfully
