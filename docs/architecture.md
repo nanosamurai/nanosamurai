@@ -146,7 +146,7 @@ match between writers and readers.
 LocalStack also exposes a Secrets Manager endpoint, and the evaluator configures
 SamuraiBFF's webhook secret-store adapter to use it. The initialization script
 does not create any secrets, and the webhook APIs that would write them are
-disabled in default Community Edition mode. This role is therefore normally
+disabled unless `SAMURAIBFF_WEBHOOKS_ENABLED` is set. This role is therefore normally
 idle in the supplied evaluator. Ceph RADOS Gateway, MinIO, or another
 S3-compatible store replaces only object storage; it does not provide an AWS
 Secrets Manager API. See [Production secret management](deployment-and-security.md#production-secret-management)
@@ -160,19 +160,25 @@ Included by default:
 - local browser UI and BFF API
 - realtime, refined, and final speech processing
 - transcript persistence and local recording storage
+- on-demand workflows on finished recordings, run by `workflow-runner` with an
+  OpenAI-compatible model server ([Local LLM workflows](local-llm-workflows.md))
 - public smoke tests and Kafka trace-context audit
 - local Grafana, Prometheus, Tempo, and Loki stack
 
+Optional:
+
+- Ollama inside the stack for workflows, added by `docker-compose.ollama.yml`
+
 Not included or enabled:
 
-- workflow execution services
+- automatic, event-triggered workflow routing
 - webhook delivery services
 - production Kubernetes and cloud infrastructure automation
 - production identity integration, managed hosting, or operational support
 
 Workflow and webhook contracts can remain visible in service source code, but
-the corresponding runtime consumers are disabled by Community Edition feature
-flags.
+automatic workflow routing and webhook delivery are disabled by Community
+Edition feature flags.
 
 ## Security boundary
 

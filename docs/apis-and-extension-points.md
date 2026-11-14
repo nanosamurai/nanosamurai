@@ -140,12 +140,13 @@ sign-in with your own OIDC provider; see
 ## Agentic workflow and webhook contracts
 
 The public code contains contracts and integration points for external agentic
-workflow and webhook services. Community Edition does not ship those execution
-or delivery services, and its default feature flags keep the corresponding
-runtime lanes disabled.
+workflow and webhook services. Community Edition does not ship automatic
+workflow routing or webhook delivery services, and its default feature flags
+keep the corresponding runtime lanes disabled. It does run
+[on-demand workflows](#on-demand-workflows) with its own workflow runner.
 
-This boundary lets users implement compatible services without making a
-nonexistent runner part of the default evaluator experience.
+This boundary lets users implement compatible services without making
+nonexistent services part of the default evaluator experience.
 
 ### Workflow integration
 
@@ -156,6 +157,23 @@ SamuraiPersistor can store workflow result and outcome records.
 
 The owning public description is
 [SamuraiBFF webhooks and workflows](https://github.com/nanosamurai/samuraibff/blob/master/docs/features-webhooks-workflows.md).
+
+### On-demand workflows
+
+The default stack runs `workflow-runner` with an OpenAI-compatible model
+server, by default Ollama on your computer. You start a workflow on a finished
+recording with
+`POST /api/recordings/{id}/workflows/{workflow_id}/runs`; the BFF writes the
+job to `workflow.dispatch`. The runner calls the model and writes
+`workflow.result` and `workflow.outcome`, which SamuraiPersistor stores. It
+retries through `workflow.dispatch.retry.10s`, `.2m`, `.10m` and `.2h` (the
+stack allows 3 attempts, so it uses the first two), and writes permanent
+failures to `workflow.dispatch.dlq`.
+
+Workflow definitions use provider type `openai_compatible` and a model ID from
+the runner's allow-list. The endpoint URL is runner configuration, never part
+of a definition. Workflows do not run automatically during a recording in
+Community Edition. See [Local LLM workflows](local-llm-workflows.md).
 
 ### Webhook integration
 
@@ -169,29 +187,30 @@ service.
 
 ## Explicit opt-in
 
-Only enable the extension lanes after supplying compatible services, Kafka
-topics, security controls, and operational ownership:
+Each capability has its own flag, and every flag is off unless set. Only
+enable a capability after supplying compatible services, Kafka topics,
+security controls, and operational ownership.
 
-```text
-SAMURAIBFF_CE_MODE=false
-SAMURAIPERSISTOR_CE_MODE=false
-```
+| Flag | Enables | Default stack |
+| --- | --- | --- |
+| `SAMURAIBFF_WORKFLOWS_ONDEMAND_ENABLED` | Workflow definitions, on-demand runs on finished sessions, saved results | `true` |
+| `SAMURAIBFF_WORKFLOWS_TRIGGERED_ENABLED` | Automatic event-triggered workflows and their result consumer | off |
+| `SAMURAIBFF_WEBHOOKS_ENABLED` | Webhook definitions, session webhook selection and delivery outcomes | off |
+| `SP_WORKFLOW_RESULT_ENABLED` | Persistor consumer for `workflow.result` | `true` |
+| `SP_WORKFLOW_OUTCOME_ENABLED` | Persistor consumer for `workflow.outcome` | `true` |
+| `SP_WEBHOOK_OUTCOME_ENABLED` | Persistor consumer for webhook delivery outcomes | off |
 
-Setting these flags does not install a workflow runner or webhook dispatcher.
-It enables the BFF APIs, routing consumers, and persistence consumers that are
-disabled in the default Community Edition mode.
+Setting these flags does not install an automatic workflow router or webhook
+dispatcher. It enables the BFF APIs, routing, and persistence consumers for
+that capability. A persistor consumer stores whatever arrives on its topic, so
+turn one on only when a trusted producer writes to that topic and Kafka ACLs
+restrict who may write.
 
-SamuraiPersistor also supports per-consumer controls outside CE mode:
-
-```text
-SP_WEBHOOK_OUTCOME_ENABLED
-SP_WORKFLOW_RESULT_ENABLED
-SP_WORKFLOW_OUTCOME_ENABLED
-```
-
-Enable only the topics and consumers implemented by the supplied integration.
-Missing services or topics can otherwise create failed or misleading runtime
-flows.
+`SAMURAIBFF_CE_MODE=false` and `SAMURAIPERSISTOR_CE_MODE=false` are deprecated
+shortcuts that turn on every flag that is not set. An explicit flag always
+wins. Enable only the topics and consumers implemented by the supplied
+integration. Missing services or topics can otherwise create failed or
+misleading runtime flows.
 
 ## Component ownership
 
