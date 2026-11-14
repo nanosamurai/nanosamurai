@@ -130,7 +130,7 @@ services:
     command: ["psql", "-v", "ON_ERROR_STOP=1", "-f", "/seed.sql"]
 
   samuraibff:
-    image: ${SAMURAIBFF_IMAGE:-ghcr.io/nanosamurai/samuraibff:sha-cfb08b0b1aba8438c3fb32f6b749bf4633847b1f}
+    image: ${SAMURAIBFF_IMAGE:-ghcr.io/nanosamurai/samuraibff:sha-172e512a7b58604e1b82efa775c85b2dc0d97d9b}
     restart: unless-stopped
     ports:
       - "${COMPOSE_BIND_IP:-127.0.0.1}:8000:8000"
@@ -169,8 +169,9 @@ services:
       SAMURAIBFF_SECRETS_AWS_ACCESS_KEY: test
       SAMURAIBFF_SECRETS_AWS_SECRET_KEY: test
       # On-demand workflows on finished recordings, run by workflow-runner.
-      # Automatic event-triggered workflows and webhooks stay off.
-      SAMURAIBFF_WORKFLOWS_ENABLED: "${SAMURAIBFF_WORKFLOWS_ENABLED:-true}"
+      # Automatic event-triggered workflows and webhooks stay off
+      # (SAMURAIBFF_WORKFLOWS_TRIGGERED_ENABLED, SAMURAIBFF_WEBHOOKS_ENABLED).
+      SAMURAIBFF_WORKFLOWS_ONDEMAND_ENABLED: "${SAMURAIBFF_WORKFLOWS_ONDEMAND_ENABLED:-true}"
       # Provider types offered in the workflow editor.
       SAMURAIBFF_WORKFLOW_PROVIDER_TYPES: openai_compatible
     depends_on:

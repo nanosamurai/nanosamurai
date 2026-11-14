@@ -175,7 +175,7 @@ Kafka topic `workflow.dispatch.dlq`.
 | `WORKFLOW_LLM_MODEL` | `qwen2.5:7b-instruct` | Allowed model IDs (comma list). |
 | `WORKFLOW_RUNNER_OPENAI_TIMEOUT_S` | `300` | Timeout per model call, in seconds. |
 | `WORKFLOW_MAX_ATTEMPTS` | `3` | Attempts per run before it fails. |
-| `SAMURAIBFF_WORKFLOWS_ENABLED` | `true` | `false` hides workflows in the UI and API. Stop `workflow-runner` too if you don't need it. |
+| `SAMURAIBFF_WORKFLOWS_ONDEMAND_ENABLED` | `true` | `false` hides workflows in the UI and API. Stop `workflow-runner` too if you don't need it. |
 
 The BFF offers only the `openai_compatible` provider in the workflow editor
 (`SAMURAIBFF_WORKFLOW_PROVIDER_TYPES`). The persistor stores workflow results
