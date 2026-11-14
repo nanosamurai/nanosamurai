@@ -18,6 +18,10 @@ source code remains in the related repositories.
 6. Selected finalizers read the completed recording and produce separate
    full-session tracks on `transcripts.final`.
 7. SamuraiPersistor stores transcript events in PostgreSQL.
+8. When you run a workflow on a finished recording, SamuraiBFF writes a job
+   to `workflow.dispatch`. `workflow-runner` sends the prompt and transcript to
+   the OpenAI-compatible model server you configure, which is outside the
+   stack, and SamuraiPersistor stores the result and outcome.
 
 ```mermaid
 flowchart LR
@@ -34,9 +38,18 @@ flowchart LR
 
     subgraph Xamurai["Xamurai (Python services)"]
         RealtimeService["Realtime service<br/>[Faster-Whisper,<br/>Qwen3-ASR, Nemotron]"]
-        RefinementService["Refinement service<br/>[WhisperX, Parakeet]"]
+        RefinementService["Refinement service<br/>[WhisperX, Parakeet, Qwen3-ASR]"]
         RecorderWorker["recorder_worker<br/>(session WAV)"]
-        FinalizerService["Finalizer service<br/>[WhisperX, Parakeet]"]
+        FinalizerService["Finalizer service<br/>[WhisperX, Parakeet, Qwen3-ASR]"]
+    end
+
+    subgraph Workflows["Workflows (on demand)"]
+        WorkflowRunner["workflow-runner"]
+        OllamaInStack["ollama<br/>(optional overlay)"]
+    end
+
+    subgraph External["Outside the stack (you provide)"]
+        ModelServer["OpenAI-compatible model server<br/>Ollama on the host (default),<br/>vLLM, llama.cpp server, ..."]
     end
 
     Browser -->|HTTP /api + /auth| HTTP
@@ -71,6 +84,12 @@ flowchart LR
     KafkaBroker -->|"consume<br/>topic: recordings.finished"| FinalizerService
     FinalizerService -->|"produce protobuf SessionTranscript<br/>topic: transcripts.final"| KafkaBroker
 
+    SamuraiBFF -->|"produce JSON WorkflowDispatchJob (on demand)<br/>topic: workflow.dispatch"| KafkaBroker
+    KafkaBroker -->|"consume<br/>topic: workflow.dispatch"| WorkflowRunner
+    WorkflowRunner -->|"prompt + transcript<br/>OpenAI chat completions"| ModelServer
+    WorkflowRunner -.->|"or, with docker-compose.ollama.yml"| OllamaInStack
+    WorkflowRunner -->|"produce JSON<br/>topics: workflow.result, workflow.outcome"| KafkaBroker
+
     RecorderWorker -->|"write session WAV"| ObjectStore
     FinalizerService -->|"read recording; optional speaker enrollments"| ObjectStore
     SamuraiBFF -->|"serve recordings; read/write speaker enrollments"| ObjectStore
@@ -79,8 +98,12 @@ flowchart LR
 
     KafkaBroker -->|"consume + persist<br/>topic: transcripts.refined"| Persistor["SamuraiPersistor<br/>(PostgreSQL writer)"]
     KafkaBroker -->|"consume + persist<br/>topic: transcripts.final"| Persistor
+    KafkaBroker -->|"consume + persist<br/>topics: workflow.result, workflow.outcome"| Persistor
     Persistor -->|persist| Postgres
     SamuraiBFF -->|query| Postgres
+
+    style External stroke-dasharray: 6 4
+    style OllamaInStack stroke-dasharray: 6 4
 ```
 
 Each speech-service box groups independently deployed, selectable tracks for
@@ -110,7 +133,9 @@ and startup commands for each stage.
 The diagrams include optional providers: the base stack runs Nemotron and
 Parakeet, and the Whisper and Qwen overlays add independently selected realtime,
 refinement and final tracks. See the [model matrix](../README.md#model-pipelines-in-the-supplied-stack)
-for model setup guides. WhisperX and Parakeet reuse shared
+for model setup guides. Dashed boxes mark the optional in-stack Ollama
+and the model server outside the stack; see
+[Local LLM workflows](local-llm-workflows.md). WhisperX and Parakeet reuse shared
 refinement and finalization runtimes, with separate model processes and consumer
 groups. Parakeet refinement needs no recording-storage access; its finalizer
 reads the shared recording. Neither Parakeet worker matches enrolled speakers.

@@ -78,6 +78,15 @@ flowchart LR
         FinalizerService["Finalizer service<br/>[WhisperX, Parakeet, Qwen3-ASR]"]
     end
 
+    subgraph Workflows["Workflows (on demand)"]
+        WorkflowRunner["workflow-runner"]
+        OllamaInStack["ollama<br/>(optional overlay)"]
+    end
+
+    subgraph External["Outside the stack (you provide)"]
+        ModelServer["OpenAI-compatible model server<br/>Ollama on the host (default),<br/>vLLM, llama.cpp server, ..."]
+    end
+
     Browser -->|HTTP /api + /auth| HTTP
     Browser -->|"WS audio<br/>WebSocket /ws/audio<br/>PCM16LE mono 16kHz"| WSAudio
     Browser ---|"WS events<br/>WebSocket /ws/events<br/>JSON events"| WSEvents
@@ -111,8 +120,9 @@ flowchart LR
     FinalizerService -->|"produce protobuf SessionTranscript<br/>topic: transcripts.final"| KafkaBroker
 
     SamuraiBFF -->|"produce JSON WorkflowDispatchJob (on demand)<br/>topic: workflow.dispatch"| KafkaBroker
-    KafkaBroker -->|"consume<br/>topic: workflow.dispatch"| WorkflowRunner["workflow-runner"]
-    WorkflowRunner -->|"OpenAI-compatible chat completions"| LLM["Model server<br/>(Ollama on the host by default)"]
+    KafkaBroker -->|"consume<br/>topic: workflow.dispatch"| WorkflowRunner
+    WorkflowRunner -->|"prompt + transcript<br/>OpenAI chat completions"| ModelServer
+    WorkflowRunner -.->|"or, with docker-compose.ollama.yml"| OllamaInStack
     WorkflowRunner -->|"produce JSON<br/>topics: workflow.result, workflow.outcome"| KafkaBroker
 
     RecorderWorker -->|"write session WAV"| ObjectStore
@@ -123,8 +133,12 @@ flowchart LR
 
     KafkaBroker -->|"consume + persist<br/>topic: transcripts.refined"| Persistor["SamuraiPersistor<br/>(PostgreSQL writer)"]
     KafkaBroker -->|"consume + persist<br/>topic: transcripts.final"| Persistor
+    KafkaBroker -->|"consume + persist<br/>topics: workflow.result, workflow.outcome"| Persistor
     Persistor -->|persist| Postgres
     SamuraiBFF -->|query| Postgres
+
+    style External stroke-dasharray: 6 4
+    style OllamaInStack stroke-dasharray: 6 4
 ```
 
 Each speech-service box groups independently deployed, selectable tracks for
