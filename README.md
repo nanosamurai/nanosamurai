@@ -63,6 +63,7 @@ flowchart LR
     subgraph Client
         Browser["Browser UI<br/>(ClojureScript)"]
         Electron["Electron app<br/>(Windows-first)"]
+        OpenAIClient["OpenAI-compatible clients<br/>(SDKs, scripts)"]
     end
 
     subgraph SamuraiBFF["SamuraiBFF<br/>(API and orchestration)"]
@@ -74,7 +75,7 @@ flowchart LR
     subgraph Xamurai["Xamurai (Python services)"]
         RealtimeService["Realtime service<br/>[Faster-Whisper,<br/>Qwen3-ASR, Nemotron]"]
         RefinementService["Refinement service<br/>[WhisperX, Parakeet, Qwen3-ASR]"]
-        RecorderWorker["recorder_worker<br/>(session WAV)"]
+        RecorderWorker["recorder_worker<br/>(session WAV;<br/>FFmpeg for uploads)"]
         FinalizerService["Finalizer service<br/>[WhisperX, Parakeet, Qwen3-ASR]"]
     end
 
@@ -87,13 +88,15 @@ flowchart LR
         ModelServer["OpenAI-compatible model server<br/>Ollama on the host (default),<br/>vLLM, llama.cpp server, ..."]
     end
 
-    Browser -->|HTTP /api + /auth| HTTP
+    Browser -->|"HTTP /api + /auth<br/>incl. POST /api/sessions/upload"| HTTP
     Browser -->|"WS audio<br/>WebSocket /ws/audio<br/>PCM16LE mono 16kHz"| WSAudio
     Browser ---|"WS events<br/>WebSocket /ws/events<br/>JSON events"| WSEvents
 
     Electron -->|HTTP /api + /auth| HTTP
     Electron -->|"WS audio<br/>WebSocket /ws/audio<br/>PCM16LE mono 16kHz"| WSAudio
     Electron ---|"WS events<br/>WebSocket /ws/events<br/>JSON events"| WSEvents
+
+    OpenAIClient -->|"POST /v1/audio/transcriptions<br/>(upload, waits for the final transcript)"| HTTP
 
     SamuraiBFF <-->|"gRPC streams per selected realtime track"| RealtimeService
 
@@ -116,6 +119,11 @@ flowchart LR
     KafkaBroker -->|"consume<br/>topic: audio.raw"| RecorderWorker
     RecorderWorker -->|"produce protobuf RecordingFinished<br/>topic: recordings.finished"| KafkaBroker
 
+    SamuraiBFF -->|"produce protobuf RecordingFinished (uploads)<br/>topic: recordings.uploaded"| KafkaBroker
+    KafkaBroker -->|"consume<br/>topic: recordings.uploaded"| RecorderWorker
+    RecorderWorker -->|"produce JSON (conversion failed)<br/>topic: recordings.upload_failed"| KafkaBroker
+    KafkaBroker -->|"consume<br/>topic: recordings.upload_failed"| SamuraiBFF
+
     KafkaBroker -->|"consume<br/>topic: recordings.finished"| FinalizerService
     FinalizerService -->|"produce protobuf SessionTranscript<br/>topic: transcripts.final"| KafkaBroker
 
@@ -125,9 +133,9 @@ flowchart LR
     WorkflowRunner -.->|"or, with docker-compose.ollama.yml"| OllamaInStack
     WorkflowRunner -->|"produce JSON<br/>topics: workflow.result, workflow.outcome"| KafkaBroker
 
-    RecorderWorker -->|"write session WAV"| ObjectStore
+    RecorderWorker -->|"write session WAV;<br/>read + delete uploaded file"| ObjectStore
     FinalizerService -->|"read recording; optional speaker enrollments"| ObjectStore
-    SamuraiBFF -->|"serve recordings; read/write speaker enrollments"| ObjectStore
+    SamuraiBFF -->|"serve recordings; store uploaded files;<br/>read/write speaker enrollments"| ObjectStore
     RealtimeService -->|"optional speaker enrollments"| ObjectStore
     RefinementService -->|"optional speaker enrollments"| ObjectStore
 

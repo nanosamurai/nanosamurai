@@ -13,12 +13,18 @@ source code remains in the related repositories.
 3. Audio and session events are published to Kafka with W3C trace context.
 4. The recorder writes completed session audio to S3-compatible object
    storage; the evaluator supplies LocalStack for this role.
-5. Selected refinement services process audio windows
+5. An uploaded file (`POST /api/sessions/upload` or the OpenAI-compatible
+   `POST /v1/audio/transcriptions`) skips the realtime and refinement steps.
+   SamuraiBFF stores it in object storage and publishes `recordings.uploaded`.
+   The recorder converts it with FFmpeg into the normal session recording and
+   publishes `recordings.finished`, or `recordings.upload_failed`, which marks
+   the session failed.
+6. Selected refinement services process audio windows
    and produce separate track-labelled events on `transcripts.refined`.
-6. Selected finalizers read the completed recording and produce separate
+7. Selected finalizers read the completed recording and produce separate
    full-session tracks on `transcripts.final`.
-7. SamuraiPersistor stores transcript events in PostgreSQL.
-8. When you run a workflow on a finished recording, SamuraiBFF writes a job
+8. SamuraiPersistor stores transcript events in PostgreSQL.
+9. When you run a workflow on a finished recording, SamuraiBFF writes a job
    to `workflow.dispatch`. `workflow-runner` sends the prompt and transcript to
    the OpenAI-compatible model server you configure, which is outside the
    stack, and SamuraiPersistor stores the result and outcome.
@@ -28,6 +34,7 @@ flowchart LR
     subgraph Client
         Browser["Browser UI<br/>(ClojureScript)"]
         Electron["Electron app<br/>(Windows-first)"]
+        OpenAIClient["OpenAI-compatible clients<br/>(SDKs, scripts)"]
     end
 
     subgraph SamuraiBFF["SamuraiBFF<br/>(API and orchestration)"]
@@ -39,7 +46,7 @@ flowchart LR
     subgraph Xamurai["Xamurai (Python services)"]
         RealtimeService["Realtime service<br/>[Faster-Whisper,<br/>Qwen3-ASR, Nemotron]"]
         RefinementService["Refinement service<br/>[WhisperX, Parakeet, Qwen3-ASR]"]
-        RecorderWorker["recorder_worker<br/>(session WAV)"]
+        RecorderWorker["recorder_worker<br/>(session WAV;<br/>FFmpeg for uploads)"]
         FinalizerService["Finalizer service<br/>[WhisperX, Parakeet, Qwen3-ASR]"]
     end
 
@@ -52,13 +59,15 @@ flowchart LR
         ModelServer["OpenAI-compatible model server<br/>Ollama on the host (default),<br/>vLLM, llama.cpp server, ..."]
     end
 
-    Browser -->|HTTP /api + /auth| HTTP
+    Browser -->|"HTTP /api + /auth<br/>incl. POST /api/sessions/upload"| HTTP
     Browser -->|"WS audio<br/>WebSocket /ws/audio<br/>PCM16LE mono 16kHz"| WSAudio
     Browser ---|"WS events<br/>WebSocket /ws/events<br/>JSON events"| WSEvents
 
     Electron -->|HTTP /api + /auth| HTTP
     Electron -->|"WS audio<br/>WebSocket /ws/audio<br/>PCM16LE mono 16kHz"| WSAudio
     Electron ---|"WS events<br/>WebSocket /ws/events<br/>JSON events"| WSEvents
+
+    OpenAIClient -->|"POST /v1/audio/transcriptions<br/>(upload, waits for the final transcript)"| HTTP
 
     SamuraiBFF <-->|"gRPC streams per selected realtime track"| RealtimeService
 
@@ -81,6 +90,11 @@ flowchart LR
     KafkaBroker -->|"consume<br/>topic: audio.raw"| RecorderWorker
     RecorderWorker -->|"produce protobuf RecordingFinished<br/>topic: recordings.finished"| KafkaBroker
 
+    SamuraiBFF -->|"produce protobuf RecordingFinished (uploads)<br/>topic: recordings.uploaded"| KafkaBroker
+    KafkaBroker -->|"consume<br/>topic: recordings.uploaded"| RecorderWorker
+    RecorderWorker -->|"produce JSON (conversion failed)<br/>topic: recordings.upload_failed"| KafkaBroker
+    KafkaBroker -->|"consume<br/>topic: recordings.upload_failed"| SamuraiBFF
+
     KafkaBroker -->|"consume<br/>topic: recordings.finished"| FinalizerService
     FinalizerService -->|"produce protobuf SessionTranscript<br/>topic: transcripts.final"| KafkaBroker
 
@@ -90,9 +104,9 @@ flowchart LR
     WorkflowRunner -.->|"or, with docker-compose.ollama.yml"| OllamaInStack
     WorkflowRunner -->|"produce JSON<br/>topics: workflow.result, workflow.outcome"| KafkaBroker
 
-    RecorderWorker -->|"write session WAV"| ObjectStore
+    RecorderWorker -->|"write session WAV;<br/>read + delete uploaded file"| ObjectStore
     FinalizerService -->|"read recording; optional speaker enrollments"| ObjectStore
-    SamuraiBFF -->|"serve recordings; read/write speaker enrollments"| ObjectStore
+    SamuraiBFF -->|"serve recordings; store uploaded files;<br/>read/write speaker enrollments"| ObjectStore
     RealtimeService -->|"optional speaker enrollments"| ObjectStore
     RefinementService -->|"optional speaker enrollments"| ObjectStore
 
@@ -157,8 +171,8 @@ configuration groups consistent across every consumer:
 
 | Responsibility | Consumers | Configuration |
 | --- | --- | --- |
-| Recordings and speaker-enrollment API access | SamuraiBFF | `SAMURAIBFF_S3_*`, including the recordings and enrollments bucket and prefix settings |
-| Recording writes | recorder worker | `RECORDING_STORAGE_BACKEND=s3`, `S3_ENDPOINT`, `S3_BUCKET`, `S3_REGION`, credentials, `S3_FORCE_PATH_STYLE`, and `S3_PREFIX` |
+| Recordings, uploaded files and speaker-enrollment API access | SamuraiBFF | `SAMURAIBFF_S3_*`, including the recordings and enrollments bucket and prefix settings |
+| Recording writes and uploaded-file reads | recorder worker | `RECORDING_STORAGE_BACKEND=s3`, `S3_ENDPOINT`, `S3_BUCKET`, `S3_REGION`, credentials, `S3_FORCE_PATH_STYLE`, and `S3_PREFIX` |
 | Recording reads | finalizer worker | `S3_ENDPOINT`, `S3_REGION`, credentials, and `S3_FORCE_PATH_STYLE`; the bucket and key come from the recording's `s3://` URL |
 | Speaker-enrollment reads | Nemotron (when enabled), Faster-Whisper, and WhisperX workers | `ENROLL_BACKEND=s3_manifest` and `ENROLL_S3_*`, including bucket and prefix |
 
@@ -185,6 +199,7 @@ Included by default:
 - local browser UI and BFF API
 - realtime, refined, and final speech processing
 - transcript persistence and local recording storage
+- file uploads and the OpenAI-compatible transcription endpoint
 - on-demand workflows on finished recordings, run by `workflow-runner` with an
   OpenAI-compatible model server ([Local LLM workflows](local-llm-workflows.md))
 - public smoke tests and Kafka trace-context audit
