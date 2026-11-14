@@ -20,6 +20,39 @@ workflows automatically while you record, and it has no webhook delivery.
 The runner starts even when no model server is reachable. A run then fails
 after 3 attempts, about 2 minutes, with `PROVIDER_UNAVAILABLE`.
 
+A run, step by step:
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant BFF as SamuraiBFF
+    participant Kafka
+    participant Runner as workflow-runner
+    participant Persistor as SamuraiPersistor
+    participant DB as PostgreSQL
+    box Outside the stack
+        participant Model as Model server<br/>(Ollama, vLLM, ...)
+    end
+
+    User->>BFF: POST /api/recordings/{id}/workflows/{workflow_id}/runs
+    BFF-->>User: 202 Accepted
+    BFF->>Kafka: workflow.dispatch (job with the transcript)
+    Kafka->>Runner: consume workflow.dispatch
+    Runner->>Model: chat completion (prompt + transcript)
+    Model-->>Runner: result text
+    Runner->>Kafka: workflow.result, workflow.outcome
+    Kafka->>Persistor: consume both topics
+    Persistor->>DB: store result and attempt outcome
+    User->>BFF: open the session
+    BFF->>DB: read the latest result
+    BFF-->>User: result (rendered as Markdown)
+
+    opt model server unreachable or call fails
+        Runner->>Kafka: retry via workflow.dispatch.retry.10s, then .2m
+        Runner->>Kafka: after 3 attempts, failed outcome + workflow.dispatch.dlq
+    end
+```
+
 ## Choose where the model runs
 
 | Option | Use it when |
@@ -27,6 +60,32 @@ after 3 attempts, about 2 minutes, with `PROVIDER_UNAVAILABLE`.
 | [Ollama on your computer](#ollama-on-your-computer) (default) | You already use Ollama or want to manage models yourself. |
 | [Ollama in the stack](#ollama-in-the-stack) | You want Compose to download and run the model. |
 | [Another server](#another-openai-compatible-server) | You run vLLM, the llama.cpp server or another OpenAI-compatible API. |
+
+Dashed boxes are optional. A custom `WORKFLOW_LLM_BASE_URL` sends
+transcripts to that server, wherever it runs.
+
+```mermaid
+flowchart LR
+    subgraph Machine["Your computer"]
+        subgraph Stack["Compose stack"]
+            Kafka[(Kafka)]
+            Runner["workflow-runner<br/>(no host port)"]
+            subgraph Overlay["docker-compose.ollama.yml"]
+                OllamaStack["ollama + ollama_pull<br/>(no host port)"]
+            end
+        end
+        OllamaHost["Ollama app<br/>127.0.0.1:11434"]
+    end
+    Remote["Another OpenAI-compatible server<br/>vLLM, llama.cpp server, ..."]
+
+    Kafka <-->|"jobs and results"| Runner
+    Runner -->|"default<br/>host.docker.internal:11434/v1"| OllamaHost
+    Runner -.->|"overlay: ollama:11434/v1<br/>internal 'workflow' network"| OllamaStack
+    Runner -.->|"WORKFLOW_LLM_BASE_URL<br/>transcripts go to this server"| Remote
+
+    style Overlay stroke-dasharray: 6 4
+    style Remote stroke-dasharray: 6 4
+```
 
 ### Ollama on your computer
 
