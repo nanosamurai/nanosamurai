@@ -45,12 +45,13 @@ pinned by source SHA.
 - multi-tenancy support
 - recording storage and full-session final transcripts
 - PostgreSQL transcript persistence
+- on-demand [**LLM workflows**](#workflows), such as meeting summaries, on finished recordings
 - Python SDK and CLI source
 - optional Grafana, Prometheus, Tempo, Loki, and Alloy stack
 - public smoke tests and trace-context audit
 
 The public code also includes agentic-workflow and webhook contracts.
-Community Edition does not currently ship workflow execution or webhook delivery
+Community Edition does not ship automatic workflow routing or webhook delivery
 services, but you are free to implement your own workflows / webhook services and plug them in.
 <br clear="right">
 
@@ -75,6 +76,15 @@ flowchart LR
         RefinementService["Refinement service<br/>[WhisperX, Parakeet, Qwen3-ASR]"]
         RecorderWorker["recorder_worker<br/>(session WAV)"]
         FinalizerService["Finalizer service<br/>[WhisperX, Parakeet, Qwen3-ASR]"]
+    end
+
+    subgraph Workflows["Workflows (on demand)"]
+        WorkflowRunner["workflow-runner"]
+        OllamaInStack["ollama<br/>(optional overlay)"]
+    end
+
+    subgraph External["Outside the stack (you provide)"]
+        ModelServer["OpenAI-compatible model server<br/>Ollama on the host (default),<br/>vLLM, llama.cpp server, ..."]
     end
 
     Browser -->|HTTP /api + /auth| HTTP
@@ -109,6 +119,12 @@ flowchart LR
     KafkaBroker -->|"consume<br/>topic: recordings.finished"| FinalizerService
     FinalizerService -->|"produce protobuf SessionTranscript<br/>topic: transcripts.final"| KafkaBroker
 
+    SamuraiBFF -->|"produce JSON WorkflowDispatchJob (on demand)<br/>topic: workflow.dispatch"| KafkaBroker
+    KafkaBroker -->|"consume<br/>topic: workflow.dispatch"| WorkflowRunner
+    WorkflowRunner -->|"prompt + transcript<br/>OpenAI chat completions"| ModelServer
+    WorkflowRunner -.->|"or, with docker-compose.ollama.yml"| OllamaInStack
+    WorkflowRunner -->|"produce JSON<br/>topics: workflow.result, workflow.outcome"| KafkaBroker
+
     RecorderWorker -->|"write session WAV"| ObjectStore
     FinalizerService -->|"read recording; optional speaker enrollments"| ObjectStore
     SamuraiBFF -->|"serve recordings; read/write speaker enrollments"| ObjectStore
@@ -117,8 +133,12 @@ flowchart LR
 
     KafkaBroker -->|"consume + persist<br/>topic: transcripts.refined"| Persistor["SamuraiPersistor<br/>(PostgreSQL writer)"]
     KafkaBroker -->|"consume + persist<br/>topic: transcripts.final"| Persistor
+    KafkaBroker -->|"consume + persist<br/>topics: workflow.result, workflow.outcome"| Persistor
     Persistor -->|persist| Postgres
     SamuraiBFF -->|query| Postgres
+
+    style External stroke-dasharray: 6 4
+    style OllamaInStack stroke-dasharray: 6 4
 ```
 
 Each speech-service box groups independently deployed, selectable tracks for
@@ -236,6 +256,33 @@ See
 Windows/Linux instructions, the tested hardware disclosure, observability, and
 safe reset commands.
 
+## Workflows
+
+A workflow runs your prompt over a finished transcript, for example *summarize
+this meeting and list the action items*. Create workflows on the **Workflows**
+page, then run one from a recording's **Workflows** panel or with
+`POST /api/recordings/{id}/workflows/{workflow_id}/runs`. The result is stored
+with the session.
+
+The stack includes the workflow runner, which calls any OpenAI-compatible model
+server. It does not start a model for you. By default it uses Ollama on your
+computer:
+
+```bash
+ollama pull qwen2.5:7b-instruct
+```
+
+With Docker Desktop on Windows or macOS this works with Ollama's default
+settings; Linux needs one Ollama setting. To run Ollama inside the stack
+instead, add the `docker-compose.ollama.yml` overlay. Without a reachable model
+server the rest of the stack works normally, and workflow runs fail after about
+two minutes.
+
+Community Edition runs workflows only when you start them: there is no
+automatic workflow routing during a recording and no webhook delivery. See
+[Local LLM workflows](docs/local-llm-workflows.md) for setup, model choice,
+settings, and security notes.
+
 ## Optional observability
 
 <img src="docs/tempo.png"/>
@@ -260,6 +307,7 @@ endpoints, available signals, trace behavior, and current limitations.
 - [Documentation index](docs/README.md)
 - [Getting started](docs/getting-started.md)
 - [Choose models](docs/models/README.md)
+- [Local LLM workflows](docs/local-llm-workflows.md)
 - [Transcription lifecycle](docs/transcription-lifecycle.md)
 - [APIs and extension points](docs/apis-and-extension-points.md)
 - [Architecture and Community Edition boundary](docs/architecture.md)

@@ -13,7 +13,8 @@ Do not commit these machine-local overrides or promote newly built images into
 the default pins as part of provider development. The base stack, the Whisper
 overlay, and the Qwen realtime overlay use release pins. The Qwen worker overlay
 has only a source-build recipe; promoting it requires a separate release change
-after the checks below.
+after the checks below. The base stack's `workflow-runner` uses a release pin
+like the other services; the Ollama overlay uses an explicit Ollama version.
 
 Before updating a default pin:
 

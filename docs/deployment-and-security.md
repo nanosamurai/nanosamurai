@@ -125,15 +125,17 @@ Included in the public evaluator:
 - Python SDK and CLI source
 - public smoke tests
 - optional local metrics, traces, and logs
+- on-demand workflows on finished recordings with a local LLM
+  ([Local LLM workflows](local-llm-workflows.md))
 
 Public contracts but disabled by default:
 
-- agentic workflow routing and results
+- automatic, event-triggered workflow routing
 - webhook routing and delivery outcomes
 
 Not supplied:
 
-- workflow execution services
+- automatic workflow routing services
 - webhook delivery services
 - public production Kubernetes manifests
 - cloud-account infrastructure automation
