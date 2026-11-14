@@ -187,31 +187,30 @@ service.
 
 ## Explicit opt-in
 
-Only enable the extension lanes after supplying compatible services, Kafka
-topics, security controls, and operational ownership:
+Each capability has its own flag, and every flag is off unless set. Only
+enable a capability after supplying compatible services, Kafka topics,
+security controls, and operational ownership.
 
-```text
-SAMURAIBFF_CE_MODE=false
-SAMURAIPERSISTOR_CE_MODE=false
-```
+| Flag | Enables | Default stack |
+| --- | --- | --- |
+| `SAMURAIBFF_WORKFLOWS_ONDEMAND_ENABLED` | Workflow definitions, on-demand runs on finished sessions, saved results | `true` |
+| `SAMURAIBFF_WORKFLOWS_TRIGGERED_ENABLED` | Automatic event-triggered workflows and their result consumer | off |
+| `SAMURAIBFF_WEBHOOKS_ENABLED` | Webhook definitions, session webhook selection and delivery outcomes | off |
+| `SP_WORKFLOW_RESULT_ENABLED` | Persistor consumer for `workflow.result` | `true` |
+| `SP_WORKFLOW_OUTCOME_ENABLED` | Persistor consumer for `workflow.outcome` | `true` |
+| `SP_WEBHOOK_OUTCOME_ENABLED` | Persistor consumer for webhook delivery outcomes | off |
 
 Setting these flags does not install an automatic workflow router or webhook
-dispatcher. It enables the BFF APIs, routing consumers, and persistence
-consumers that are disabled in the default Community Edition mode. The default
-stack already sets `SAMURAIPERSISTOR_CE_MODE=false` with webhook outcomes off,
-so that the persistor stores on-demand workflow results.
+dispatcher. It enables the BFF APIs, routing, and persistence consumers for
+that capability. A persistor consumer stores whatever arrives on its topic, so
+turn one on only when a trusted producer writes to that topic and Kafka ACLs
+restrict who may write.
 
-SamuraiPersistor also supports per-consumer controls outside CE mode:
-
-```text
-SP_WEBHOOK_OUTCOME_ENABLED
-SP_WORKFLOW_RESULT_ENABLED
-SP_WORKFLOW_OUTCOME_ENABLED
-```
-
-Enable only the topics and consumers implemented by the supplied integration.
-Missing services or topics can otherwise create failed or misleading runtime
-flows.
+`SAMURAIBFF_CE_MODE=false` and `SAMURAIPERSISTOR_CE_MODE=false` are deprecated
+shortcuts that turn on every flag that is not set. An explicit flag always
+wins. Enable only the topics and consumers implemented by the supplied
+integration. Missing services or topics can otherwise create failed or
+misleading runtime flows.
 
 ## Component ownership
 

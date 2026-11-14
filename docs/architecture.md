@@ -146,7 +146,7 @@ match between writers and readers.
 LocalStack also exposes a Secrets Manager endpoint, and the evaluator configures
 SamuraiBFF's webhook secret-store adapter to use it. The initialization script
 does not create any secrets, and the webhook APIs that would write them are
-disabled in default Community Edition mode. This role is therefore normally
+disabled unless `SAMURAIBFF_WEBHOOKS_ENABLED` is set. This role is therefore normally
 idle in the supplied evaluator. Ceph RADOS Gateway, MinIO, or another
 S3-compatible store replaces only object storage; it does not provide an AWS
 Secrets Manager API. See [Production secret management](deployment-and-security.md#production-secret-management)
