@@ -81,3 +81,4 @@ apply_migration 020 020-bind-workflows-to-tracks.up.sql
 apply_migration 021 021-add-session-pagination-index.up.sql
 apply_migration 022 022-add-access-control.up.sql
 apply_migration 024 024-add-personal-and-organization-api-keys.up.sql
+apply_migration 025 025-add-transcript-corrections.up.sql
