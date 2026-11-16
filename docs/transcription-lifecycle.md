@@ -127,11 +127,25 @@ Disabling an output prevents unnecessary downstream processing for that lane.
 `store_recording=false` controls long-term retention; the finalizer still needs
 temporary access to completed audio when `final=true`.
 
+## Corrections
+
+The owner of a session (or whoever else manages it) can correct the final
+transcript on the recording page: segment text, the speaker of one segment,
+or the speaker of every segment with the same machine label. Each edit is
+saved at once with its author and time; Undo adds another correction. The
+machine transcript is never changed, so the page can show the Corrected,
+Changes and Original versions. Readers of a shared session see corrections
+but cannot make them. Export and on-demand workflows use the corrected
+version. Corrections are stored in PostgreSQL (`transcript_corrections`) and
+are deleted with their session. See
+[SamuraiBFF corrections](https://github.com/nanosamurai/samuraibff/blob/master/docs/features-transcripts.md#corrections).
+
 ## Persistence and visibility
 
 - Realtime hypotheses are live events and are not the canonical stored
   transcript.
-- Refined and final transcript records are persisted in PostgreSQL.
+- Refined and final transcript records are persisted in PostgreSQL. Human
+  corrections are stored next to them; machine records do not change.
 - Recorded audio is served through SamuraiBFF's authenticated, tenant-scoped
   playback endpoint when authentication is enabled.
 - Internal `file://` and `s3://` recording locations are not exposed to browser
