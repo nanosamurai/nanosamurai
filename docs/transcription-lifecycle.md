@@ -133,8 +133,8 @@ The owner of a session (or whoever else manages it) can correct the final
 transcript on the recording page: segment text, the speaker of one segment,
 or the speaker of every segment with the same machine label. Each edit is
 saved at once with its author and time; Undo adds another correction. The
-machine transcript is never changed, so the page can show the Corrected,
-Changes and Original versions. Readers of a shared session see corrections
+machine transcript is never changed, so the page can show the changes
+against it, and export can still return the machine output. Readers of a shared session see corrections
 but cannot make them. Export and on-demand workflows use the corrected
 version. Corrections are stored in PostgreSQL (`transcript_corrections`) and
 are deleted with their session. See
