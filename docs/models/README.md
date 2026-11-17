@@ -21,13 +21,14 @@ The other families are optional overlays. You choose which setup runs.
 | [Nemotron](nemotron.md) | Nemotron 3.5 ASR | — | — | On by default |
 | [Parakeet](parakeet.md) | — | Parakeet TDT v3 | Parakeet TDT v3 | On by default |
 | [Whisper](whisper.md) | Faster-Whisper | WhisperX | WhisperX | Optional overlay |
+| [Voxtral](voxtral.md) | Voxtral Mini 4B Realtime | — | — | Optional overlay; no token |
 | [Qwen](qwen.md) | Qwen3-ASR | Qwen3-ASR | Qwen3-ASR | Optional overlays |
 
 The base stack also starts the browser UI, API, database, message broker,
 recording service, and storage.
 
 All families have images in [GHCR](https://github.com/orgs/nanosamurai/packages?repo_name=xamurai).
-The base file, the Whisper overlay, and the Qwen realtime overlay select published images.
+The base file and the Whisper, Voxtral and Qwen realtime overlays use GHCR image pins.
 The Qwen worker overlay defaults to local image names. Its guide shows a local build.
 See [image choices](source-builds.md#published-images-and-compose-defaults) for the published-image settings.
 
@@ -38,6 +39,7 @@ See [image choices](source-builds.md#published-images-and-compose-defaults) for 
 | Default: Nemotron and Parakeet | `docker-compose.yml` |
 | Whisper next to the defaults, for example to compare results | `docker-compose.yml` and `docker-compose.whisper.yml` |
 | Whisper only | The Whisper files and [the replacement example](whisper.md#use-whisper-instead-of-nemotron-and-parakeet) |
+| Voxtral alongside Nemotron | `docker-compose.yml` and [`docker-compose.voxtral.yml`](../../docker-compose.voxtral.yml) |
 | Qwen next to the defaults | `docker-compose.yml` and [one or both Qwen overlays](qwen.md) |
 
 Nemotron and Parakeet also list other languages, including German.
@@ -49,7 +51,7 @@ Compare the models with your own audio before you choose one for another languag
 A model family can include several sizes or variants.
 Each guide lists the available choices and the settings supported by this stack:
 [Whisper](whisper.md#model-sizes-and-variants), [Qwen](qwen.md#model-sizes-and-variants),
-[Nemotron](nemotron.md#model-sizes-and-variants), and [Parakeet](parakeet.md#model-sizes-and-variants).
+[Nemotron](nemotron.md#model-sizes-and-variants), [Voxtral](voxtral.md), and [Parakeet](parakeet.md#model-sizes-and-variants).
 
 Model size and computation precision are separate choices.
 For example, `0.6B` describes the parameter count. Q8 and INT8 describe 8-bit representation.
@@ -82,7 +84,7 @@ Set one track ID per stage in `.env`. Leave a value blank to use the behavior be
 | Refined | `SAMURAIBFF_DEFAULT_REFINEMENT_TRACK` | First configured refined track |
 | Final | `SAMURAIBFF_DEFAULT_FINAL_TRACK` | First configured final track |
 
-Thus, the Whisper and Qwen realtime overlays select two realtime models when no default is set.
+The Whisper, Voxtral and Qwen realtime overlays each add a peer to Nemotron when no default is set.
 The Whisper and Qwen worker overlays list Parakeet first, so it remains the initial refined and final choice.
 
 For example, after you [add Whisper](whisper.md#add-whisper), set these values in `.env`:
@@ -165,7 +167,7 @@ Realtime and worker overlays control different stages. You can combine them.
 However, two overlays for the same stage replace the same track list;
 Compose does not join comma-separated values. See [Compose merge rules](https://docs.docker.com/reference/compose-file/merge/).
 
-For example, add these settings to your last local overlay to offer all families:
+For example, add these settings to your last local overlay to offer Whisper and Qwen alongside the defaults:
 
 ```yaml
 services:

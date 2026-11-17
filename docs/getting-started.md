@@ -18,11 +18,10 @@ These NVIDIA models are fast and accurate in English. They need no Hugging Face 
 The browser UI, API, database, recording service, and storage start with them.
 All three output stages and recording storage are enabled by default.
 
-Whisper and Qwen are optional overlays. They cover more languages and need a Hugging Face token.
 To use another model, follow [Choose models](models/README.md).
 Each family has its own setup guide:
 [Nemotron](models/nemotron.md), [Parakeet](models/parakeet.md),
-[Whisper](models/whisper.md), and [Qwen](models/qwen.md).
+[Whisper](models/whisper.md), [Voxtral](models/voxtral.md), and [Qwen](models/qwen.md).
 If you used an earlier version with Whisper as the default, see
 [Upgrade from the Whisper default](models/README.md#upgrade-from-the-whisper-default).
 

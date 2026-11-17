@@ -1,0 +1,27 @@
+# Optional live transcription peer. Apply after the root docker-compose.yml.
+services:
+  samuraibff:
+    environment:
+      SAMURAIBFF_GRPC_REALTIME_TRACKS: ${SAMURAIBFF_GRPC_REALTIME_TRACKS:-nemotron=nemotron-rtservice:50052,voxtral=voxtral-rtservice:50052}
+    depends_on:
+      voxtral-rtservice:
+        condition: service_healthy
+
+  voxtral-rtservice:
+    image: ${VOXTRAL_RTSERVICE_IMAGE:-ghcr.io/nanosamurai/xamurai-voxtral-rtservice:sha-a207190bfc63f6f6128c9411f4d27e04a60a4517}
+    restart: unless-stopped
+    gpus: all
+    shm_size: 4gb
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    environment:
+      VOXTRAL_RTSERVICE_BIND_ADDR: 0.0.0.0
+      RT_SERVING_MAX_SESSIONS: "${VOXTRAL_MAX_SESSIONS:-2}"
+      VOXTRAL_KV_CACHE_MIB: "${VOXTRAL_KV_CACHE_MIB:-6144}"
+      VOXTRAL_GPU_MEMORY_UTILIZATION: "${VOXTRAL_GPU_MEMORY_UTILIZATION:-0.7}"
+    volumes:
+      - nanosamurai_voxtral_hf_cache:/data/huggingface
+    # Use the image's model-readiness healthcheck. No gRPC or metrics host port.
+
+volumes:
+  nanosamurai_voxtral_hf_cache:
