@@ -18,8 +18,6 @@ These NVIDIA models are fast and accurate in English. They need no Hugging Face 
 The browser UI, API, database, recording service, and storage start with them.
 All three output stages and recording storage are enabled by default.
 
-Voxtral is an optional model for multilingual live text and needs no token.
-Whisper and Qwen are also optional; they need a Hugging Face token for their speaker models.
 To use another model, follow [Choose models](models/README.md).
 Each family has its own setup guide:
 [Nemotron](models/nemotron.md), [Parakeet](models/parakeet.md),
