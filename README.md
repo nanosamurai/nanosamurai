@@ -201,7 +201,7 @@ languages, enrolled speaker names, or a comparison on the same audio.
 | Nemotron | Realtime; on by default | [Nemotron](docs/models/nemotron.md) |
 | Parakeet | Refined and final; on by default | [Parakeet](docs/models/parakeet.md) |
 | Whisper | Realtime, refined, and final; `docker-compose.whisper.yml` | [Whisper](docs/models/whisper.md) |
-| Voxtral Mini 4B Realtime | Live text in 13 languages; optional, no Hugging Face token | [Add Voxtral](docs/models/voxtral.md) |
+| Voxtral Mini 4B | Realtime; no Hugging Face token | [Voxtral](docs/models/voxtral.md) |
 | Qwen | Realtime, refined, and final; `docker-compose.qwen.yml`, `docker-compose.qwen-workers.yml` | [Qwen](docs/models/qwen.md) |
 
 The [model guide](docs/models/README.md) explains how to add, select, or stop each model.
