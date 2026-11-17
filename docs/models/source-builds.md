@@ -11,7 +11,7 @@ The Compose image pins do not change when source code merges.
 ## Published images and Compose defaults
 
 All model families have published images in [GHCR](https://github.com/orgs/nanosamurai/packages?repo_name=xamurai).
-The base stack, the Whisper overlay, and the Qwen realtime overlay select published image tags by default.
+The base stack and the Whisper, Voxtral and Qwen realtime overlays use GHCR image pins by default.
 The Qwen worker overlay includes build settings and defaults to `:local` images.
 Every model service accepts an image override in `.env`:
 
@@ -23,6 +23,7 @@ Every model service accepts an image override in `.env`:
 | [`docker-compose.whisper.yml`](../../docker-compose.whisper.yml) | `RTSERVICE_IMAGE` | `xamurai-rtservice` |
 | Same Whisper overlay | `WHISPERX_WORKER_IMAGE` | `xamurai-whisperx-worker` |
 | Same Whisper overlay | `FINALIZER_WORKER_IMAGE` | `xamurai-finalizer-worker` |
+| [`docker-compose.voxtral.yml`](../../docker-compose.voxtral.yml) | `VOXTRAL_RTSERVICE_IMAGE` | `xamurai-voxtral-rtservice` |
 | [`docker-compose.qwen.yml`](../../docker-compose.qwen.yml) | `QWEN_RTSERVICE_IMAGE` | `xamurai-qwen-rtservice` |
 | [`docker-compose.qwen-workers.yml`](../../docker-compose.qwen-workers.yml) | `QWEN_FINALIZER_IMAGE` | `xamurai-qwen-finalizer` |
 | Same Qwen worker overlay | `QWEN_REFINEMENT_IMAGE` | `xamurai-qwen-refinement` |
@@ -63,6 +64,7 @@ cd ../nanosamurai
 ```
 
 For the Whisper overlay, also bake `rtservice whisperx-worker finalizer-worker`.
+For Voxtral, bake `voxtral-rtservice` and set `VOXTRAL_RTSERVICE_IMAGE=xamurai-voxtral-rtservice:local`.
 Bake uses the `local` tag by default. If you set `TAG`, use that tag below.
 Set these image overrides in the ignored `.env`:
 

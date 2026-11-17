@@ -72,7 +72,7 @@ flowchart LR
     end
 
     subgraph Xamurai["Xamurai (Python services)"]
-        RealtimeService["Realtime service<br/>[Faster-Whisper,<br/>Qwen3-ASR, Nemotron]"]
+        RealtimeService["Realtime service<br/>[Nemotron, Faster-Whisper,<br/>Voxtral, Qwen3-ASR]"]
         RefinementService["Refinement service<br/>[WhisperX, Parakeet, Qwen3-ASR]"]
         RecorderWorker["recorder_worker<br/>(session WAV)"]
         FinalizerService["Finalizer service<br/>[WhisperX, Parakeet, Qwen3-ASR]"]
@@ -151,7 +151,7 @@ pipelines that support it.
 The stack consists of:
 
 - [xamurai](https://github.com/nanosamurai/xamurai) contains the speech services:
-  - `rtservice`, `qwen_rtservice` and `nemotron_rtservice`: realtime transcription.
+  - `nemotron_rtservice`, `rtservice` (Faster-Whisper), `voxtral_rtservice`, and `qwen_rtservice`: realtime transcription.
   - `whisperx_worker`: one pipeline with refinement and finalizer entrypoints,
     built with `Dockerfile.refinement` and `Dockerfile.finalizer`.
   - `parakeet_worker`: Parakeet refinement and finalization with embedded Sortformer.
@@ -201,6 +201,7 @@ languages, enrolled speaker names, or a comparison on the same audio.
 | Nemotron | Realtime; on by default | [Nemotron](docs/models/nemotron.md) |
 | Parakeet | Refined and final; on by default | [Parakeet](docs/models/parakeet.md) |
 | Whisper | Realtime, refined, and final; `docker-compose.whisper.yml` | [Whisper](docs/models/whisper.md) |
+| Voxtral Mini 4B Realtime | Live text in 13 languages; optional, no Hugging Face token | [Add Voxtral](docs/models/voxtral.md) |
 | Qwen | Realtime, refined, and final; `docker-compose.qwen.yml`, `docker-compose.qwen-workers.yml` | [Qwen](docs/models/qwen.md) |
 
 The [model guide](docs/models/README.md) explains how to add, select, or stop each model.
