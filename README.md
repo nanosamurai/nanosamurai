@@ -211,7 +211,7 @@ The stack consists of:
   SDK and CLI
 
 Kafka carries audio and transcript events. PostgreSQL stores session and
-transcript data. The evaluator uses LocalStack for S3-compatible recording and
+transcript data. The Compose stack uses LocalStack for S3-compatible recording and
 speaker-enrollment storage; deployments can configure another S3-compatible
 provider, such as AWS S3, Ceph RADOS Gateway, or MinIO.
 
@@ -270,7 +270,7 @@ Windows PowerShell:
 Copy-Item .env.example .env
 ```
 
-Start the complete evaluator stack:
+Start the stack:
 
 ```bash
 docker compose pull
@@ -404,7 +404,7 @@ in their owning component repositories.
 
 ## Deployment boundary
 
-Docker Compose is the supported public evaluation path. The containerized
+Docker Compose on one machine is the supported install. The containerized
 services can be adapted to Kubernetes, but this repository does not supply
 production Kubernetes manifests or charts.
 
@@ -417,7 +417,7 @@ See [Deployment and security boundaries](docs/deployment-and-security.md).
 
 - All published host ports bind to `127.0.0.1` by default through
   `COMPOSE_BIND_IP`.
-- The evaluator uses fixed development credentials and starts in local mode:
+- The Compose stack uses fixed development credentials and starts in local mode:
   no sign-in, one local Admin.
 - To turn on sign-in, bring your own OpenID Connect provider, such as Keycloak.
   See [Sign-in and access control](docs/authentication.md) for roles, sharing,
