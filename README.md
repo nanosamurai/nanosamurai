@@ -76,6 +76,27 @@ workflow routing during a recording and no webhook delivery. The public code
 includes the contracts if you want to build your own.
 <br clear="right">
 
+## How it compares
+
+Many good open-source projects turn speech into text. Pick the one that fits
+your job:
+
+| You want | Look at |
+| --- | --- |
+| Dictation into any app on your computer | [Handy](https://github.com/cjpais/Handy), [OpenWhispr](https://github.com/OpenWhispr/openwhispr) |
+| Meeting notes for one person, in a desktop app | [Meetily](https://github.com/Zackriya-Solutions/meetily) |
+| File transcription in a desktop app | [Buzz](https://github.com/chidiwilliams/buzz), [Vibe](https://github.com/thewh1teagle/vibe), [noScribe](https://github.com/kaixxx/noScribe) |
+| A real-time speech server to put behind your own application | [WhisperLiveKit](https://github.com/QuentinFuxa/WhisperLiveKit), [Speaches](https://github.com/speaches-ai/speaches) |
+| A Python library: Whisper with word timings and speakers | [WhisperX](https://github.com/m-bain/whisperX) |
+| A self-hosted team app for recorded files | [Speakr](https://github.com/murtaza-nasir/speakr) |
+| Bots that join online meetings and transcribe them | [Vexa](https://github.com/Vexa-ai/vexa) |
+
+nanosamur.ai does a different job. It is a shared server that runs several
+models on the same audio, live and after the recording, keeps the recordings
+and transcripts, and lets a team correct and share them. Choose something else
+if you have no NVIDIA GPU, need a Mac or CPU-only setup, or want a single
+binary.
+
 
 ## Architecture
 
