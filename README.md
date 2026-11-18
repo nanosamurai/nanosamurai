@@ -339,6 +339,50 @@ across SamuraiBFF, the Python workers, SamuraiPersistor, Kafka, and PostgreSQL.
 See [Operations and observability](docs/operations-and-observability.md) for
 endpoints, available signals, trace behavior, and current limitations.
 
+## FAQ
+
+**Why Kafka, for transcription?**
+One audio stream goes to several models and three passes. Each reads it from
+the log at its own pace, so a slow final pass never holds up live text, and a
+finished recording can be processed again with another model. The cost is more
+containers than a single-process tool.
+
+**Do I need an NVIDIA GPU?**
+Yes. There is no CPU or Apple Silicon path today. In our release rehearsal on a
+24 GB laptop GPU, the default models used about 3.6 GB of GPU memory. That is a
+tested setup, not a minimum. Optional models need more; the Voxtral guide
+suggests a 24 GB GPU as a starting point.
+
+**Which languages?**
+This stack tests the default models with English. Their model cards list more:
+Parakeet TDT v3 lists 25 European languages. Voxtral covers 13 languages, and
+Whisper covers many more. Try the models on your own audio before you choose
+one.
+
+**How many speakers?**
+The default refined and final passes label up to four speakers with
+Sortformer. For more, use the Whisper or Qwen overlay, which use pyannote and
+need a Hugging Face token. Live text has no speaker labels by default; they
+arrive with the refined text a few seconds later.
+
+**Does audio leave my machine?**
+The speech models run in local containers. The workflow runner sends a
+transcript only to the model server you configure, which is Ollama on your
+computer by default. The first start downloads container images and model
+weights.
+
+**Can my team use it?**
+It has sign-in, organizations, roles and sharing, and each pass runs as its own
+service. This repository runs everything on one machine with Docker Compose,
+fixed development credentials and ports on `127.0.0.1`. Before other people use
+it, turn on [sign-in](docs/authentication.md) and read
+[Deployment and security boundaries](docs/deployment-and-security.md).
+
+**What about model licences?**
+The code is Apache-2.0. Each model has its own licence, and the
+[model guides](docs/models/README.md) link the model cards. Check them before
+you use a model commercially.
+
 ## Documentation
 
 - [Documentation index](docs/README.md)
