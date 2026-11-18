@@ -31,26 +31,49 @@ Then open <http://127.0.0.1:8000/live>, choose **Microphone** and **Record
 now**. The first start downloads the models and takes several minutes. The
 [Quickstart](#quickstart) has the checks and the Windows notes.
 
-## What nanosamur.ai includes
-<img src="docs/main-art-large.png" width="35%" align="right">
+## What it does
+<img src="docs/main-art-large.png" width="35%" align="right" alt="">
 
+**Transcribe**
 
-- browser UI and SamuraiBFF API
-- Windows-first Electron wrapper
-- one or more independently selectable [**realtime transcription** models](#model-pipelines-in-the-supplied-stack)
-- [**batch** and **semi-batch** processing](#model-pipelines-in-the-supplied-stack) with one or more models
-- diarization (currently Pyannote or Sortformer), vad, alignment
-- multi-tenancy support
-- recording storage and full-session final transcripts
-- PostgreSQL transcript persistence
-- on-demand [**LLM workflows**](#workflows), such as meeting summaries, on finished recordings
-- Python SDK and CLI source
-- optional Grafana, Prometheus, Tempo, Loki, and Alloy stack
-- public smoke tests and trace-context audit
+- Live text while you speak, refined text with speaker labels a few seconds
+  later, and a final transcript of the whole recording after you stop.
+- Several [models](#models) on the same audio at once. Each model's output is
+  a separate, labelled track, so you can compare them side by side.
+- Record in the browser or the Windows desktop app, or upload audio and video
+  files.
+- Re-transcribe a finished session with other models. The result is a new
+  session; the original stays as it was.
 
-The public code also includes agentic-workflow and webhook contracts.
-Community Edition does not ship automatic workflow routing or webhook delivery
-services, but you are free to implement your own workflows / webhook services and plug them in.
+**Review and use the transcript**
+
+- Correct words and speakers. The machine transcript is kept: **Show changes**
+  compares the two, Undo works, and export can return either version.
+- Export SRT, VTT, TXT, JSON or DOCX, with speaker names in the subtitles.
+- Run your own prompt on a finished transcript, for example *summarize this
+  meeting and list the action items*, with a local model through Ollama or any
+  OpenAI-compatible server. See [Workflows](#workflows).
+
+**Share and connect**
+
+- Local mode for one person, or sign-in with your own OpenID Connect provider:
+  organizations, roles, session sharing and API keys.
+- REST and WebSocket APIs, a Python SDK and CLI, and an OpenAI-compatible
+  `POST /v1/audio/transcriptions` endpoint.
+
+**Run and observe**
+
+- Audio and transcript events go through Kafka, and recordings are stored. A
+  slow or failed pass does not block the others, and a recording can be
+  processed again.
+- One trace per session across all services. Grafana, Prometheus, Tempo, Loki
+  and GPU metrics come in an optional overlay.
+- Service images are pinned by source SHA. All ports bind to `127.0.0.1` by
+  default.
+
+Community Edition runs workflows only when you start them. It has no automatic
+workflow routing during a recording and no webhook delivery. The public code
+includes the contracts if you want to build your own.
 <br clear="right">
 
 
@@ -177,7 +200,7 @@ API consumers should start with
 [APIs and extension points](docs/apis-and-extension-points.md) for the generated
 OpenAPI contract, Swagger UI, and BFF-owned protocol documentation.
 
-## Supported Models
+## Models
 
 Realtime transcription gives you text while you speak. Refinement processes
 short audio windows during the session. Final processing uses the complete
@@ -194,22 +217,16 @@ languages, enrolled speaker names, or a comparison on the same audio.
 
 ### Model pipelines in the supplied stack
 
-| Model family | Available output | Setup guide |
-| --- | --- | --- |
-| Nemotron | Realtime; on by default | [Nemotron](docs/models/nemotron.md) |
-| Parakeet | Refined and final; on by default | [Parakeet](docs/models/parakeet.md) |
-| Whisper | Realtime, refined, and final; `docker-compose.whisper.yml` | [Whisper](docs/models/whisper.md) |
-| Voxtral Mini 4B | Realtime; no Hugging Face token | [Voxtral](docs/models/voxtral.md) |
-| Qwen | Realtime, refined, and final; `docker-compose.qwen.yml`, `docker-compose.qwen-workers.yml` | [Qwen](docs/models/qwen.md) |
+| Model family | Models | Available output | Setup guide |
+| --- | --- | --- | --- |
+| Nemotron | NVIDIA Nemotron 3.5 ASR streaming | Realtime; on by default | [Nemotron](docs/models/nemotron.md) |
+| Parakeet | NVIDIA Parakeet TDT v3 with Sortformer speaker labels | Refined and final; on by default | [Parakeet](docs/models/parakeet.md) |
+| Whisper | faster-whisper; WhisperX with pyannote | Realtime, refined, and final; `docker-compose.whisper.yml` | [Whisper](docs/models/whisper.md) |
+| Voxtral | Mistral Voxtral Mini 4B Realtime 2602 | Realtime, 13 languages; no Hugging Face token | [Voxtral](docs/models/voxtral.md) |
+| Qwen | Qwen3-ASR | Realtime, refined, and final; `docker-compose.qwen.yml`, `docker-compose.qwen-workers.yml` | [Qwen](docs/models/qwen.md) |
 
 The [model guide](docs/models/README.md) explains how to add, select, or stop each model.
 All model families have published container images. Each guide describes its setup.
-
-### Demo: Running 2 models in parallel
-
-<a href="https://nanosamur.ai/#demo">
-  <img src="https://nanosamur.ai/blog/posts/qwen-vs-whisper/multi-model-realtime-screenshot.png" alt="Qwen3-ASR and faster-whisper transcribing the same audio in real time" width="100%">
-</a>
 
 ## Quickstart
 
