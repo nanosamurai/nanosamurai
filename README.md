@@ -1,37 +1,35 @@
-<img src="docs/nanosamurai_logo_finished_shoulders.svg" width="100">
+<img src="docs/nanosamurai_logo_finished_shoulders.svg" width="100" alt="nanosamur.ai logo">
 
 # [nanosamur.ai](https://nanosamur.ai)
-guarding your sensitive conversations</sub>
 
-<sub>Your voice. Your control.</sub>
-
-## **Complete speech AI platform**
-
-- open source
-- production-grade, distributed architecture
-- [model agnostic](#model-pipelines-in-the-supplied-stack)
-- multitenancy support
-
-nanosamur.ai guards sensitive conversations in infrastructure you control. 
-
-It is a model-agnostic orchestration platform that supports different models for
-realtime, refined, and batch processing and provides a unified stack for robust
-speech processing, agentic workflows, and webhooks.
-
-Batteries included: we have a browser UI, a windows Electron app, API,
-SDK, recording storage, persistence, and optional local observability.
-
-This is the public front-door repository for running Community Edition locally
-with Docker Compose. Service images are pulled from `ghcr.io/nanosamurai/*` and
-pinned by source SHA.
-
-## Demo - See it in action
+Self-hosted transcription server. Run several open speech models on the same
+audio, live and after the recording, and see which one works for your audio.
 
 <a href="https://nanosamur.ai/#demo">
-  <img src="docs/demo-poster.jpg" alt="nanosamur.ai final transcript and workflow results" width="100%">
+  <img src="https://nanosamur.ai/blog/posts/qwen-vs-whisper/multi-model-realtime-screenshot.png" alt="Qwen3-ASR and faster-whisper transcribing the same audio in real time" width="100%">
 </a>
 
-[Watch nanosamur.ai](https://nanosamur.ai/#demo) turn a live conversation into speaker-aware transcripts, workflow results, a searchable final record, and a fully traced session. 
+<sub>Two models on the same live audio. [Watch the demo video](https://nanosamur.ai/#demo).</sub>
+
+Running one speech model is easy. Running several on the same live audio, and
+keeping the recording, the final transcripts, speaker names and corrections
+for a team, is the part we built. It is your organization's own transcription
+service: live text, speaker labels, stored recordings, sign-in, sharing and an
+API, on your own GPU, with no per-minute bill.
+
+**You need** an NVIDIA GPU, Docker with Compose v2, and disk space for images
+and models. The default models need no Hugging Face token.
+
+```bash
+git clone https://github.com/nanosamurai/nanosamurai.git
+cd nanosamurai
+cp .env.example .env
+docker compose up -d
+```
+
+Then open <http://127.0.0.1:8000/live>, choose **Microphone** and **Record
+now**. The first start downloads the models and takes several minutes. The
+[Quickstart](#quickstart) has the checks and the Windows notes.
 
 ## What nanosamur.ai includes
 <img src="docs/main-art-large.png" width="35%" align="right">
