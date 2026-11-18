@@ -2,20 +2,25 @@
 
 # [nanosamur.ai](https://nanosamur.ai)
 
-Self-hosted transcription server. Run several open speech models on the same
-audio, live and after the recording, and see which one works for your audio.
+Self-hosted transcription server for open speech models. Pick the model that
+works for your audio, for live text and for the final transcript, and switch
+when a better one comes out.
 
 <a href="https://nanosamur.ai/#demo">
   <img src="https://nanosamur.ai/blog/posts/qwen-vs-whisper/multi-model-realtime-screenshot.png" alt="Qwen3-ASR and faster-whisper transcribing the same audio in real time" width="100%">
 </a>
 
-<sub>Two models on the same live audio. [Watch the demo video](https://nanosamur.ai/#demo).</sub>
+<sub>Comparing two models on the same live audio. [Watch the demo video](https://nanosamur.ai/#demo).</sub>
 
-Running one speech model is easy. Running several on the same live audio, and
-keeping the recording, the final transcripts, speaker names and corrections
-for a team, is the part we built. It is your organization's own transcription
-service: live text, speaker labels, stored recordings, sign-in, sharing and an
-API, on your own GPU, with no per-minute bill.
+Running one speech model is easy. Running a transcription service around it is
+the part we built: live text, speaker labels, stored recordings, corrections,
+sign-in, sharing and an API, on your own GPU, with no per-minute bill. It is
+your organization's own transcription service.
+
+The model is a setting. NVIDIA Nemotron and Parakeet are the defaults. Whisper
+and Voxtral are one overlay file away, and Qwen3-ASR has its own guide. Pick
+one model for each pass, change it for a single session, or run two on the
+same audio when you want to compare them.
 
 **You need** an NVIDIA GPU, Docker with Compose v2, and disk space for images
 and models. The default models need no Hugging Face token.
@@ -38,12 +43,15 @@ now**. The first start downloads the models and takes several minutes. The
 
 - Live text while you speak, refined text with speaker labels a few seconds
   later, and a final transcript of the whole recording after you stop.
-- Several [models](#models) on the same audio at once. Each model's output is
-  a separate, labelled track, so you can compare them side by side.
+- Pick the [model](#models) for each pass: Nemotron, Parakeet, Whisper,
+  Voxtral or Qwen3-ASR. Set the defaults once in `.env`, or change them in
+  **Session settings** before you record.
+- Re-transcribe a finished session with another model. The result is a new
+  session; the original stays as it was.
+- Compare models when you need to: select two for a pass, and each one's
+  output is a separate, labelled track.
 - Record in the browser or the Windows desktop app, or upload audio and video
   files.
-- Re-transcribe a finished session with other models. The result is a new
-  session; the original stays as it was.
 
 **Review and use the transcript**
 
@@ -91,9 +99,10 @@ your job:
 | A self-hosted team app for recorded files | [Speakr](https://github.com/murtaza-nasir/speakr) |
 | Bots that join online meetings and transcribe them | [Vexa](https://github.com/Vexa-ai/vexa) |
 
-nanosamur.ai does a different job. It is a shared server that runs several
-models on the same audio, live and after the recording, keeps the recordings
-and transcripts, and lets a team correct and share them. Choose something else
+nanosamur.ai does a different job. It is a shared server that hosts several
+open speech models and lets you pick one for live text and one for the final
+transcript. It keeps the recordings and transcripts, and lets a team correct
+and share them. Choose something else
 if you have no NVIDIA GPU, need a Mac or CPU-only setup, or want a single
 binary.
 
@@ -227,14 +236,14 @@ Realtime transcription gives you text while you speak. Refinement processes
 short audio windows during the session. Final processing uses the complete
 recording after you stop.
 
-You can choose different models for each stage or use several models together.
-Each model returns a separate result from the same audio.
-This lets you compare live, refined, and final transcripts for your language and task.
+Pick one model for each stage, and change the choice for a single session in
+**Session settings**. To compare models, select more than one for a stage. Each
+returns a separate result, called a track, from the same audio.
 
 The default stack uses NVIDIA Nemotron for live text and NVIDIA Parakeet for
 refined and final transcripts. They are fast and accurate in English and need no
-Hugging Face token. Add Whisper or Qwen with an overlay when you need more
-languages, enrolled speaker names, or a comparison on the same audio.
+Hugging Face token. Add Whisper, Voxtral or Qwen with an overlay when you need
+more languages or enrolled speaker names.
 
 ### Model pipelines in the supplied stack
 
@@ -342,10 +351,17 @@ endpoints, available signals, trace behavior, and current limitations.
 ## FAQ
 
 **Why Kafka, for transcription?**
-One audio stream goes to several models and three passes. Each reads it from
-the log at its own pace, so a slow final pass never holds up live text, and a
-finished recording can be processed again with another model. The cost is more
-containers than a single-process tool.
+One audio stream goes to three passes, and sometimes to more than one model in
+a pass. Each reads it from the log at its own pace, so a slow final pass never
+holds up live text, and a finished recording can be processed again with
+another model. The cost is more containers than a single-process tool.
+
+**Which model should I use?**
+Start with the defaults, Nemotron for live text and Parakeet for the rest. If
+they struggle with your language, accents or vocabulary, add another model and
+try it. Re-transcribe a recording you already have, or select two models for
+one session and compare them on the same speech. Then set the one that works as
+your default.
 
 **Do I need an NVIDIA GPU?**
 Yes. There is no CPU or Apple Silicon path today. In our release rehearsal on a
