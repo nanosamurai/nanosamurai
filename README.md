@@ -230,20 +230,20 @@ API consumers should start with
 [APIs and extension points](docs/apis-and-extension-points.md) for the generated
 OpenAPI contract, Swagger UI, and BFF-owned protocol documentation.
 
-## Models
+## Supported Models
 
 Realtime transcription gives you text while you speak. Refinement processes
 short audio windows during the session. Final processing uses the complete
 recording after you stop.
 
-Pick one model for each stage, and change the choice for a single session in
-**Session settings**. To compare models, select more than one for a stage. Each
-returns a separate result, called a track, from the same audio.
+You can choose different models for each stage or use several models together.
+Each model returns a separate result from the same audio.
+This lets you compare live, refined, and final transcripts for your language and task.
 
 The default stack uses NVIDIA Nemotron for live text and NVIDIA Parakeet for
 refined and final transcripts. They are fast and accurate in English and need no
 Hugging Face token. Add Whisper, Voxtral or Qwen with an overlay when you need
-more languages or enrolled speaker names.
+more languages, enrolled speaker names, or a comparison on the same audio.
 
 ### Model pipelines in the supplied stack
 
@@ -257,6 +257,12 @@ more languages or enrolled speaker names.
 
 The [model guide](docs/models/README.md) explains how to add, select, or stop each model.
 All model families have published container images. Each guide describes its setup.
+
+### Demo: Running 2 models in parallel
+
+<a href="https://nanosamur.ai/#demo">
+  <img src="https://nanosamur.ai/blog/posts/qwen-vs-whisper/multi-model-realtime-screenshot.png" alt="Qwen3-ASR and faster-whisper transcribing the same audio in real time" width="100%">
+</a>
 
 ## Quickstart
 
