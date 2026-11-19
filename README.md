@@ -1,26 +1,38 @@
 <img src="docs/nanosamurai_logo_finished_shoulders.svg" width="100" alt="nanosamur.ai logo">
 
 # [nanosamur.ai](https://nanosamur.ai)
+<sub>guarding your sensitive conversations</sub>
 
-Self-hosted transcription server for open speech models. Pick the model that
-works for your audio, for live text and for the final transcript, and switch
-when a better one comes out.
+<sub>Your voice. Your control.</sub>
 
-<a href="https://nanosamur.ai/#demo">
-  <img src="https://nanosamur.ai/blog/posts/qwen-vs-whisper/multi-model-realtime-screenshot.png" alt="Qwen3-ASR and faster-whisper transcribing the same audio in real time" width="100%">
-</a>
+## **Complete speech AI platform**
 
-<sub>Comparing two models on the same live audio. [Watch the demo video](https://nanosamur.ai/#demo).</sub>
+- open source
+- production-grade, distributed architecture
+- [model agnostic](#model-pipelines-in-the-supplied-stack)
+- multitenancy support
+
+nanosamur.ai guards sensitive conversations in infrastructure you control. It
+is a self-hosted transcription server for open speech models.
 
 Running one speech model is easy. Running a transcription service around it is
 the part we built: live text, speaker labels, stored recordings, corrections,
 sign-in, sharing and an API, on your own GPU, with no per-minute bill. It is
 your organization's own transcription service.
 
-The model is a setting. NVIDIA Nemotron and Parakeet are the defaults. Whisper
-and Voxtral are one overlay file away, and Qwen3-ASR has its own guide. Pick
-one model for each pass, change it for a single session, or run two on the
-same audio when you want to compare them.
+It is a model-agnostic orchestration platform that supports different models for
+realtime, refined, and batch processing and provides a unified stack for robust
+speech processing, agentic workflows, and webhooks. NVIDIA Nemotron and
+Parakeet are the defaults; Whisper, Voxtral and Qwen3-ASR are optional. Pick
+one model for each pass, change it for a single session, or run two on the same
+audio to compare them.
+
+Batteries included: we have a browser UI, a windows Electron app, API,
+SDK, recording storage, persistence, and optional local observability.
+
+This is the public front-door repository for running Community Edition locally
+with Docker Compose. Service images are pulled from `ghcr.io/nanosamurai/*` and
+pinned by source SHA.
 
 **You need** an NVIDIA GPU, Docker with Compose v2, and disk space for images
 and models. The default models need no Hugging Face token.
@@ -35,6 +47,14 @@ docker compose up -d
 Then open <http://127.0.0.1:8000/live>, choose **Microphone** and **Record
 now**. The first start downloads the models and takes several minutes. The
 [Quickstart](#quickstart) has the checks and the Windows notes.
+
+## Demo - See it in action
+
+<a href="https://nanosamur.ai/#demo">
+  <img src="docs/demo-poster.jpg" alt="nanosamur.ai final transcript and workflow results" width="100%">
+</a>
+
+[Watch nanosamur.ai](https://nanosamur.ai/#demo) turn a live conversation into speaker-aware transcripts, workflow results, a searchable final record, and a fully traced session.
 
 ## What it does
 <img src="docs/main-art-large.png" width="35%" align="right" alt="">
