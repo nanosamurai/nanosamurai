@@ -56,52 +56,32 @@ now**. The first start downloads the models and takes several minutes. The
 
 [Watch nanosamur.ai](https://nanosamur.ai/#demo) turn a live conversation into speaker-aware transcripts, workflow results, a searchable final record, and a fully traced session.
 
-## What it does
+## What nanosamur.ai includes
 <img src="docs/main-art-large.png" width="35%" align="right" alt="">
 
-**Transcribe**
 
-- Live text while you speak, refined text with speaker labels a few seconds
-  later, and a final transcript of the whole recording after you stop.
-- Pick the [model](#models) for each pass: Nemotron, Parakeet, Whisper,
-  Voxtral or Qwen3-ASR. Set the defaults once in `.env`, or change them in
-  **Session settings** before you record.
-- Re-transcribe a finished session with another model. The result is a new
-  session; the original stays as it was.
-- Compare models when you need to: select two for a pass, and each one's
-  output is a separate, labelled track.
-- Record in the browser or the Windows desktop app, or upload audio and video
-  files.
+- browser UI and SamuraiBFF API
+- OpenAI-compatible `POST /v1/audio/transcriptions` endpoint
+- Windows-first Electron wrapper
+- one or more independently selectable [**realtime transcription** models](#model-pipelines-in-the-supplied-stack)
+- [**batch** and **semi-batch** processing](#model-pipelines-in-the-supplied-stack) with one or more models
+- diarization (currently Pyannote or Sortformer), vad, alignment
+- multi-tenancy support
+- sign-in with your own OpenID Connect provider: organizations, roles, session sharing and API keys
+- recording storage and full-session final transcripts
+- audio and video file upload in the browser, SDK and CLI
+- re-transcription of a finished session with another model, into a new linked session
+- **corrections** of words and speakers that keep the machine transcript, with **Show changes**, Undo and export of either version
+- export to SRT, VTT, TXT, JSON and DOCX, with speaker names in subtitles
+- PostgreSQL transcript persistence
+- on-demand [**LLM workflows**](#workflows), such as meeting summaries, on finished recordings
+- Python SDK and CLI source
+- optional Grafana, Prometheus, Tempo, Loki, and Alloy stack
+- public smoke tests and trace-context audit
 
-**Review and use the transcript**
-
-- Correct words and speakers. The machine transcript is kept: **Show changes**
-  compares the two, Undo works, and export can return either version.
-- Export SRT, VTT, TXT, JSON or DOCX, with speaker names in the subtitles.
-- Run your own prompt on a finished transcript, for example *summarize this
-  meeting and list the action items*, with a local model through Ollama or any
-  OpenAI-compatible server. See [Workflows](#workflows).
-
-**Share and connect**
-
-- Local mode for one person, or sign-in with your own OpenID Connect provider:
-  organizations, roles, session sharing and API keys.
-- REST and WebSocket APIs, a Python SDK and CLI, and an OpenAI-compatible
-  `POST /v1/audio/transcriptions` endpoint.
-
-**Run and observe**
-
-- Audio and transcript events go through Kafka, and recordings are stored. A
-  slow or failed pass does not block the others, and a recording can be
-  processed again.
-- One trace per session across all services. Grafana, Prometheus, Tempo, Loki
-  and GPU metrics come in an optional overlay.
-- Service images are pinned by source SHA. All ports bind to `127.0.0.1` by
-  default.
-
-Community Edition runs workflows only when you start them. It has no automatic
-workflow routing during a recording and no webhook delivery. The public code
-includes the contracts if you want to build your own.
+The public code also includes agentic-workflow and webhook contracts.
+Community Edition does not ship automatic workflow routing or webhook delivery
+services, but you are free to implement your own workflows / webhook services and plug them in.
 <br clear="right">
 
 ## How it compares
