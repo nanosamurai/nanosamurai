@@ -13,18 +13,15 @@
 - multitenancy support
 
 nanosamur.ai guards sensitive conversations in infrastructure you control. It
-is a self-hosted transcription server for open speech models.
+is a self-hosted transcription platform for open speech models.
 
 Running one speech model is easy. Running a transcription service around it is
-the part we built: live text, speaker labels, stored recordings, corrections,
-sign-in, sharing and an API, on your own GPU, with no per-minute bill. It is
-your organization's own transcription service.
+the part we built: live transcription text, speaker labels, stored recordings, corrections,
+sign-in, agentic workflows, webhooks, sharing and an API, on your own GPU, with no per-minute bill. It is
+your organization's own transcription service with full observability.
 
-It is a model-agnostic orchestration platform that supports different models for
-realtime, refined, and batch processing and provides a unified stack for robust
-speech processing, agentic workflows, and webhooks. NVIDIA Nemotron and
-Parakeet are the defaults; Whisper, Voxtral and Qwen3-ASR are optional. Pick
-one model for each pass, change it for a single session, or run two on the same
+NVIDIA Nemotron and Parakeet are the default models; Whisper, Voxtral and Qwen3-ASR are optional. 
+Run one or multiple; change it for a single session, or run two on the same
 audio to compare them.
 
 Batteries included: we have a browser UI, a windows Electron app, API,
@@ -34,7 +31,7 @@ This is the public front-door repository for running Community Edition locally
 with Docker Compose. Service images are pulled from `ghcr.io/nanosamurai/*` and
 pinned by source SHA.
 
-**You need** an NVIDIA GPU, Docker with Compose v2, and disk space for images
+**You need** a GPU, Docker and disk space for images
 and models. The default models need no Hugging Face token.
 
 ```bash
@@ -394,10 +391,8 @@ computer by default. The first start downloads container images and model
 weights.
 
 **Can my team use it?**
-It has sign-in, organizations, roles and sharing, and each pass runs as its own
-service. This repository runs everything on one machine with Docker Compose,
-fixed development credentials and ports on `127.0.0.1`. Before other people use
-it, turn on [sign-in](docs/authentication.md) and read
+It has sign-in, organizations, roles and sharing, and each component runs as its own
+service. Before other people use it, turn on [sign-in](docs/authentication.md) and read
 [Deployment and security boundaries](docs/deployment-and-security.md).
 
 **What about model licences?**
@@ -426,9 +421,8 @@ in their owning component repositories.
 
 ## Deployment boundary
 
-Docker Compose on one machine is the supported install. The containerized
-services can be adapted to Kubernetes, but this repository does not supply
-production Kubernetes manifests or charts.
+Docker Compose on one machine is the supported install for the local setup. The containerized
+services can be adapted to Kubernetes.
 
 Speech processing can run without a cloud speech API after container images,
 models, and other dependencies have been staged. The normal quickstart
