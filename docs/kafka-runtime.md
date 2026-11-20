@@ -9,15 +9,16 @@ without changing Kafka's separate heap, authentication or performance options.
 
 ## Fixed runtime recipe
 
-[`docker/kafka/Dockerfile`](../docker/kafka/Dockerfile) preserves Apache Kafka
-4.3.1's complete vendor distribution and replaces its entire Linux amd64/musl JRE
+[`docker/kafka/Dockerfile`](../docker/kafka/Dockerfile) uses Apache Kafka
+4.3.2's complete vendor distribution and replaces its entire Linux amd64/musl JRE
 with Eclipse Temurin 21.0.13.1+2. The official release archive is verified against
 its pinned SHA-256 before extraction. This is a fixed build identified by
 [Adoptium](https://adoptium.net/news/2026/11/temurin-november-2026-cspu-java4shell),
 not an assumption that updating Alpine packages updates Java.
 
-The recipe retains the Kafka application version, CLI commands, configuration,
-data formats, non-root user, vendor licenses and Temurin CA entrypoint. It
+This is a patch update within the existing Kafka 4.3 line. The recipe retains
+the complete vendor CLI/classpath, configuration, data formats, non-root user,
+vendor licenses and Temurin CA entrypoint. It
 preserves the eMudhra truststore hardening and appends the Base64 mitigation to
 caller JVM options as defense in depth. The image also sets the mitigation in
 its default `JAVA_TOOL_OPTIONS`, covering direct commands that bypass its
@@ -39,12 +40,24 @@ python smoke-tests/kafka_runtime.py --image nanosamurai-kafka:qualified
 
 The smoke uses its own Compose project, an internal network, synthetic messages
 and a temporary named volume. It publishes no host ports and cleans up only its
-own resources. It checks the JVM build, actual broker-start flags, caller-option
-preservation, Java truststore and non-root execution. It runs the real Compose
-topic initializer twice, recreates the broker, and verifies topic identity,
-configuration and messages survive. This proves preservation only for its
-explicitly mounted test volume, not for an existing evaluator installation.
+own resources. It starts the digest-pinned Kafka 4.3.1 baseline with the mitigation,
+then replaces it with the candidate and checks existing records, committed
+consumer offsets and 4.3.1 client compatibility. It also checks the fixed JVM
+build, actual broker-start flags, caller-option preservation, Java truststore and
+non-root execution. It runs the real Compose topic initializer twice, recreates
+the candidate broker, and verifies topic identity, configuration and messages
+survive. This proves preservation only for its explicitly mounted test volume,
+not for an existing evaluator installation.
 It does not touch the normal local stack.
+
+Local qualification on 2026-11-20 passed that complete smoke for the Kafka 4.3.2
+candidate. The complete Trivy 0.76.1 scan inventoried 80 OS and 109 Java packages
+and reported no findings at any severity; its SPDX inventory contained 191
+packages, including Kafka. The exact JVM build and effective mitigation were
+verified separately at runtime because a package scan alone does not establish
+the security status of the downloaded JRE. These results qualify the tested
+local bytes only. CI must repeat the gates and publication must verify the final
+registry artifact before the default can be promoted.
 
 ## Publication and promotion
 
@@ -56,7 +69,7 @@ It collects all severities before applying the Unknown/High/Critical publication
 gate. Full vulnerability reports are not uploaded publicly.
 On reviewed `master` changes, it publishes the already-tested image bytes through
 the repository's `GITHUB_TOKEN` to `ghcr.io/nanosamurai/kafka`, using
-`sha-<commit>-4.3.1`. It does not rebuild after qualification. No personal access
+`sha-<commit>-4.3.2`. It does not rebuild after qualification. No personal access
 token is required. The SBOM is attached as a signed registry attestation.
 
 For the first publication, confirm the package is linked to this repository and

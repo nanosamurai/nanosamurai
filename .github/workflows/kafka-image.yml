@@ -96,7 +96,7 @@ jobs:
       artifact-metadata: write
     env:
       IMAGE_NAME: ghcr.io/nanosamurai/kafka
-      IMAGE_TAG: ghcr.io/nanosamurai/kafka:sha-${{ github.sha }}-4.3.1
+      IMAGE_TAG: ghcr.io/nanosamurai/kafka:sha-${{ github.sha }}-4.3.2
     steps:
       - uses: actions/download-artifact@v4
         with:
