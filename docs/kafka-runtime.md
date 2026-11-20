@@ -44,8 +44,11 @@ configuration and messages survive. It does not touch the normal local stack.
 
 ## Publication and promotion
 
-The Kafka workflow builds and tests a candidate, generates a nonempty SPDX SBOM,
-and scans the complete image. Unapproved High/Critical findings fail publication.
+Draft PRs run source checks without starting this workflow's image qualification.
+Marking a PR ready for review triggers the build/runtime/scan gates. The Kafka
+workflow builds and tests a candidate, generates an SPDX SBOM with Kafka inventory,
+and requires both OS and Kafka Java package coverage in the complete image scan.
+Unknown/High/Critical findings fail publication.
 On reviewed `master` changes, it publishes the already-tested image bytes through
 the repository's `GITHUB_TOKEN` to `ghcr.io/nanosamurai/kafka`, using
 `sha-<commit>-4.3.1`. It does not rebuild after qualification. No personal access

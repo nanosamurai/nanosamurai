@@ -2,6 +2,7 @@ name: Qualify and publish Kafka runtime
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths: ["docker/kafka/**", "smoke-tests/kafka_runtime.py", "docker-compose.yml", ".github/workflows/kafka-image.yml", ".github/workflows/gitleaks.yml"]
   push:
     branches: [master]
@@ -22,6 +23,7 @@ jobs:
       pull-requests: read
 
   qualify:
+    if: github.event_name == 'push' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -50,12 +52,16 @@ jobs:
           docker run --rm \
             -v "${RUNNER_TEMP}/kafka:/scan" -v "${RUNNER_TEMP}/trivy-cache:/root/.cache/trivy" \
             "${SCANNER}" image --input /scan/kafka.tar --format spdx-json --output /scan/kafka.spdx.json
-          jq -e '.SPDXID == "SPDXRef-DOCUMENT" and ((.packages // []) | length > 0)' \
+          jq -e '.SPDXID == "SPDXRef-DOCUMENT" and ((.packages // []) | length > 0) and any(.packages[]; .name | test("kafka"))' \
             "${RUNNER_TEMP}/kafka/kafka.spdx.json"
           docker run --rm \
             -v "${RUNNER_TEMP}/kafka:/scan" -v "${RUNNER_TEMP}/trivy-cache:/root/.cache/trivy" \
             "${SCANNER}" image --input /scan/kafka.tar --scanners vuln \
-            --severity HIGH,CRITICAL --exit-code 1 --format json --output /scan/vulnerabilities.json
+            --list-all-pkgs --severity UNKNOWN,HIGH,CRITICAL --exit-code 1 \
+            --format json --output /scan/vulnerabilities.json
+          jq -e '([.Results[] | select(.Class == "os-pkgs") | .Packages[]?] | length) > 0 and
+                 ([.Results[] | select(.Type == "jar") | .Packages[]? | select(.Name | startswith("org.apache.kafka:"))] | length) > 0' \
+            "${RUNNER_TEMP}/kafka/vulnerabilities.json"
       - name: Retain qualification reports
         if: always()
         uses: actions/upload-artifact@v4
