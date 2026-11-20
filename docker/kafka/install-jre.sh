@@ -6,7 +6,7 @@ set -eu
 [ "$JAVA_HOME" = /opt/java/openjdk ]
 rm -rf /opt/java/openjdk
 mkdir -p /opt/java/openjdk
-tar -xzf /tmp/kafka-jre.tar.gz -C /opt/java/openjdk --strip-components=1
+tar -xzf /tmp/kafka-jre.tar.gz -C /opt/java/openjdk --strip-components=1 --no-same-owner
 rm /tmp/kafka-jre.tar.gz
 java -XshowSettings:properties -version 2>&1 | grep -F 'java.runtime.version = 21.0.13.1+2-LTS'
 
