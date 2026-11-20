@@ -7,6 +7,12 @@ image-selection mechanism for the evaluator. Image environment variables are
 optional overrides for local development, evaluation of another immutable
 release, or rollback; users do not need to set them for the normal quickstart.
 
+The BFF pin also includes its registry digest. It selects the release from
+[BFF PR #194](https://github.com/nanosamurai/samuraibff/pull/194), with the fixed
+amd64 Temurin `21.0.13.1+2` runtime for CVE-2026-114938. An existing
+`SAMURAIBFF_IMAGE` override takes precedence; update or remove an older override
+to select this release. Application settings and database migrations are unchanged.
+
 Keep local source-build image selections and enrollment calibration in the
 ignored `.env` or `docker-compose.local-asr.yml`, selected explicitly with `-f`.
 Do not commit these machine-local overrides or promote newly built images into
