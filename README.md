@@ -318,7 +318,6 @@ endpoints, available signals, trace behavior, and current limitations.
 - [Smoke tests and release rehearsal](docs/smoke-tests.md)
 - [Troubleshooting](docs/troubleshooting.md)
 - [Image release policy](docs/image-release-policy.md)
-- [Kafka runtime qualification](docs/kafka-runtime.md)
 
 Detailed API, WebSocket, SDK, speech-service, and persistence contracts remain
 in their owning component repositories.
