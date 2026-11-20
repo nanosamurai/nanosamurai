@@ -67,8 +67,10 @@ The evaluator configuration:
 
 - uses fixed development credentials
 - disables browser/API authentication for quick local access
-- uses LocalStack for S3-compatible object storage and exposes its Secrets
-  Manager endpoint to SamuraiBFF's normally idle webhook secret-store adapter
+- uses SeaweedFS for S3-compatible object storage, with the fixed development
+  credentials as its only S3 identity
+- uses LocalStack only for its Secrets Manager endpoint, which SamuraiBFF's
+  normally idle webhook secret-store adapter uses
 - exposes local diagnostic services
 
 Do not change the bind to `0.0.0.0` as a shortcut. Before any shared or remote
