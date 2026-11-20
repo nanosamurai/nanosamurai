@@ -1,0 +1,4 @@
+*
+!Dockerfile
+!install-jre.sh
+!runtime-entrypoint.sh
