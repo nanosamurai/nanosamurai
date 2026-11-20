@@ -27,6 +27,9 @@ Before updating a default pin:
 
 Infrastructure images use explicit version tags rather than `latest`. Automated
 dependency updates must still pass the same Compose and smoke validation.
+Kafka additionally pins the registry digest and applies the Base64 mitigation
+to the broker and initialization tools. See [Kafka runtime qualification](kafka-runtime.md)
+for the complete fixed-JRE recipe, publication gate and data-preserving update.
 
 Future stable releases may add semantic-version tags. An `edge` tag may be
 provided for convenience, but it must never be the default in this repository.

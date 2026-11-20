@@ -1,6 +1,7 @@
 name: gitleaks
 
 on:
+  workflow_call:
   pull_request:
   push:
     branches: [master]

@@ -1,0 +1,141 @@
+name: Qualify and publish Kafka runtime
+
+on:
+  pull_request:
+    paths: ["docker/kafka/**", "smoke-tests/kafka_runtime.py", "docker-compose.yml", ".github/workflows/kafka-image.yml", ".github/workflows/gitleaks.yml"]
+  push:
+    branches: [master]
+    paths: ["docker/kafka/**", "smoke-tests/kafka_runtime.py", "docker-compose.yml", ".github/workflows/kafka-image.yml", ".github/workflows/gitleaks.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kafka-image-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  secret-scan:
+    uses: ./.github/workflows/gitleaks.yml
+    permissions:
+      contents: read
+      pull-requests: read
+
+  qualify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v4
+      - name: Build the candidate once
+        uses: docker/build-push-action@v7
+        with:
+          context: docker/kafka
+          platforms: linux/amd64
+          load: true
+          tags: kafka-qualified:${{ github.sha }}
+          labels: org.opencontainers.image.revision=${{ github.sha }}
+          provenance: false
+      - name: Qualify the broker and existing topic initialization
+        run: python smoke-tests/kafka_runtime.py --image "kafka-qualified:${GITHUB_SHA}"
+      - name: Save the tested image
+        run: |
+          mkdir -p "${RUNNER_TEMP}/kafka" "${RUNNER_TEMP}/trivy-cache"
+          docker save "kafka-qualified:${GITHUB_SHA}" --output "${RUNNER_TEMP}/kafka/kafka.tar"
+          cd "${RUNNER_TEMP}/kafka"
+          sha256sum kafka.tar > kafka.tar.sha256
+      - name: Scan the complete image and generate its SBOM
+        env:
+          SCANNER: aquasec/trivy:0.76.1@sha256:2e6c00d711ab4ae41d8a30c2c1fd3bd3b62704c177bb120f95012e939edfb3df
+        run: |
+          docker run --rm \
+            -v "${RUNNER_TEMP}/kafka:/scan" -v "${RUNNER_TEMP}/trivy-cache:/root/.cache/trivy" \
+            "${SCANNER}" image --input /scan/kafka.tar --format spdx-json --output /scan/kafka.spdx.json
+          jq -e '.SPDXID == "SPDXRef-DOCUMENT" and ((.packages // []) | length > 0)' \
+            "${RUNNER_TEMP}/kafka/kafka.spdx.json"
+          docker run --rm \
+            -v "${RUNNER_TEMP}/kafka:/scan" -v "${RUNNER_TEMP}/trivy-cache:/root/.cache/trivy" \
+            "${SCANNER}" image --input /scan/kafka.tar --scanners vuln \
+            --severity HIGH,CRITICAL --exit-code 1 --format json --output /scan/vulnerabilities.json
+      - name: Retain qualification reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kafka-reports-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/kafka/kafka.spdx.json
+          if-no-files-found: warn
+      - name: Retain the qualified image for publication
+        uses: actions/upload-artifact@v4
+        with:
+          name: kafka-image-${{ github.sha }}
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/kafka/kafka.tar
+            ${{ runner.temp }}/kafka/kafka.tar.sha256
+            ${{ runner.temp }}/kafka/kafka.spdx.json
+
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: [qualify, secret-scan]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    env:
+      IMAGE_NAME: ghcr.io/nanosamurai/kafka
+      IMAGE_TAG: ghcr.io/nanosamurai/kafka:sha-${{ github.sha }}-4.3.1
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: kafka-image-${{ github.sha }}
+          path: candidate
+      - name: Verify and load the tested bytes
+        run: |
+          cd candidate
+          sha256sum --check kafka.tar.sha256
+          docker load --input kafka.tar
+          docker tag "kafka-qualified:${GITHUB_SHA}" "${IMAGE_TAG}"
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish without rebuilding
+        id: push
+        run: |
+          docker push "${IMAGE_TAG}"
+          digest="$(docker image inspect "${IMAGE_TAG}" --format '{{index .RepoDigests 0}}')"
+          echo "digest=${digest#*@}" >> "${GITHUB_OUTPUT}"
+      - name: Attest the SBOM of the tested image
+        uses: actions/attest@v4
+        with:
+          push-to-registry: true
+          sbom-path: candidate/kafka.spdx.json
+          subject-digest: ${{ steps.push.outputs.digest }}
+          subject-name: ghcr.io/nanosamurai/kafka
+      - name: Verify anonymous access before promotion
+        env:
+          IMAGE_DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          python - <<'PY'
+          import json, os, urllib.request
+          token = json.load(urllib.request.urlopen(
+              "https://ghcr.io/token?service=ghcr.io&scope=repository:nanosamurai/kafka:pull"))["token"]
+          request = urllib.request.Request(
+              "https://ghcr.io/v2/nanosamurai/kafka/manifests/" + os.environ["IMAGE_DIGEST"],
+              headers={"Authorization": "Bearer " + token,
+                       "Accept": "application/vnd.docker.distribution.manifest.v2+json,application/vnd.oci.image.manifest.v1+json"})
+          with urllib.request.urlopen(request) as response:
+              assert response.headers["Docker-Content-Digest"] == os.environ["IMAGE_DIGEST"]
+          print("Anonymous manifest access verified")
+          PY
+      - name: Record the immutable artifact
+        env:
+          IMAGE_DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          echo "Qualified Kafka: ${IMAGE_NAME}@${IMAGE_DIGEST}" >> "${GITHUB_STEP_SUMMARY}"
+          echo "Tag: ${IMAGE_TAG}; default Compose promotion is a separate reviewed change." >> "${GITHUB_STEP_SUMMARY}"

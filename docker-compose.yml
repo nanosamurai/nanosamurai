@@ -2,9 +2,10 @@ name: nanosamurai
 
 services:
   broker:
-    image: ${KAFKA_IMAGE:-apache/kafka:4.3.1}
+    image: ${KAFKA_IMAGE:-apache/kafka:4.3.1@sha256:77e3df9054047a88b520d0cc46e16696d3b22022e1d580aeccd2632df6532837}
     restart: unless-stopped
     environment:
+      JAVA_TOOL_OPTIONS: "${KAFKA_JAVA_TOOL_OPTIONS:-} -XX:-UseBASE64Intrinsics"
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_LISTENERS: INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
@@ -22,7 +23,9 @@ services:
       - "${COMPOSE_BIND_IP:-127.0.0.1}:9092:9092"
 
   kafka_init:
-    image: ${KAFKA_IMAGE:-apache/kafka:4.3.1}
+    image: ${KAFKA_IMAGE:-apache/kafka:4.3.1@sha256:77e3df9054047a88b520d0cc46e16696d3b22022e1d580aeccd2632df6532837}
+    environment:
+      JAVA_TOOL_OPTIONS: "${KAFKA_JAVA_TOOL_OPTIONS:-} -XX:-UseBASE64Intrinsics"
     depends_on:
       - broker
     restart: "no"
