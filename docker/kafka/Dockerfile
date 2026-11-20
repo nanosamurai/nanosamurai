@@ -9,7 +9,8 @@ RUN apk upgrade --no-cache \
     && /usr/local/bin/install-jre.sh \
     && rm /usr/local/bin/install-jre.sh
 
-ENV JAVA_VERSION=jdk-21.0.13.1+2
+ENV JAVA_VERSION=jdk-21.0.13.1+2 \
+    JAVA_TOOL_OPTIONS="-XX:-UseBASE64Intrinsics"
 LABEL org.opencontainers.image.source="https://github.com/nanosamurai/nanosamurai" \
       org.opencontainers.image.title="Nanosamurai Kafka runtime" \
       org.opencontainers.image.description="Apache Kafka 4.3.1 with Eclipse Temurin 21.0.13.1+2"

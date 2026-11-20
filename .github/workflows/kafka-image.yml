@@ -57,10 +57,13 @@ jobs:
           docker run --rm \
             -v "${RUNNER_TEMP}/kafka:/scan" -v "${RUNNER_TEMP}/trivy-cache:/root/.cache/trivy" \
             "${SCANNER}" image --input /scan/kafka.tar --scanners vuln \
-            --list-all-pkgs --severity UNKNOWN,HIGH,CRITICAL --exit-code 1 \
-            --format json --output /scan/vulnerabilities.json
+            --list-all-pkgs --exit-code 0 --format json --output /scan/vulnerabilities.json
           jq -e '([.Results[] | select(.Class == "os-pkgs") | .Packages[]?] | length) > 0 and
                  ([.Results[] | select(.Type == "jar") | .Packages[]? | select(.Name | startswith("org.apache.kafka:"))] | length) > 0' \
+            "${RUNNER_TEMP}/kafka/vulnerabilities.json"
+          # Collect every severity first; keep the full report private to the runner.
+          jq -e '([.Results[]? | .Vulnerabilities[]? |
+                    select(.Severity == "UNKNOWN" or .Severity == "HIGH" or .Severity == "CRITICAL")] | length) == 0' \
             "${RUNNER_TEMP}/kafka/vulnerabilities.json"
       - name: Retain qualification reports
         if: always()
