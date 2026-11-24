@@ -1,7 +1,7 @@
-<img src="docs/nanosamurai_logo_finished_shoulders.svg" width="100">
+<img src="docs/nanosamurai_logo_finished_shoulders.svg" width="100" alt="nanosamur.ai logo">
 
 # [nanosamur.ai](https://nanosamur.ai)
-guarding your sensitive conversations</sub>
+<sub>guarding your sensitive conversations</sub>
 
 <sub>Your voice. Your control.</sub>
 
@@ -12,11 +12,17 @@ guarding your sensitive conversations</sub>
 - [model agnostic](#model-pipelines-in-the-supplied-stack)
 - multitenancy support
 
-nanosamur.ai guards sensitive conversations in infrastructure you control. 
+nanosamur.ai guards sensitive conversations in infrastructure you control. It
+is a self-hosted transcription platform for open speech models.
 
-It is a model-agnostic orchestration platform that supports different models for
-realtime, refined, and batch processing and provides a unified stack for robust
-speech processing, agentic workflows, and webhooks.
+Running one speech model is easy. Running a transcription service around it is
+the part we built: live transcription text, speaker labels, stored recordings, corrections,
+sign-in, agentic workflows, webhooks, sharing and an API, on your own GPU, with no per-minute bill. It is
+your organization's own transcription service with full observability.
+
+NVIDIA Nemotron and Parakeet are the default models; Whisper, Voxtral and Qwen3-ASR are optional. 
+Run one or multiple; change it for a single session, or run two on the same
+audio to compare them.
 
 Batteries included: we have a browser UI, a windows Electron app, API,
 SDK, recording storage, persistence, and optional local observability.
@@ -25,25 +31,45 @@ This is the public front-door repository for running Community Edition locally
 with Docker Compose. Service images are pulled from `ghcr.io/nanosamurai/*` and
 pinned by source SHA.
 
+**You need** a GPU, Docker and disk space for images
+and models. The default models need no Hugging Face token.
+
+```bash
+git clone https://github.com/nanosamurai/nanosamurai.git
+cd nanosamurai
+cp .env.example .env
+docker compose up -d
+```
+
+Then open <http://127.0.0.1:8000/live>, choose **Microphone** and **Record
+now**. The first start downloads the models and takes several minutes. The
+[Quickstart](#quickstart) has the checks and the Windows notes.
+
 ## Demo - See it in action
 
 <a href="https://nanosamur.ai/#demo">
   <img src="docs/demo-poster.jpg" alt="nanosamur.ai final transcript and workflow results" width="100%">
 </a>
 
-[Watch nanosamur.ai](https://nanosamur.ai/#demo) turn a live conversation into speaker-aware transcripts, workflow results, a searchable final record, and a fully traced session. 
+[Watch nanosamur.ai](https://nanosamur.ai/#demo) turn a live conversation into speaker-aware transcripts, workflow results, a searchable final record, and a fully traced session.
 
 ## What nanosamur.ai includes
-<img src="docs/main-art-large.png" width="35%" align="right">
+<img src="docs/main-art-large.png" width="35%" align="right" alt="">
 
 
 - browser UI and SamuraiBFF API
+- OpenAI-compatible `POST /v1/audio/transcriptions` endpoint
 - Windows-first Electron wrapper
 - one or more independently selectable [**realtime transcription** models](#model-pipelines-in-the-supplied-stack)
 - [**batch** and **semi-batch** processing](#model-pipelines-in-the-supplied-stack) with one or more models
 - diarization (currently Pyannote or Sortformer), vad, alignment
 - multi-tenancy support
+- sign-in with your own OpenID Connect provider: organizations, roles, session sharing and API keys
 - recording storage and full-session final transcripts
+- audio and video file upload in the browser, SDK and CLI
+- re-transcription of a finished session with another model, into a new linked session
+- **corrections** of words and speakers that keep the machine transcript, with **Show changes**, Undo and export of either version
+- export to SRT, VTT, TXT, JSON and DOCX, with speaker names in subtitles
 - PostgreSQL transcript persistence
 - on-demand [**LLM workflows**](#workflows), such as meeting summaries, on finished recordings
 - Python SDK and CLI source
@@ -54,6 +80,28 @@ The public code also includes agentic-workflow and webhook contracts.
 Community Edition does not ship automatic workflow routing or webhook delivery
 services, but you are free to implement your own workflows / webhook services and plug them in.
 <br clear="right">
+
+## How it compares
+
+Many good open-source projects turn speech into text. Pick the one that fits
+your job:
+
+| You want | Look at |
+| --- | --- |
+| Dictation into any app on your computer | [Handy](https://github.com/cjpais/Handy), [OpenWhispr](https://github.com/OpenWhispr/openwhispr) |
+| Meeting notes for one person, in a desktop app | [Meetily](https://github.com/Zackriya-Solutions/meetily) |
+| File transcription in a desktop app | [Buzz](https://github.com/chidiwilliams/buzz), [Vibe](https://github.com/thewh1teagle/vibe), [noScribe](https://github.com/kaixxx/noScribe) |
+| A real-time speech server to put behind your own application | [WhisperLiveKit](https://github.com/QuentinFuxa/WhisperLiveKit), [Speaches](https://github.com/speaches-ai/speaches) |
+| A Python library: Whisper with word timings and speakers | [WhisperX](https://github.com/m-bain/whisperX) |
+| A self-hosted team app for recorded files | [Speakr](https://github.com/murtaza-nasir/speakr) |
+| Bots that join online meetings and transcribe them | [Vexa](https://github.com/Vexa-ai/vexa) |
+
+nanosamur.ai does a different job. It is a shared server that hosts several
+open speech models and lets you pick one for live text and one for the final
+transcript. It keeps the recordings and transcripts, and lets a team correct
+and share them. Choose something else
+if you have no NVIDIA GPU, need a Mac or CPU-only setup, or want a single
+binary.
 
 
 ## Architecture
@@ -169,7 +217,7 @@ The stack consists of:
   SDK and CLI
 
 Kafka carries audio and transcript events. PostgreSQL stores session and
-transcript data. The evaluator uses LocalStack for S3-compatible recording and
+transcript data. The Compose stack uses LocalStack for S3-compatible recording and
 speaker-enrollment storage; deployments can configure another S3-compatible
 provider, such as AWS S3, Ceph RADOS Gateway, or MinIO.
 
@@ -191,18 +239,18 @@ This lets you compare live, refined, and final transcripts for your language and
 
 The default stack uses NVIDIA Nemotron for live text and NVIDIA Parakeet for
 refined and final transcripts. They are fast and accurate in English and need no
-Hugging Face token. Add Whisper or Qwen with an overlay when you need more
-languages, enrolled speaker names, or a comparison on the same audio.
+Hugging Face token. Add Whisper, Voxtral or Qwen with an overlay when you need
+more languages, enrolled speaker names, or a comparison on the same audio.
 
 ### Model pipelines in the supplied stack
 
-| Model family | Available output | Setup guide |
-| --- | --- | --- |
-| Nemotron | Realtime; on by default | [Nemotron](docs/models/nemotron.md) |
-| Parakeet | Refined and final; on by default | [Parakeet](docs/models/parakeet.md) |
-| Whisper | Realtime, refined, and final; `docker-compose.whisper.yml` | [Whisper](docs/models/whisper.md) |
-| Voxtral Mini 4B | Realtime; no Hugging Face token | [Voxtral](docs/models/voxtral.md) |
-| Qwen | Realtime, refined, and final; `docker-compose.qwen.yml`, `docker-compose.qwen-workers.yml` | [Qwen](docs/models/qwen.md) |
+| Model family | Models | Available output | Setup guide |
+| --- | --- | --- | --- |
+| Nemotron | NVIDIA Nemotron 3.5 ASR streaming | Realtime; on by default | [Nemotron](docs/models/nemotron.md) |
+| Parakeet | NVIDIA Parakeet TDT v3 with Sortformer speaker labels | Refined and final; on by default | [Parakeet](docs/models/parakeet.md) |
+| Whisper | faster-whisper; WhisperX with pyannote | Realtime, refined, and final; `docker-compose.whisper.yml` | [Whisper](docs/models/whisper.md) |
+| Voxtral | Mistral Voxtral Mini 4B Realtime 2602 | Realtime, 13 languages; no Hugging Face token | [Voxtral](docs/models/voxtral.md) |
+| Qwen | Qwen3-ASR | Realtime, refined, and final; `docker-compose.qwen.yml`, `docker-compose.qwen-workers.yml` | [Qwen](docs/models/qwen.md) |
 
 The [model guide](docs/models/README.md) explains how to add, select, or stop each model.
 All model families have published container images. Each guide describes its setup.
@@ -234,7 +282,7 @@ Windows PowerShell:
 Copy-Item .env.example .env
 ```
 
-Start the complete evaluator stack:
+Start the stack:
 
 ```bash
 docker compose pull
@@ -303,6 +351,55 @@ across SamuraiBFF, the Python workers, SamuraiPersistor, Kafka, and PostgreSQL.
 See [Operations and observability](docs/operations-and-observability.md) for
 endpoints, available signals, trace behavior, and current limitations.
 
+## FAQ
+
+**Why Kafka, for transcription?**
+One audio stream goes to three passes, and sometimes to more than one model in
+a pass. Each reads it from the log at its own pace, so a slow final pass never
+holds up live text, and a finished recording can be processed again with
+another model. The cost is more containers than a single-process tool.
+
+**Which model should I use?**
+Start with the defaults, Nemotron for live text and Parakeet for the rest. If
+they struggle with your language, accents or vocabulary, add another model and
+try it. Re-transcribe a recording you already have, or select two models for
+one session and compare them on the same speech. Then set the one that works as
+your default.
+
+**Do I need an NVIDIA GPU?**
+Yes. There is no CPU or Apple Silicon path today. In our release rehearsal on a
+24 GB laptop GPU, the default models used about 3.6 GB of GPU memory. That is a
+tested setup, not a minimum. Optional models need more; the Voxtral guide
+suggests a 24 GB GPU as a starting point.
+
+**Which languages?**
+This stack tests the default models with English. Their model cards list more:
+Parakeet TDT v3 lists 25 European languages. Voxtral covers 13 languages, and
+Whisper covers many more. Try the models on your own audio before you choose
+one.
+
+**How many speakers?**
+The default refined and final passes label up to four speakers with
+Sortformer. For more, use the Whisper or Qwen overlay, which use pyannote and
+need a Hugging Face token. Live text has no speaker labels by default; they
+arrive with the refined text a few seconds later.
+
+**Does audio leave my machine?**
+The speech models run in local containers. The workflow runner sends a
+transcript only to the model server you configure, which is Ollama on your
+computer by default. The first start downloads container images and model
+weights.
+
+**Can my team use it?**
+It has sign-in, organizations, roles and sharing, and each component runs as its own
+service. Before other people use it, turn on [sign-in](docs/authentication.md) and read
+[Deployment and security boundaries](docs/deployment-and-security.md).
+
+**What about model licences?**
+The code is Apache-2.0. Each model has its own licence, and the
+[model guides](docs/models/README.md) link the model cards. Check them before
+you use a model commercially.
+
 ## Documentation
 
 - [Documentation index](docs/README.md)
@@ -324,9 +421,8 @@ in their owning component repositories.
 
 ## Deployment boundary
 
-Docker Compose is the supported public evaluation path. The containerized
-services can be adapted to Kubernetes, but this repository does not supply
-production Kubernetes manifests or charts.
+Docker Compose on one machine is the supported install for the local setup. The containerized
+services can be adapted to Kubernetes.
 
 Speech processing can run without a cloud speech API after container images,
 models, and other dependencies have been staged. The normal quickstart
@@ -337,7 +433,7 @@ See [Deployment and security boundaries](docs/deployment-and-security.md).
 
 - All published host ports bind to `127.0.0.1` by default through
   `COMPOSE_BIND_IP`.
-- The evaluator uses fixed development credentials and starts in local mode:
+- The Compose stack uses fixed development credentials and starts in local mode:
   no sign-in, one local Admin.
 - To turn on sign-in, bring your own OpenID Connect provider, such as Keycloak.
   See [Sign-in and access control](docs/authentication.md) for roles, sharing,
