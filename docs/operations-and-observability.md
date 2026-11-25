@@ -101,6 +101,12 @@ messages carry W3C `traceparent` headers, allowing one session trace to include:
 - SamuraiPersistor
 - Kafka and database operations
 
+The observability override attaches the OpenTelemetry Java agent to SamuraiBFF
+and SamuraiPersistor through `JDK_JAVA_OPTIONS`. The images keep their own JVM
+options in `JAVA_TOOL_OPTIONS`, and the `java` launcher applies both, so do not
+set `JAVA_TOOL_OPTIONS` for these services in an override: it replaces the image
+options instead of adding to them.
+
 The realtime gRPC service currently remains on the connected request trace
 rather than the deterministic Kafka/session trace. This is a known continuity
 gap, not a loss of realtime tracing.
