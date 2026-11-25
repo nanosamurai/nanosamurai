@@ -99,7 +99,8 @@ nanosamurai transcribe file path/to/interview.m4a --lang en
 This calls `POST /api/sessions/upload`. The BFF stores the file unchanged and
 `recorder_worker` converts it with FFmpeg; the session then follows the normal
 final-transcript path, with the same owner and audience as a recorded session.
-Files up to 128 MiB are accepted by default (`SAMURAIBFF_UPLOAD_MAX_BYTES`).
+Files up to 128 MiB are accepted by default; see
+[Upload and OpenAI endpoint limits](#upload-and-openai-endpoint-limits).
 In the browser, choose **Upload** in the navigation to pick a file, its
 language and the final transcripts to create.
 
@@ -136,6 +137,72 @@ In local mode (the default) the API needs no key, so there are no API keys.
 Use the browser or the public smoke-test clients. To use the SDK, turn on
 sign-in with your own OIDC provider; see
 [Sign-in and access control](authentication.md).
+
+## Upload and OpenAI endpoint limits
+
+Set a limit in `.env` and run `docker compose up -d`; Compose recreates the
+changed service. A blank or missing value keeps the default.
+
+| Variable | Service | Default | Limit |
+| --- | --- | --- | --- |
+| `SAMURAIBFF_UPLOAD_MAX_BYTES` | `samuraibff` | `134217728` (128 MiB) | Largest file for `POST /api/sessions/upload` and `POST /v1/audio/transcriptions`. Larger files get 413. `0` turns uploads off. |
+| `SAMURAIBFF_OPENAI_WAIT_TIMEOUT_S` | `samuraibff` | `600` | Seconds `POST /v1/audio/transcriptions` waits for the final transcript. Then it returns 504 with `error.session_id`; the transcription continues. |
+| `SAMURAIBFF_OPENAI_MAX_CONCURRENT_WAITS` | `samuraibff` | `16` | Requests that may wait at the same time. More get 429 before the file is stored. |
+| `SAMURAIBFF_OPENAI_MODEL_ALIASES` | `samuraibff` | `whisper-1` = the default final track | JSON object of model name to final track ID. It replaces the default alias. Final track IDs always work as model names. |
+| `RECORDER_UPLOAD_MAX_BYTES` | `recorder_worker` | `536870912` (512 MiB) | Largest stored file the worker converts. |
+| `RECORDER_UPLOAD_MAX_DURATION_S` | `recorder_worker` | `14400` (4 h) | Longest decoded audio of one file. |
+| `RECORDER_UPLOAD_TIMEOUT_S` | `recorder_worker` | `1800` (30 min) | Longest FFmpeg run for one file. |
+
+For example, to accept files up to 256 MiB, wait up to 20 minutes and accept
+`transcribe` as a model name, add to `.env`:
+
+```text
+COMPOSE_BIND_IP=127.0.0.1
+SAMURAIBFF_UPLOAD_MAX_BYTES=268435456
+SAMURAIBFF_OPENAI_WAIT_TIMEOUT_S=1200
+SAMURAIBFF_OPENAI_MODEL_ALIASES='{"whisper-1":"parakeet","transcribe":"parakeet"}'
+```
+
+Then apply it and check the active upload limit in `features.uploads_max_bytes`:
+
+```bash
+docker compose up -d
+curl --fail --show-error http://127.0.0.1:8000/api/me
+```
+
+Rules:
+
+- Keep `SAMURAIBFF_UPLOAD_MAX_BYTES` at or below `RECORDER_UPLOAD_MAX_BYTES`.
+  The BFF checks only the size and stores the file. If the file is larger than
+  the recorder limit, or its audio is longer than
+  `RECORDER_UPLOAD_MAX_DURATION_S`, `recorder_worker` rejects it after the
+  upload was accepted, and the session becomes **Failed**.
+- Write sizes and times as whole numbers of bytes and seconds. The BFF ignores
+  a value that is not a number and keeps the default. `recorder_worker` stops
+  at start with such a value.
+- `SAMURAIBFF_OPENAI_MODEL_ALIASES` must be a JSON object with 1 to 16
+  entries; the BFF does not start with an invalid value. Put it in single
+  quotes in `.env`. An alias to a final track that is not configured is
+  ignored.
+- A higher upload limit needs more memory. The BFF keeps each request body in
+  memory while it receives it, and its body limit for every request is the
+  upload limit plus 1 MiB. Plan for that much memory per upload that runs at
+  the same time. Compose sets no memory limit, so the Java heap is a share of
+  the memory Docker can use (with Docker Desktop, the memory of its virtual
+  machine).
+- `recorder_worker` keeps the file and the decoded audio (about 115 MB per
+  hour) in temporary files while it converts it. Higher limits need more disk
+  space.
+- Long files can take longer than `SAMURAIBFF_OPENAI_WAIT_TIMEOUT_S`. The
+  transcript still arrives in `GET /api/recordings/{session_id}`. A proxy in
+  front of the BFF must allow idle requests at least as long as this timeout.
+
+Keep `COMPOSE_BIND_IP=127.0.0.1`. The BFF reads the body before it checks
+sign-in, so any client that can reach port 8000 can make it hold up to the
+upload limit in memory per request. Sign-in does not prevent this; a proxy in
+front can limit request size and rate. Before other people use the stack, turn
+on sign-in ([Sign-in and access control](authentication.md)) and read
+[Deployment and security boundaries](deployment-and-security.md).
 
 ## Agentic workflow and webhook contracts
 
