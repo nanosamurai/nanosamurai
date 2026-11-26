@@ -1,37 +1,38 @@
 <img src="docs/nanosamurai_logo_finished_shoulders.svg" width="100" alt="nanosamur.ai logo">
 
 # [nanosamur.ai](https://nanosamur.ai)
-<sub>guarding your sensitive conversations</sub>
-
-<sub>Your voice. Your control.</sub>
+<sub>Guarding Your Sensitive Conversations - Your voice. Your control.</sub>
 
 ## **Complete speech AI platform**
-
-- open source
-- production-grade, distributed architecture
-- [model agnostic](#model-pipelines-in-the-supplied-stack)
-- multitenancy support
 
 nanosamur.ai guards sensitive conversations in infrastructure you control. It
 is a self-hosted transcription platform for open speech models.
 
-Running one speech model is easy. Running a transcription service around it is
-the part we built: live transcription text, speaker labels, stored recordings, corrections,
-sign-in, agentic workflows, webhooks, sharing and an API, on your own GPU, with no per-minute bill. It is
-your organization's own transcription service with full observability.
+<img src="docs/main-art-large.png" width="35%" align="right" alt="">
 
-NVIDIA Nemotron and Parakeet are the default models; Whisper, Voxtral and Qwen3-ASR are optional. 
-Run one or multiple; change it for a single session, or run two on the same
-audio to compare them.
+- open source
+- production-grade, distributed architecture
+- live and batch transcription (incl. recording storage)
+- speaker labels (diarization)
+- [model agnostic](#model-pipelines-in-the-supplied-stack) (e.g. Nemotron, Parakeet, Whisper, Voxtral, Qwen ASR)
+- multitenancy support
+- LLM workflows & webhooks
+- sign-in, user roles, sharing
+- playback
+- corrections
+- API & SDK
+- browser UI + windows Electron app
+- observability
 
-Batteries included: we have a browser UI, a windows Electron app, API,
-SDK, recording storage, persistence, and optional local observability.
 
-This is the public front-door repository for running Community Edition locally
+Running one speech model to perform ASR is easy - the hard part is if you want to run it for your organization at scale and in secure manner and with good observability stack. 
+That is what nanosamur.ai does.
+
+This is the public front-door repository for running Nanosamurai locally
 with Docker Compose. Service images are pulled from `ghcr.io/nanosamurai/*` and
 pinned by source SHA.
 
-**You need** a GPU, Docker and disk space for images
+**You need** a GPU (CPU-only support coming, if you want it, create a ticket), Docker and disk space for images
 and models. The default models need no Hugging Face token.
 
 ```bash
@@ -52,57 +53,6 @@ now**. The first start downloads the models and takes several minutes. The
 </a>
 
 [Watch nanosamur.ai](https://nanosamur.ai/#demo) turn a live conversation into speaker-aware transcripts, workflow results, a searchable final record, and a fully traced session.
-
-## What nanosamur.ai includes
-<img src="docs/main-art-large.png" width="35%" align="right" alt="">
-
-
-- browser UI and SamuraiBFF API
-- OpenAI-compatible `POST /v1/audio/transcriptions` endpoint
-- Windows-first Electron wrapper
-- one or more independently selectable [**realtime transcription** models](#model-pipelines-in-the-supplied-stack)
-- [**batch** and **semi-batch** processing](#model-pipelines-in-the-supplied-stack) with one or more models
-- diarization (currently Pyannote or Sortformer), vad, alignment
-- multi-tenancy support
-- sign-in with your own OpenID Connect provider: organizations, roles, session sharing and API keys
-- recording storage and full-session final transcripts
-- audio and video file upload in the browser, SDK and CLI
-- re-transcription of a finished session with another model, into a new linked session
-- **corrections** of words and speakers that keep the machine transcript, with **Show changes**, Undo and export of either version
-- export to SRT, VTT, TXT, JSON and DOCX, with speaker names in subtitles
-- PostgreSQL transcript persistence
-- on-demand [**LLM workflows**](#workflows), such as meeting summaries, on finished recordings
-- Python SDK and CLI source
-- optional Grafana, Prometheus, Tempo, Loki, and Alloy stack
-- public smoke tests and trace-context audit
-
-The public code also includes agentic-workflow and webhook contracts.
-Community Edition does not ship automatic workflow routing or webhook delivery
-services, but you are free to implement your own workflows / webhook services and plug them in.
-<br clear="right">
-
-## How it compares
-
-Many good open-source projects turn speech into text. Pick the one that fits
-your job:
-
-| You want | Look at |
-| --- | --- |
-| Dictation into any app on your computer | [Handy](https://github.com/cjpais/Handy), [OpenWhispr](https://github.com/OpenWhispr/openwhispr) |
-| Meeting notes for one person, in a desktop app | [Meetily](https://github.com/Zackriya-Solutions/meetily) |
-| File transcription in a desktop app | [Buzz](https://github.com/chidiwilliams/buzz), [Vibe](https://github.com/thewh1teagle/vibe), [noScribe](https://github.com/kaixxx/noScribe) |
-| A real-time speech server to put behind your own application | [WhisperLiveKit](https://github.com/QuentinFuxa/WhisperLiveKit), [Speaches](https://github.com/speaches-ai/speaches) |
-| A Python library: Whisper with word timings and speakers | [WhisperX](https://github.com/m-bain/whisperX) |
-| A self-hosted team app for recorded files | [Speakr](https://github.com/murtaza-nasir/speakr) |
-| Bots that join online meetings and transcribe them | [Vexa](https://github.com/Vexa-ai/vexa) |
-
-nanosamur.ai does a different job. It is a shared server that hosts several
-open speech models and lets you pick one for live text and one for the final
-transcript. It keeps the recordings and transcripts, and lets a team correct
-and share them. Choose something else
-if you have no NVIDIA GPU, need a Mac or CPU-only setup, or want a single
-binary.
-
 
 ## Architecture
 
@@ -260,6 +210,29 @@ All model families have published container images. Each guide describes its set
 <a href="https://nanosamur.ai/#demo">
   <img src="https://nanosamur.ai/blog/posts/qwen-vs-whisper/multi-model-realtime-screenshot.png" alt="Qwen3-ASR and faster-whisper transcribing the same audio in real time" width="100%">
 </a>
+
+## How it compares
+
+Many good open-source projects turn speech into text. Pick the one that fits
+your job:
+
+| You want | Look at |
+| --- | --- |
+| Dictation into any app on your computer | [Handy](https://github.com/cjpais/Handy), [OpenWhispr](https://github.com/OpenWhispr/openwhispr) |
+| Meeting notes for one person, in a desktop app | [Meetily](https://github.com/Zackriya-Solutions/meetily) |
+| File transcription in a desktop app | [Buzz](https://github.com/chidiwilliams/buzz), [Vibe](https://github.com/thewh1teagle/vibe), [noScribe](https://github.com/kaixxx/noScribe) |
+| A real-time speech server to put behind your own application | [WhisperLiveKit](https://github.com/QuentinFuxa/WhisperLiveKit), [Speaches](https://github.com/speaches-ai/speaches) |
+| A Python library: Whisper with word timings and speakers | [WhisperX](https://github.com/m-bain/whisperX) |
+| A self-hosted team app for recorded files | [Speakr](https://github.com/murtaza-nasir/speakr) |
+| Bots that join online meetings and transcribe them | [Vexa](https://github.com/Vexa-ai/vexa) |
+
+nanosamur.ai does a different job. It is a shared platform with a set of services that can host several
+open speech models and lets you pick one or more for live text and for the final
+transcript. It keeps the recordings and transcripts, and lets a team correct
+and share them. Each component can scale independently.
+Choose something else if you have no NVIDIA GPU, need a Mac or CPU-only setup, or want a single
+binary.
+
 
 ## Quickstart
 
