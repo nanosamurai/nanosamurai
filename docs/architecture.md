@@ -37,7 +37,7 @@ flowchart LR
     end
 
     subgraph Xamurai["Xamurai (Python services)"]
-        RealtimeService["Realtime service<br/>[Faster-Whisper,<br/>Qwen3-ASR, Nemotron]"]
+        RealtimeService["Realtime service<br/>[Nemotron, Faster-Whisper,<br/>Voxtral, Qwen3-ASR]"]
         RefinementService["Refinement service<br/>[WhisperX, Parakeet, Qwen3-ASR]"]
         RecorderWorker["recorder_worker<br/>(session WAV)"]
         FinalizerService["Finalizer service<br/>[WhisperX, Parakeet, Qwen3-ASR]"]
