@@ -57,94 +57,29 @@ now**. The first start downloads the models and takes several minutes. The
 ## [Architecture](docs/architecture.md)
 
 ```mermaid
-flowchart LR
-    subgraph Client
-        Browser["Browser UI<br/>(ClojureScript)"]
-        Electron["Electron app<br/>(Windows-first)"]
-    end
+flowchart TB
+    Client["Client<br/>(browser UI, Electron app)"]
+    BFF["SamuraiBFF<br/>(API and orchestration)"]
+    Xamurai["Xamurai<br/>(speech services)"]
+    Kafka[(Kafka)]
+    WorkflowRunner["workflow-runner"]
+    ModelServer["LLM server<br/>(OpenAI-compatible)"]
+    Persistor["SamuraiPersistor"]
+    ObjectStore[("S3-compatible<br/>object storage")]
+    Postgres[(PostgreSQL)]
 
-    subgraph SamuraiBFF["SamuraiBFF<br/>(API and orchestration)"]
-        HTTP[HTTP /api + /auth]
-        WSAudio[ws/audio]
-        WSEvents[ws/events]
-    end
-
-    subgraph Xamurai["Xamurai (Python services)"]
-        RealtimeService["Realtime service<br/>[Nemotron, Faster-Whisper,<br/>Voxtral, Qwen3-ASR]"]
-        RefinementService["Refinement service<br/>[WhisperX, Parakeet, Qwen3-ASR]"]
-        RecorderWorker["recorder_worker<br/>(session WAV)"]
-        FinalizerService["Finalizer service<br/>[WhisperX, Parakeet, Qwen3-ASR]"]
-    end
-
-    subgraph Workflows["Workflows (on demand)"]
-        WorkflowRunner["workflow-runner"]
-        OllamaInStack["ollama<br/>(optional overlay)"]
-    end
-
-    subgraph External["Outside the stack (you provide)"]
-        ModelServer["OpenAI-compatible model server<br/>Ollama on the host (default),<br/>vLLM, llama.cpp server, ..."]
-    end
-
-    Browser -->|HTTP /api + /auth| HTTP
-    Browser -->|"WS audio<br/>WebSocket /ws/audio<br/>PCM16LE mono 16kHz"| WSAudio
-    Browser ---|"WS events<br/>WebSocket /ws/events<br/>JSON events"| WSEvents
-
-    Electron -->|HTTP /api + /auth| HTTP
-    Electron -->|"WS audio<br/>WebSocket /ws/audio<br/>PCM16LE mono 16kHz"| WSAudio
-    Electron ---|"WS events<br/>WebSocket /ws/events<br/>JSON events"| WSEvents
-
-    SamuraiBFF <-->|"gRPC streams per selected realtime track"| RealtimeService
-
-    subgraph Kafka["Kafka"]
-        KafkaBroker[(Kafka broker)]
-    end
-
-    subgraph Storage["Storage"]
-        ObjectStore[("S3-compatible object storage<br/>(Ceph etc., LocalStack in the local setup)")]
-        Postgres[(PostgreSQL)]
-    end
-
-    SamuraiBFF -->|"produce protobuf AudioChunk<br/>topic: audio.raw"| KafkaBroker
-    SamuraiBFF -->|"produce compacted JSON<br/>topic: sessions.meta"| KafkaBroker
-
-    KafkaBroker -->|"consume protobuf RefinedEvent<br/>topic: transcripts.refined"| SamuraiBFF
-    KafkaBroker -->|"consume<br/>topic: audio.raw"| RefinementService
-    RefinementService -->|"produce protobuf RefinedEvent<br/>topic: transcripts.refined"| KafkaBroker
-
-    KafkaBroker -->|"consume<br/>topic: audio.raw"| RecorderWorker
-    RecorderWorker -->|"produce protobuf RecordingFinished<br/>topic: recordings.finished"| KafkaBroker
-
-    KafkaBroker -->|"consume<br/>topic: recordings.finished"| FinalizerService
-    FinalizerService -->|"produce protobuf SessionTranscript<br/>topic: transcripts.final"| KafkaBroker
-
-    SamuraiBFF -->|"produce JSON WorkflowDispatchJob (on demand)<br/>topic: workflow.dispatch"| KafkaBroker
-    KafkaBroker -->|"consume<br/>topic: workflow.dispatch"| WorkflowRunner
-    WorkflowRunner -->|"prompt + transcript<br/>OpenAI chat completions"| ModelServer
-    WorkflowRunner -.->|"or, with docker-compose.ollama.yml"| OllamaInStack
-    WorkflowRunner -->|"produce JSON<br/>topics: workflow.result, workflow.outcome"| KafkaBroker
-
-    RecorderWorker -->|"write session WAV"| ObjectStore
-    FinalizerService -->|"read recording; optional speaker enrollments"| ObjectStore
-    SamuraiBFF -->|"serve recordings; read/write speaker enrollments"| ObjectStore
-    RealtimeService -->|"optional speaker enrollments"| ObjectStore
-    RefinementService -->|"optional speaker enrollments"| ObjectStore
-
-    KafkaBroker -->|"consume + persist<br/>topic: transcripts.refined"| Persistor["SamuraiPersistor<br/>(PostgreSQL writer)"]
-    KafkaBroker -->|"consume + persist<br/>topic: transcripts.final"| Persistor
-    KafkaBroker -->|"consume + persist<br/>topics: workflow.result, workflow.outcome"| Persistor
-    Persistor -->|persist| Postgres
-    SamuraiBFF -->|query| Postgres
-
-    style External stroke-dasharray: 6 4
-    style OllamaInStack stroke-dasharray: 6 4
+    Client <-->|audio, transcripts| BFF
+    BFF <-->|live audio and text| Xamurai
+    BFF <-->|audio, events| Kafka
+    Kafka <-->|audio, transcripts| Xamurai
+    Kafka <-->|jobs, results| WorkflowRunner
+    WorkflowRunner -->|prompts| ModelServer
+    Kafka -->|transcripts, results| Persistor
+    Persistor --> Postgres
+    BFF --> Postgres
+    Xamurai -->|recordings| ObjectStore
+    BFF -->|recordings| ObjectStore
 ```
-
-Each speech-service box groups independently deployed, selectable tracks for
-that stage; brackets list the supported model pipelines. Multiple selected
-tracks produce separate labelled results. The [model matrix](#model-pipelines-in-the-supplied-stack)
-below covers default and optional providers, model versions, alignment, and
-diarization (pyannote or Sortformer). Speaker-enrollment access applies only to
-pipelines that support it.
 
 The stack consists of:
 
