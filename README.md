@@ -54,7 +54,7 @@ now**. The first start downloads the models and takes several minutes. The
 
 [Watch nanosamur.ai](https://nanosamur.ai/#demo) turn a live conversation into speaker-aware transcripts, workflow results, a searchable final record, and a fully traced session.
 
-## Architecture
+## [Architecture](docs/architecture.md)
 
 ```mermaid
 flowchart LR
